@@ -1812,6 +1812,37 @@ fn join_merges_the_selected_anchors_average_brought_together() {
     assert_eq!(pts(&s), before[..3]);
 }
 
+/// Average and Join in one undo step merges coincident anchors after averaging (#1533, G1).
+#[test]
+fn average_join_merges_corners_in_one_undo_step() {
+    let mut s = session();
+    let r = rect(&mut s, 100.0, 100.0, 100.0, 80.0);
+    let pts = |s: &Session| path(&s, r).subpaths[0].anchors.iter().map(|x| (x.p.x, x.p.y)).collect::<Vec<_>>();
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("path.averageJoin", &json!({"axis": "both", "joint": "corner"})).unwrap();
+    assert_eq!(pts(&s), [(150.0, 100.0), (200.0, 180.0), (100.0, 180.0)]);
+    assert!(path(&s, r).subpaths[0].closed);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(pts(&s).len(), 4);
+}
+
+/// Two open paths whose ends are averaged and joined become one path in one undo step (G1).
+#[test]
+fn average_join_joins_two_open_paths() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    let b = line(&mut s, 200.0, 0.0, 300.0, 0.0);
+    s.execute("select.anchors", &json!({"id": a.0, "anchors": [[0, 1]], "mode": "set"})).unwrap();
+    s.execute("select.anchors", &json!({"id": b.0, "anchors": [[0, 0]], "mode": "add"})).unwrap();
+    s.execute("path.averageJoin", &json!({"axis": "both", "joint": "smooth"})).unwrap();
+    let pts: Vec<(f64, f64)> = path(&s, a).subpaths[0].anchors.iter().map(|x| (x.p.x, x.p.y)).collect();
+    assert_eq!(pts.len(), 3);
+    assert!((pts[1].0 - 150.0).abs() < 1e-6);
+    assert!(s.doc().unwrap().doc.node(b).is_none());
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert!(s.doc().unwrap().doc.node(b).is_some());
+}
+
 /// `path.join {ids, ends}` joins the ends asked for, not the nearest pair; bad requests are errors.
 #[test]
 fn join_takes_the_paths_and_the_ends_to_join() {

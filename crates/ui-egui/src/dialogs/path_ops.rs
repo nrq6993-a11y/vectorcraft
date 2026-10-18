@@ -32,7 +32,13 @@ fn title(kind: &str) -> &'static str {
 /// The command the dialog runs and its parameters.
 fn command(d: &Dialog) -> (&'static str, Value) {
     match d.kind.as_str() {
-        "average" => ("path.average", json!({"axis": d.str("axis")})),
+        "average" => {
+            if d.bool("join") {
+                ("path.averageJoin", json!({"axis": d.str("axis"), "joint": d.str("joint")}))
+            } else {
+                ("path.average", json!({"axis": d.str("axis")}))
+            }
+        }
         "offsetPath" => {
             ("object.path.offsetPath", json!({"offset": d.f64("offset", 10.0), "joins": d.str("joins"), "miterLimit": d.f64("miterLimit", 4.0)}))
         }
@@ -62,6 +68,20 @@ pub(crate) fn split_fields(width: f64, height: f64) -> Value {
 /// Split Into Grid's fields: the rows on the left and the columns on the right, each with its
 /// number, size, gutter and total, and Add Guides. The size of a row or column is what the total
 /// leaves each of them after the gutters, so it follows the other three; typing it sets the total.
+fn average_fields(ui: &mut egui::Ui, d: &mut Dialog, unit: Unit) {
+    form::grid_then(ui, d, unit, |ui, d| {
+        form::check(ui, d, "join", tl!("Join"));
+        if d.bool("join") {
+            if !d.fields.contains_key("joint") {
+                d.fields.insert("joint".into(), json!("corner"));
+            }
+            form::row_label(ui, tl!("Joint:"));
+            form::dropdown(ui, d, "joint", form::FIELD_W, &[("corner", tl!("Corner")), ("smooth", tl!("Smooth"))], true);
+            ui.end_row();
+        }
+    });
+}
+
 fn split_grid(ui: &mut egui::Ui, d: &mut Dialog, unit: Unit) {
     const WIDTH: f32 = 84.0;
     let axes = [
@@ -143,6 +163,8 @@ fn body(app: &mut VectorcraftApp, ui: &mut egui::Ui, d: &mut Dialog) -> bool {
         split_grid(ui, d, unit);
     } else if d.kind == "simplify" {
         simplify_fields(ui, d, unit);
+    } else if d.kind == "average" {
+        average_fields(ui, d, unit);
     } else {
         form::grid(ui, d, unit);
     }

@@ -112,6 +112,7 @@ fn choices(kind: &str, key: &str) -> Vec<(&'static str, &'static str)> {
     match (kind, key) {
         ("offsetPath", "joins") => vec![("miter", tl!("Miter")), ("round", tl!("Round")), ("bevel", tl!("Bevel"))],
         ("average", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("both", "Both")],
+        ("average", "joint") => vec![("corner", tl!("Corner")), ("smooth", tl!("Smooth"))],
         ("reflect", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("angle", "Angle")],
         ("shear", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical")],
         _ => vec![],
@@ -184,7 +185,7 @@ pub(super) fn choice(ui: &mut egui::Ui, d: &mut Dialog, key: &str, label: &str, 
 /// A dropdown `width` wide bound to the string `d.fields[key]`; `options` are (value, label), the
 /// labels shown as they are when `translated` (else the dropdown translates them). A value that
 /// isn't among them shows as it is.
-fn dropdown(ui: &mut egui::Ui, d: &mut Dialog, key: &str, width: f32, options: &[(&str, &str)], translated: bool) {
+pub(super) fn dropdown(ui: &mut egui::Ui, d: &mut Dialog, key: &str, width: f32, options: &[(&str, &str)], translated: bool) {
     let cur = d.str(key);
     let shown = options.iter().find(|(v, _)| v.eq_ignore_ascii_case(&cur)).map_or(cur.as_str(), |(_, l)| l);
     let labels: Vec<&str> = options.iter().map(|(_, l)| *l).collect();
