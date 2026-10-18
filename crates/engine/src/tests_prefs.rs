@@ -1388,6 +1388,29 @@ fn hyphenation_exceptions_preference_reaches_the_hyphenator() {
     assert!(vectorcraft_text::hyphenation_exceptions().is_empty());
 }
 
+/// Preferences › Hyphenation › Default Language (#394): `prefs.set` pushes the language into the
+/// hyphenator and bumps open documents so type reflows.
+#[test]
+fn hyphenation_language_preference_reaches_the_hyphenator() {
+    struct Clear;
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            vectorcraft_text::set_hyphenation_language("English: USA");
+        }
+    }
+    let _clear = Clear;
+    let mut s = Session::new();
+    set_pref(&mut s, "hyphenationLanguage", json!("English: USA"));
+    assert_eq!(vectorcraft_text::hyphenation_language(), "English: USA");
+    s.execute("file.new", &json!({"width": 200, "height": 200})).unwrap();
+    let before = s.doc().unwrap().revision;
+    set_pref(&mut s, "hyphenationLanguage", json!("French"));
+    assert_eq!(s.prefs.hyphenation_language, "French");
+    assert_eq!(vectorcraft_text::hyphenation_language(), "French");
+    assert!(s.doc().unwrap().revision > before, "type reflows");
+    set_pref(&mut s, "hyphenationLanguage", json!("English: USA"));
+}
+
 /// #1274: View › Snap to Point lands the anchor a selection is grabbed by (a press within a few
 /// pixels of it) on another object's anchor, with Smart Guides on or off, not the pressed spot
 /// beside it.
