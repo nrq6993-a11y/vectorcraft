@@ -1,4 +1,4 @@
-//! Effect › Artistic (Cutout, Film Grain, Neon Glow, Poster Edges). Original filters built from
+//! Effect › Artistic (Cutout, Dry Brush, Film Grain, Neon Glow, Poster Edges). Original filters built from
 //! public behaviour documentation:
 //! <https://helpx.adobe.com/illustrator/using/summary-effects.html> and
 //! <https://helpx.adobe.com/photoshop-elements/using/artistic-filters.html>.
@@ -11,6 +11,10 @@ use super::{PixelSpace, blur_plane};
 use vectorcraft_geom::Point;
 
 const SALT_FILM: u64 = 256;
+const SALT_DRY: u64 = 512;
+
+/// Dry Brush's canvas textures, in Texture order (1..3): (label, parameter value).
+pub const DRY_BRUSH_TEXTURES: [(&str, &str); 3] = [("Coarse", "1"), ("Medium", "2"), ("Fine", "3")];
 
 /// Keep the last cell's four corner values: magnified adjacent pixels often share a cell.
 /// The cache changes only cost, never the field, and needs constant storage per raster.
@@ -157,6 +161,37 @@ fn soften(planes: &mut [Vec<f32>], alpha: &[f32], w: usize, h: usize, sigma: f64
 fn planes(px: &[[u8; 4]]) -> ([Vec<f32>; 3], Vec<f32>) {
     let colours = px.iter().map(|p| straight(*p)).collect::<Vec<_>>();
     (std::array::from_fn(|k| colours.iter().map(|c| c[k]).collect()), px.iter().map(|p| f32::from(p[3]) / 255.0).collect())
+}
+
+/// Dry Brush: the object painted with a dry brush. Its colours are softened over a brush `size`
+/// (1..10), simplified to about `detail` (1..10) steps per channel, and modulated by a canvas
+/// `texture` (1 coarse .. 3 fine). Coverage is kept.
+pub(super) fn dry_brush(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, size: f64, detail: f64, texture: u32) {
+    if !([size, detail].iter().all(|v| v.is_finite()) && space.px.is_finite() && space.px > 0.0) {
+        return;
+    }
+    let size = size.clamp(1.0, 10.0);
+    let detail = detail.clamp(1.0, 10.0);
+    let texture = texture.clamp(1, 3);
+    let sigma = (0.35 * size) / space.px;
+    let levels = (detail + 2.0).round() as usize;
+    let (mut colour, alpha) = planes(px);
+    soften(&mut colour, &alpha, w, h, sigma);
+    let Some(place) = Place::new(space, w, h) else { return };
+    // Coarser canvas lifts mid-tones more; fine texture is subtler.
+    let grain = ((4 - texture) as f64 / 3.0) * 0.09;
+    let at = |k: usize| [0, 1, 2].map(|i| colour[i].get(k).copied().unwrap_or(0.0));
+    for (k, p) in px.iter_mut().enumerate() {
+        if p[3] == 0 {
+            continue;
+        }
+        let q = |v: f32| (v * levels as f32).round() / levels as f32;
+        let c = at(k).map(q);
+        let doc = place.at(k % w, k / w);
+        let n = 2.0 * rand(SALT_DRY, (doc.x * 6.0) as i64, (doc.y * 6.0) as i64, 0) - 1.0;
+        let c = c.map(|v| (v + (n * grain) as f32).clamp(0.0, 1.0));
+        *p = premultiply(c, f32::from(p[3]) / 255.0);
+    }
 }
 
 /// Cutout: the object as flat pieces of coloured paper. Its colours, softened as `simplicity`

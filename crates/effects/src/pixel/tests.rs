@@ -2131,6 +2131,11 @@ fn ramp(w: usize, h: usize) -> Vec<u8> {
 
 #[test]
 fn artistic_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("artistic.dryBrush", json!({})), PixelFx::DryBrush { size: 10.0, detail: 10.0, texture: 2 });
+    assert_eq!(
+        fx("artistic.dryBrush", json!({"brushSize": 0, "brushDetail": 99, "brushTexture": "3"})),
+        PixelFx::DryBrush { size: 1.0, detail: 10.0, texture: 3 }
+    );
     assert_eq!(fx("artistic.cutout", json!({})), PixelFx::Cutout { levels: 4.0, simplicity: 4.0, fidelity: 2.0 });
     assert_eq!(
         fx("artistic.cutout", json!({"levels": 1e308, "edgeSimplicity": -5, "edgeFidelity": "NaN"})),
@@ -2148,7 +2153,7 @@ fn artistic_params_take_defaults_and_stay_in_range() {
         fx("artistic.neonGlow", json!({"glowSize": -1e308, "glowBrightness": 80, "color": "#ff0000"})),
         PixelFx::NeonGlow { size: -24.0, brightness: 50.0, colour: [1.0, 0.0, 0.0] }
     );
-    for id in ["artistic.cutout", "artistic.neonGlow", "artistic.posterEdges"] {
+    for id in ["artistic.cutout", "artistic.dryBrush", "artistic.neonGlow", "artistic.posterEdges"] {
         assert_eq!(fx(id, json!({})).outset(Rect::new(0.0, 0.0, 40.0, 30.0)), 0.0, "{id} keeps the object's shape");
     }
 }
@@ -2165,6 +2170,7 @@ fn artistic_filters_leave_invalid_coordinate_spaces_alone() {
     let colour = [0.3, 0.65, 1.0];
     let filters = [
         PixelFx::Cutout { levels: 4.0, simplicity: 4.0, fidelity: 2.0 },
+        PixelFx::DryBrush { size: 10.0, detail: 10.0, texture: 2 },
         PixelFx::NeonGlow { size: 5.0, brightness: 15.0, colour },
         PixelFx::PosterEdges { thickness: 2.0, intensity: 1.0, posterization: 2.0 },
     ];
@@ -2194,6 +2200,31 @@ fn artistic_filters_leave_invalid_coordinate_spaces_alone() {
         }
     }
     assert!(changed.is_empty(), "directly constructed non-finite parameters and invalid spaces are harmless: {changed:?}");
+}
+
+#[test]
+fn dry_brush_simplifies_colour_and_keeps_coverage() {
+    let (w, h) = (48, 32);
+    let src = ramp(w, h);
+    let mut out = src.clone();
+    fx("artistic.dryBrush", json!({"brushSize": 10, "brushDetail": 1})).apply(&mut out, w, h, &space(w, h));
+    assert_ne!(out, src);
+    assert!(out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0).all(|(o, s)| o[3] == s[3]));
+    let changes = out.as_chunks::<4>().0.windows(2).filter(|p| p[0] != p[1]).count();
+    let src_changes = src.as_chunks::<4>().0.windows(2).filter(|p| p[0] != p[1]).count();
+    assert!(changes < src_changes, "fewer neighbour changes than the ramp: {} vs {}", changes, src_changes);
+}
+
+#[test]
+fn dry_brush_coarse_texture_changes_more_than_fine() {
+    let (w, h) = (32, 32);
+    let src = image(w, h, |x, y| grey(128 + ((x + y) % 8) as u8 * 3));
+    let diff = |texture: &str| {
+        let mut out = src.clone();
+        fx("artistic.dryBrush", json!({"brushSize": 6, "brushDetail": 8, "brushTexture": texture})).apply(&mut out, w, h, &space(w, h));
+        out.iter().zip(&src).map(|(a, b)| (*a as i32 - *b as i32).unsigned_abs()).sum::<u32>()
+    };
+    assert!(diff("1") > diff("3"), "coarse vs fine: {} vs {}", diff("1"), diff("3"));
 }
 
 #[test]

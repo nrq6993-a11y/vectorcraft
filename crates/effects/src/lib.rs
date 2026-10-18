@@ -142,6 +142,7 @@ fn lengths_of(id: &str) -> Lengths {
         "stylize.dropShadow" => always(&["x", "y", "blur"]),
         "stylize.innerGlow" | "stylize.outerGlow" => always(&["blur"]),
         "stylize.glowingEdges" => always(&["edgeWidth", "smoothness"]),
+        "artistic.dryBrush" => always(&["brushSize"]),
         "brushStrokes.accentedEdges" => always(&["edgeWidth"]),
         "brushStrokes.angledStrokes" | "brushStrokes.crosshatch" | "brushStrokes.inkOutlines" => always(&["strokeLength"]),
         "brushStrokes.spatter" => always(&["sprayRadius"]),
@@ -347,6 +348,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             ARTISTIC,
             "{levels: 2..8 (4; steps per colour channel: more levels, more flat colours), edgeSimplicity: 0..10 (4; simpler, smoother edges), edgeFidelity: 1..3 (2; keeps more of the edges' detail)} redraws the object as flat pieces of coloured paper, each piece painted in the average colour that falls into it, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
             json!({"levels": 4.0, "edgeSimplicity": 4.0, "edgeFidelity": 2.0}),
+        ),
+        r(
+            "artistic.dryBrush",
+            "Dry Brush…",
+            ARTISTIC,
+            "{brushSize: 1..10 (10; a larger brush softens more), brushDetail: 1..10 (10; more steps keep finer colour), brushTexture: \"1\"|\"2\"|\"3\" (\"2\"; coarse, medium or fine canvas grain)} paints the object with simplified, brush-like colour and a canvas texture, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"brushSize": 10.0, "brushDetail": 10.0, "brushTexture": "2"}),
         ),
         r(
             "artistic.filmGrain",
