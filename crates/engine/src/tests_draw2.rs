@@ -1812,6 +1812,23 @@ fn join_merges_the_selected_anchors_average_brought_together() {
     assert_eq!(pts(&s), before[..3]);
 }
 
+#[test]
+fn join_averages_and_merges_selected_anchors_in_one_step_with_a_smooth_joined_anchor() {
+    let mut s = session();
+    let r = rect(&mut s, 100.0, 100.0, 100.0, 80.0);
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("path.join", &json!({"average": true, "to": "smooth"})).unwrap();
+    assert_eq!(s.doc().unwrap().history.undo.last().unwrap().label, "Average and Join");
+    let a = &path(&s, r).subpaths[0].anchors[0];
+    assert_eq!(a.kind, vectorcraft_geom::AnchorKind::Smooth);
+    assert!(a.has_in() && a.has_out());
+    s.execute("edit.undo", &json!({})).unwrap();
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("path.join", &json!({"average": true, "to": "corner"})).unwrap();
+    let a = &path(&s, r).subpaths[0].anchors[0];
+    assert!(!a.has_in() && !a.has_out());
+}
+
 /// `path.join {ids, ends}` joins the ends asked for, not the nearest pair; bad requests are errors.
 #[test]
 fn join_takes_the_paths_and_the_ends_to_join() {
