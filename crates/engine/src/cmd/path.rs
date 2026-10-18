@@ -65,7 +65,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Join",
             ["Object", "Path"],
             Some("Cmd+J"),
-            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
+            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair), average?: \"horizontal\"|\"vertical\"|\"both\" (direct-selected anchors only: move them to their average position before merging), anchor?: \"corner\"|\"smooth\" (the style of each anchor left by merging coincident direct-selected anchors, or of a coincident join between two paths)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
             has_selection,
             join
         ),
@@ -313,10 +313,11 @@ fn end_points(sp: &SubPath) -> Option<(Point, Point)> {
 
 /// Merge each run of `picked` neighbours of `sp` that lie on one another into one anchor, which
 /// keeps the first one's incoming handle and the last one's outgoing handle. Returns how many
-/// anchors went.
-fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
+/// anchors went and the indices of the anchors that absorbed a merge.
+fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> (usize, Vec<usize>) {
     let same = |a: &Anchor, b: &Anchor| a.p.distance(b.p) < 1e-6;
     let before = sp.anchors.len();
+    let mut at = vec![];
     // The closing pair of a closed path first: taking the last anchor moves no other index.
     if sp.closed
         && before > 2
@@ -327,6 +328,7 @@ fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
     {
         first.h_in = last.h_in;
         sp.anchors.pop();
+        at.push(0);
     }
     // Back to front, so the indices `picked` knows stay true for the anchors still to visit.
     for i in (1..sp.anchors.len()).rev() {
@@ -337,13 +339,47 @@ fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
         {
             a.h_out = b.h_out;
             sp.anchors.remove(i);
+            at.push(i - 1);
         }
     }
-    before - sp.anchors.len()
+    (before - sp.anchors.len(), at)
+}
+
+fn average_anchors(path: &mut PathData, picks: &[(usize, usize)], axis: &str, c: Point) {
+    for &(si, ai) in picks {
+        if let Some(a) = path.subpaths.get_mut(si).and_then(|sp| sp.anchors.get_mut(ai)) {
+            let target = match axis {
+                "horizontal" => Point::new(a.p.x, c.y),
+                "vertical" => Point::new(c.x, a.p.y),
+                _ => c,
+            };
+            a.translate(target - a.p);
+        }
+    }
+}
+
+fn style_joined_anchors(sp: &mut SubPath, indices: &[usize], smooth: bool) {
+    for &i in indices {
+        if smooth {
+            sp.smooth_anchor(i);
+        } else if let Some(a) = sp.anchors.get_mut(i) {
+            a.retract();
+        }
+    }
 }
 
 fn join(s: &mut Session, p: &Value) -> Result<Value> {
     const C: &str = "path.join";
+    let average_axis = match str_param(p, "average") {
+        None => None,
+        Some("horizontal" | "vertical" | "both") => str_param(p, "average"),
+        Some(_) => return Err(bad(C, "average must be \"horizontal\", \"vertical\" or \"both\"")),
+    };
+    let anchor_style = match str_param(p, "anchor") {
+        None => None,
+        Some("corner" | "smooth") => str_param(p, "anchor"),
+        Some(_) => return Err(bad(C, "anchor must be \"corner\" or \"smooth\"")),
+    };
     let ids = match ids_param(p, "ids") {
         Some(ids) => {
             let st = s.doc()?;
@@ -358,25 +394,64 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
     // Average) become one anchor; the paths themselves are joined only when there are none.
     if p.get("ids").is_none() {
         let st = s.doc()?;
-        let mut merged = vec![];
-        for (id, picked) in &st.selection.anchors {
-            let Some(mut path) = st.doc.node(*id).and_then(|n| n.path_data()).cloned() else { continue };
-            let n: usize = path.subpaths.iter_mut().enumerate().map(|(si, sp)| merge_coincident(sp, |ai| picked.contains(&(si, ai)))).sum();
-            if n > 0 {
-                merged.push((*id, path));
-            }
-        }
-        if !merged.is_empty() {
-            let objects = st.selection.objects.clone();
-            s.edit("Join", |d, sel| {
-                for (id, path) in merged {
-                    *path_mut(d, id)? = path;
+        let picks: Vec<(NodeId, Vec<(usize, usize)>)> = st
+            .selection
+            .anchors
+            .iter()
+            .filter_map(|(id, set)| {
+                st.doc.node(*id).and_then(|n| n.path_data()).map(|_| {
+                    let v: Vec<(usize, usize)> = set.iter().copied().collect();
+                    (*id, v)
+                })
+            })
+            .collect();
+        if !picks.is_empty() {
+            let d0 = &st.doc;
+            let centroid = average_axis.and_then(|_| {
+                let pts: Vec<Point> = picks
+                    .iter()
+                    .flat_map(|(id, v)| {
+                        v.iter()
+                            .filter_map(|&(si, ai)| d0.node(*id)?.path_data()?.subpaths.get(si)?.anchors.get(ai).map(|a| a.p))
+                    })
+                    .collect();
+                if pts.is_empty() {
+                    None
+                } else {
+                    let n = pts.len() as f64;
+                    Some(Point::new(pts.iter().map(|p| p.x).sum::<f64>() / n, pts.iter().map(|p| p.y).sum::<f64>() / n))
                 }
-                // The anchor indices changed: the paths stay selected, whole.
-                sel.set(objects);
-                Ok(())
+            });
+            let smooth = anchor_style == Some("smooth");
+            let style = anchor_style.is_some();
+            let objects = st.selection.objects.clone();
+            let merged = s.edit("Join", |d, sel| {
+                let mut n = 0usize;
+                for (id, picked) in &picks {
+                    let path = path_mut(d, *id)?;
+                    if let Some(c) = centroid
+                        && let Some(axis) = average_axis
+                    {
+                        average_anchors(path, picked, axis, c);
+                    }
+                    for (si, sp) in path.subpaths.iter_mut().enumerate() {
+                        let (m, at) = merge_coincident(sp, |ai| picked.iter().any(|&(s, a)| s == si && a == ai));
+                        if m > 0 {
+                            n += m;
+                            if style {
+                                style_joined_anchors(sp, &at, smooth);
+                            }
+                        }
+                    }
+                }
+                if n > 0 {
+                    sel.set(objects);
+                }
+                Ok(n)
             })?;
-            return ok();
+            if merged > 0 {
+                return ok();
+            }
         }
     }
     // The ends to join, as (reverse the first path, reverse the second): the first path's end

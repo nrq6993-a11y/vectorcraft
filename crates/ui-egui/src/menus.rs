@@ -3350,6 +3350,11 @@ fn queried_dialog(id: &str) -> Option<(&'static str, &'static [&'static str])> {
     })
 }
 
+/// Join opens a dialog when several anchors are direct-selected (average, then merge them).
+fn join_merge_dialog(app: &VectorcraftApp) -> bool {
+    app.session.active().is_some_and(|st| st.selection.anchors.values().map(|a| a.len()).sum::<usize>() >= 2)
+}
+
 /// The dialog (kind, fields) the menu item of command `id` opens, as the reference app's does.
 fn menu_dialog(app: &VectorcraftApp, id: &str) -> Option<(&'static str, Value)> {
     Some(match id {
@@ -3361,6 +3366,7 @@ fn menu_dialog(app: &VectorcraftApp, id: &str) -> Option<(&'static str, Value)> 
         "object.reflect" => ("reflect", json!({"axis": "vertical", "angle": 90})),
         "object.shear" => ("shear", json!({"angle": 0, "axis": "horizontal"})),
         "path.average" => ("average", json!({"axis": "both"})),
+        "path.join" if join_merge_dialog(app) => ("join", json!({"axis": "both", "anchor": "corner"})),
         // Offset Path opens on the values it was last confirmed with.
         "object.path.offsetPath" if app.ui.offset_path.is_object() => ("offsetPath", app.ui.offset_path.clone()),
         "object.path.offsetPath" => ("offsetPath", json!({"offset": "10 pt", "joins": "miter", "miterLimit": 4})),
