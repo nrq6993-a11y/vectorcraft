@@ -25,6 +25,9 @@ pub struct Workspace {
     pub dock_tab: DockTab,
     /// The dock's tabbed group is collapsed to icons (built-in workspaces: expanded).
     pub dock_collapsed: bool,
+    /// The icon column shows panel names beside each icon.
+    #[serde(default)]
+    pub icon_column_expanded: bool,
     pub open_panel: Option<String>,
     pub status_bar: bool,
     /// Tool groups torn off the toolbar into floating strips (built-in workspaces: none).
@@ -135,6 +138,7 @@ pub fn capture(ui: &UiState, name: &str) -> Workspace {
         dock: ui.dock,
         dock_tab: ui.dock_tab,
         dock_collapsed: ui.dock_collapsed,
+        icon_column_expanded: ui.icon_column_expanded,
         open_panel: ui.open_panel.clone(),
         status_bar: ui.status_bar,
         floating_flyouts: ui.floating_flyouts.clone(),
@@ -159,6 +163,7 @@ pub fn apply(ui: &mut UiState, w: &Workspace) {
     ui.tab_hid = None;
     ui.dock_tab = w.dock_tab;
     ui.dock_collapsed = w.dock_collapsed;
+    ui.icon_column_expanded = w.icon_column_expanded;
     ui.open_panel = w.open_panel.clone();
     ui.status_bar = w.status_bar;
     ui.floating_flyouts = w.floating_flyouts.clone();

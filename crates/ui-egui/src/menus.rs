@@ -374,6 +374,12 @@ pub const UI_COMMANDS: &[(&str, &str, &str, &str)] = &[
         "",
         "{collapsed?: bool} collapse the dock's Properties | Layers | Libraries group to icons (true), expand it (false) or toggle (omitted), as the double arrow at the top of the dock does; returns the new state",
     ),
+    (
+        "window.expandIconColumn",
+        "Expand Panel Icons",
+        "",
+        "{expanded?: bool} widen the icon column to show panel names (true), show icons only (false) or toggle (omitted), as the chevron at the bottom of the icon column does; returns the new state",
+    ),
     ("window.brightness", "UI Brightness", "", "{brightness: dark|mediumDark|mediumLight|light}"),
     ("window.workspace", "Workspace", "", "{name} switch workspace (Essentials, Essentials Classic, Painting, …)"),
     ("window.workspace.reset", "Reset Essentials", "", "{} reset the current workspace"),
@@ -1409,6 +1415,11 @@ pub fn run_ui_command(app: &mut VectorcraftApp, id: &str, p: &Value) -> Option<R
             crate::dock::set_collapsed(app, collapsed);
             json!(collapsed)
         }),
+        "window.expandIconColumn" => opt_bool(p, "expanded").map(|expanded| {
+            let expanded = expanded.unwrap_or(!app.ui.icon_column_expanded);
+            crate::dock::set_icon_column_expanded(app, expanded);
+            json!(expanded)
+        }),
         "window.panel" => {
             let raw = s("panel").unwrap_or_default();
             // Canonical id (case-insensitive; display labels work too), then the
@@ -1799,6 +1810,7 @@ pub fn checked(app: &VectorcraftApp, id: &str, p: &Value) -> Option<bool> {
             }
         }
         "window.collapseDock" => app.ui.dock_collapsed,
+        "window.expandIconColumn" => app.ui.icon_column_expanded,
         "window.workspace" => p.get("name").and_then(Value::as_str) == Some(app.ui.workspace.as_str()),
         "window.brightness" => p.get("brightness").and_then(Value::as_str).and_then(Brightness::parse) == Some(app.ui.brightness),
         "view.slices.lock" => app.session.slices_locked(),
