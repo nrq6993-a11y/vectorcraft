@@ -689,13 +689,13 @@ fn cursor_icon(c: Cursor) -> egui::CursorIcon {
 }
 
 fn handle_input(app: &mut VectorcraftApp, ui: &Ui, resp: &egui::Response, rect: egui::Rect) {
-    let line = ui.ctx().options(|o| o.input_options.line_scroll_speed);
+    let (line, scroll_zoom_speed) = ui.ctx().options(|o| (o.input_options.line_scroll_speed, o.input_options.scroll_zoom_speed));
     let wheel_zooms = app.session.prefs.zoom_with_mouse_wheel;
     let turn_id = egui::Id::new("canvas-wheel-turn");
     let turn_before: WheelTurn = ui.data(|d| d.get_temp(turn_id)).unwrap_or_default();
     let mut turn = turn_before;
     let (pointer, m, space, (factor, scroll)) =
-        ui.input(|i| (i.pointer.clone(), i.modifiers, i.key_down(egui::Key::Space), wheel(i, wheel_zooms, line, rect.height(), &mut turn)));
+        ui.input(|i| (i.pointer.clone(), i.modifiers, i.key_down(egui::Key::Space), wheel(i, wheel_zooms, line, scroll_zoom_speed, rect.height(), &mut turn)));
     if turn != turn_before {
         ui.data_mut(|d| d.insert_temp(turn_id, turn));
     }
@@ -972,6 +972,8 @@ const WHEEL_GLIDE: f64 = 0.05;
 struct WheelTurn {
     /// The last wheel turn was an Alt-wheel one.
     alt: bool,
+    /// egui is still spreading a Cmd/Ctrl-wheel notch (#2230).
+    cmd: bool,
     /// The zoom (natural log) wheel notches still have to glide in.
     glide: f64,
 }
@@ -1218,12 +1220,13 @@ fn marquee_through(p: &egui::Painter, q: &[Pos2]) {
 }
 
 /// What the wheel, a pinch and a two-finger drag on a touch screen did over the canvas this frame:
-/// a zoom factor (about the pointer) and a scroll (screen points the content moves). The wheel scrolls, Cmd- and Alt-wheel (Option
-/// on the Mac) zoom. With General › Zoom with Mouse Wheel (`wheel_zooms`) the wheel and Alt-wheel
+/// a zoom factor (about the pointer) and a scroll (screen points the content moves). The wheel scrolls, Alt-wheel (Option
+/// on the Mac) zooms, and Cmd/Ctrl-wheel scrolls sideways (#2230). With General › Zoom with Mouse Wheel (`wheel_zooms`) the wheel and Alt-wheel
 /// zoom, Shift-wheel scrolls up and down and Cmd/Ctrl-wheel sideways. `line` and `page`: points
-/// per wheel line and page. `turn`: kept by the caller across frames. A mouse wheel's notches zoom
-/// in a glide over a few frames, as scrolling does (#888); a trackpad's fine steps at once.
-fn wheel(i: &egui::InputState, wheel_zooms: bool, line: f32, page: f32, turn: &mut WheelTurn) -> (f64, egui::Vec2) {
+/// per wheel line and page. `scroll_zoom_speed`: egui's wheel-to-zoom scale while Cmd/Ctrl is held.
+/// `turn`: kept by the caller across frames. A mouse wheel's notches zoom in a glide over a few
+/// frames, as scrolling does (#888); a trackpad's fine steps at once.
+fn wheel(i: &egui::InputState, wheel_zooms: bool, line: f32, scroll_zoom_speed: f32, page: f32, turn: &mut WheelTurn) -> (f64, egui::Vec2) {
     // Fingers on a touch screen pan the content with them (a trackpad sends scrolls instead).
     let pan = i.multi_touch().map_or(egui::Vec2::ZERO, |t| t.translation_delta);
     if !wheel_zooms {
@@ -1231,8 +1234,31 @@ fn wheel(i: &egui::InputState, wheel_zooms: bool, line: f32, page: f32, turn: &m
         // frames: the rest of an Alt-wheel turn zooms too, however soon Alt is let go.
         if let Some(m) = i.events.iter().rev().find_map(|e| if let egui::Event::MouseWheel { modifiers, .. } = e { Some(modifiers) } else { None }) {
             turn.alt = m.alt && !m.command;
+            if m.command && !m.alt {
+                turn.cmd = true;
+            }
         }
-        let (zoom, scroll) = (f64::from(i.zoom_delta()), i.smooth_scroll_delta);
+        if !i.is_scrolling() {
+            turn.cmd = false;
+        }
+        let (mut zoom, mut scroll) = (f64::from(i.zoom_delta()), i.smooth_scroll_delta);
+        // egui turns Cmd/Ctrl-wheel into zoom; Illustrator scrolls sideways instead (#2230).
+        if turn.cmd && i.multi_touch().is_none() {
+            let pinch: f64 = i
+                .events
+                .iter()
+                .filter_map(|e| if let egui::Event::Zoom(f) = e { Some(f64::from(*f)) } else { None })
+                .product();
+            let pinch = if pinch.is_finite() && pinch > 0.0 { pinch } else { 1.0 };
+            let wheel_zoom = zoom / pinch;
+            if wheel_zoom.is_finite() && wheel_zoom > 0.0 {
+                let speed = f64::from(scroll_zoom_speed);
+                if speed > 0.0 {
+                    scroll.x += (wheel_zoom.ln() / speed) as f32;
+                }
+                zoom = pinch;
+            }
+        }
         return if turn.alt && scroll != egui::Vec2::ZERO {
             (zoom * (f64::from(scroll.x + scroll.y) * WHEEL_ZOOM).exp(), pan)
         } else {
@@ -5648,9 +5674,9 @@ mod tests {
     }
 
     /// General › Zoom with Mouse Wheel (#394), through the control channel's `ui.wheel`: off,
-    /// the wheel scrolls and Cmd-wheel zooms; on, the wheel zooms about the pointer, Shift-wheel
-    /// scrolls up and down and Cmd/Ctrl-wheel sideways. Alt-wheel (Option on the Mac) and a
-    /// trackpad pinch zoom about the pointer either way.
+    /// the wheel scrolls, Cmd/Ctrl-wheel scrolls sideways (#2230) and Alt-wheel zooms; on, the wheel
+    /// zooms about the pointer, Shift-wheel scrolls up and down and Cmd/Ctrl-wheel sideways.
+    /// Alt-wheel (Option on the Mac) and a trackpad pinch zoom about the pointer either way.
     #[test]
     fn zoom_with_mouse_wheel_preference() {
         let mut app = VectorcraftApp::new(Session::new(), Default::default());
@@ -5690,7 +5716,8 @@ mod tests {
         let zooms_in = |(zoom, _, moved): (f64, _, f64)| zoom > 1.01 && moved < 1e-6;
         let (zoom, scroll, _) = turn(&mut app, "");
         assert!((zoom - 1.0).abs() < 1e-9 && scroll.x == 0.0 && scroll.y < -1.0, "off: the wheel scrolls up ({zoom}, {scroll:?})");
-        assert!(zooms_in(turn(&mut app, "cmd")), "off: Cmd-wheel zooms in about the pointer");
+        let (zoom, scroll, _) = turn(&mut app, "cmd");
+        assert!((zoom - 1.0).abs() < 1e-9 && scroll.x < -1.0 && scroll.y == 0.0, "off: Cmd-wheel scrolls sideways (#2230) ({zoom}, {scroll:?})");
         assert!(zooms_in(turn(&mut app, "alt")), "off: Alt-wheel zooms in about the pointer");
         assert!(zooms_in(turn(&mut app, "pinch")), "off: a pinch zooms in about the pointer");
         app.session.execute("prefs.set", &json!({"key": "zoomWithMouseWheel", "value": true})).unwrap();
