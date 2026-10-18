@@ -2011,6 +2011,44 @@ fn period(values: &[u8]) -> usize {
 }
 
 #[test]
+fn note_paper_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("sketch.notePaper", json!({})), PixelFx::NotePaper { balance: 25.0, graininess: 0.0, relief: 4.0 });
+    assert_eq!(
+        fx("sketch.notePaper", json!({"imageBalance": -1, "graininess": 99, "relief": 0})),
+        PixelFx::NotePaper { balance: 0.0, graininess: 10.0, relief: 0.0 }
+    );
+    assert_eq!(
+        fx("sketch.notePaper", json!({"imageBalance": 1e9, "graininess": -3, "relief": 1e9})),
+        PixelFx::NotePaper { balance: 25.0, graininess: 0.0, relief: 50.0 }
+    );
+    let f = fx("sketch.notePaper", json!({"relief": 0}));
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+    assert_eq!(f.reach(), Some(0.0));
+}
+
+/// Higher relief and lower image balance draw more ink on a mid-grey fill.
+#[test]
+fn note_paper_relief_and_balance_change_the_ink() {
+    let (w, h) = (32, 32);
+    let src = image(w, h, |_, _| grey(140));
+    let flat = |p: &serde_json::Value| {
+        let mut px = src.clone();
+        fx("sketch.notePaper", p.clone()).apply(&mut px, w, h, &space(w, h));
+        px.chunks_exact(4).map(|c| u64::from(c[0])).sum::<u64>() as f64 / (w * h) as f64
+    };
+    let mild = flat(&json!({"imageBalance": 25, "graininess": 0, "relief": 0}));
+    let dark = flat(&json!({"imageBalance": 0, "graininess": 0, "relief": 0}));
+    assert!(mild > dark, "mild={mild} dark={dark}");
+    assert_ne!(flat(&json!({"graininess": 8})), flat(&json!({"graininess": 0})));
+    let gradient = image(w, h, |x, y| grey((40 + x * 4 + y) as u8));
+    let mut flat_relief = gradient.clone();
+    let mut high_relief = gradient.clone();
+    fx("sketch.notePaper", json!({"imageBalance": 12, "relief": 0})).apply(&mut flat_relief, w, h, &space(w, h));
+    fx("sketch.notePaper", json!({"imageBalance": 12, "relief": 50})).apply(&mut high_relief, w, h, &space(w, h));
+    assert_ne!(flat_relief, high_relief);
+}
+
+#[test]
 fn halftone_pattern_params_take_defaults_and_stay_in_range() {
     assert_eq!(fx("sketch.halftonePattern", json!({})), PixelFx::HalftonePattern { size: 1.0, contrast: 5.0, kind: HalftonePattern::Dot });
     assert_eq!(

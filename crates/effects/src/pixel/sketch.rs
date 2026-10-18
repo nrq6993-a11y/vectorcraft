@@ -1,12 +1,16 @@
-//! Effect › Sketch › Halftone Pattern. Original filter built from public behaviour documentation:
+//! Effect › Sketch › Halftone Pattern and Note Paper. Original filters built from public behaviour documentation:
 //! <https://helpx.adobe.com/illustrator/using/summary-effects.html> (Sketch effects redraw in
 //! black and white; Halftone Pattern simulates a halftone screen while keeping the range of tones)
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
-use super::pixelate::Place;
+use vectorcraft_geom::Point;
+
+use super::pixelate::{Place, value_noise};
 use super::texture::{luma, premultiply, straight};
 use super::{PixelSpace, pick};
+
+const SALT_NOTE: u64 = 0x4e6f_7465_7061_7065;
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
 pub const HALFTONE_TYPES: [(&str, &str); 3] = [("Circle", "circle"), ("Dot", "dot"), ("Line", "line")];
@@ -66,6 +70,50 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
         } else {
             0.0
         };
+        *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    });
+}
+
+/// Note Paper: the object redrawn in black ink on fibrous white paper. `balance` (0..25) keeps more
+/// of the light tones as bare paper; `graininess` (0..10) roughens the sheet; `relief` (0..50)
+/// embosses the image's tones before inking. Coverage is kept.
+pub(super) fn note_paper(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, balance: f64, graininess: f64, relief: f64) {
+    if !(balance.is_finite() && graininess.is_finite() && relief.is_finite()) {
+        return;
+    }
+    let Some(place) = Place::new(space, w, h) else { return };
+    let balance = balance.clamp(0.0, 25.0) / 25.0;
+    let grain = graininess.clamp(0.0, 10.0) / 10.0;
+    let relief = relief.clamp(0.0, 50.0) / 50.0;
+    let step = (2.0 / place.px).max(0.5);
+    let mut tones = vec![-1.0f64; w * h];
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let c = straight(*p);
+        tones[y * w + x] = f64::from(1.0 - luma(c)).clamp(0.0, 1.0);
+    });
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let q = place.at(x, y);
+        let fibre = value_noise(SALT_NOTE, q.x * 0.35, q.y * 0.35);
+        let grit = value_noise(SALT_NOTE + 1, q.x * 2.7, q.y * 2.7);
+        let paper = 0.55 + 0.45 * fibre + grain * (0.35 * grit - 0.175);
+        let tone = tones[y * w + x];
+        let emboss = |ox: f64, oy: f64| {
+            let Some(i) = place.index(Point::new(q.x + ox, q.y + oy)) else { return tone };
+            let t = tones[i];
+            if t < 0.0 { tone } else { t }
+        };
+        let dx = emboss(step, 0.0) - emboss(-step, 0.0);
+        let dy = emboss(0.0, step) - emboss(0.0, -step);
+        let raised = (tone + relief * 0.35 * (dx + dy)).clamp(0.0, 1.0);
+        // Higher image balance keeps more light tones as bare paper (a higher cutoff).
+        let cutoff = (0.35 + 0.55 * balance) * paper;
+        let ink = if raised > cutoff { 1.0 } else { 0.0 };
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
     });
 }

@@ -39,7 +39,7 @@ pub use sketch::{HALFTONE_TYPES, HalftonePattern};
 pub use texture::{GRAIN_TYPES, Grain, LIGHT_DIRECTIONS, Light, TEXTURES, Texture};
 
 /// The Photoshop-style effect ids (all raster effects, see [`crate::is_raster`]).
-pub const PIXEL_EFFECTS: [&str; 32] = [
+pub const PIXEL_EFFECTS: [&str; 33] = [
     "artistic.cutout",
     "artistic.filmGrain",
     "artistic.neonGlow",
@@ -63,6 +63,7 @@ pub const PIXEL_EFFECTS: [&str; 32] = [
     "pixelate.pointillize",
     "sharpen.unsharpMask",
     "sketch.halftonePattern",
+    "sketch.notePaper",
     "stylize.glowingEdges",
     "texture.craquelure",
     "texture.grain",
@@ -142,6 +143,9 @@ pub enum PixelFx {
     /// Sketch › Halftone Pattern: black ink on white paper through a `kind` screen of cells `size`
     /// (1..12) apart, its edges as hard as `contrast` (0..50) says.
     HalftonePattern { size: f64, contrast: f64, kind: HalftonePattern },
+    /// Sketch › Note Paper: black ink on fibrous paper; `balance` (0..25), `graininess` (0..10),
+    /// `relief` (0..50).
+    NotePaper { balance: f64, graininess: f64, relief: f64 },
     /// Stylize › Glowing Edges: bright coloured Sobel outlines on black.
     GlowingEdges { width: f64, brightness: f64, smoothness: f64 },
     /// Pixelate › Color Halftone: each colour channel screened at its angle (`angles`° of channels
@@ -316,6 +320,11 @@ pub(crate) fn parse(id: &str, p: &Value) -> Option<PixelFx> {
             contrast: num(p, "contrast", 5.0).clamp(0.0, 50.0),
             kind: HalftonePattern::parse(text(p, "patternType", "dot")),
         },
+        "sketch.notePaper" => PixelFx::NotePaper {
+            balance: num(p, "imageBalance", 25.0).clamp(0.0, 25.0),
+            graininess: num(p, "graininess", 0.0).clamp(0.0, 10.0),
+            relief: num(p, "relief", 4.0).clamp(0.0, 50.0),
+        },
         "stylize.glowingEdges" => PixelFx::GlowingEdges {
             width: num(p, "edgeWidth", 2.0).clamp(1.0, 14.0),
             brightness: num(p, "edgeBrightness", 6.0).clamp(0.0, 20.0),
@@ -392,7 +401,7 @@ impl PixelFx {
             // Content shifted outwards reaches past the bounds by as much as the shift.
             PixelFx::Glass { distortion, .. } => distort::glass_shift(distortion),
             PixelFx::OceanRipple { size, magnitude } => distort::ripple_shift(size, magnitude),
-            PixelFx::UnsharpMask { .. } | PixelFx::HalftonePattern { .. } => 0.0,
+            PixelFx::UnsharpMask { .. } | PixelFx::HalftonePattern { .. } | PixelFx::NotePaper { .. } => 0.0,
             PixelFx::GlowingEdges { width, smoothness, .. } => width.max(smoothness * 3.0),
             PixelFx::FilmGrain { .. }
             | PixelFx::Cutout { .. }
@@ -439,7 +448,7 @@ impl PixelFx {
             // The cells around the pixel's, and the cells around theirs.
             PixelFx::ColorHalftone { max_radius, .. } => Some(3.0 * std::f64::consts::SQRT_2 * max_radius),
             PixelFx::Crystallize { cell } => Some(1.5 * cell),
-            PixelFx::FilmGrain { .. } | PixelFx::Mezzotint { .. } | PixelFx::HalftonePattern { .. } => Some(0.0),
+            PixelFx::FilmGrain { .. } | PixelFx::Mezzotint { .. } | PixelFx::HalftonePattern { .. } | PixelFx::NotePaper { .. } => Some(0.0),
             // Cutout's palette comes from the whole object.
             PixelFx::Cutout { .. } => None,
             // The softened tones around the pixel.
@@ -494,6 +503,7 @@ impl PixelFx {
             PixelFx::OceanRipple { size, magnitude } => distort::ocean_ripple(px, w, h, space, size, magnitude),
             PixelFx::UnsharpMask { amount, radius, threshold } => sharpen::unsharp(px, w, h, amount, to_px(radius), threshold),
             PixelFx::HalftonePattern { size, contrast, kind } => sketch::halftone_pattern(px, w, h, space, size, contrast, kind),
+            PixelFx::NotePaper { balance, graininess, relief } => sketch::note_paper(px, w, h, space, balance, graininess, relief),
             PixelFx::GlowingEdges { width, brightness, smoothness } => edges::glow(px, w, h, to_px(width), brightness, to_px(smoothness)),
             PixelFx::ColorHalftone { max_radius, angles } => pixelate::color_halftone(px, w, h, space, max_radius, angles),
             PixelFx::Crystallize { cell } => pixelate::crystallize(px, w, h, space, cell),
