@@ -6,7 +6,9 @@
 //!
 //! Preferences › Hyphenation › Exceptions (comma separated) override the points for named words:
 //! `typography` never breaks, `ty-pog-ra-phy` breaks only where the hyphens mark. See
-//! [`set_hyphenation_exceptions`].
+//! [`set_hyphenation_exceptions`]. Preferences › Hyphenation › Default Language selects whether the
+//! English syllable pattern runs (`English: USA` and `English: UK` only until more dictionaries
+//! exist); see [`set_hyphenation_language`].
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -29,11 +31,25 @@ enum Exception {
 struct Exceptions {
     source: String,
     map: HashMap<String, Exception>,
+    /// Preferences › Hyphenation › Default Language (`English: USA` by default).
+    language: String,
+}
+
+/// Whether the stored language uses the built-in English syllable-break pattern.
+fn pattern_hyphenation_enabled(language: &str) -> bool {
+    matches!(language, "English: USA" | "English: UK")
 }
 
 fn store() -> MutexGuard<'static, Exceptions> {
     static LOCK: OnceLock<Mutex<Exceptions>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(Exceptions::default())).lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Per-thread list so unit tests don't race the process-wide preferences store.
+    static TEST_OVERRIDE: std::cell::RefCell<Option<Exceptions>> = const { std::cell::RefCell::new(None) };
+    static TEST_LANGUAGE: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
 }
 
 fn parse_list(source: &str) -> Exceptions {
@@ -49,19 +65,41 @@ fn parse_list(source: &str) -> Exceptions {
         }
         map.insert(word, ex);
     }
-    Exceptions { source: source.to_string(), map }
+    Exceptions { source: source.to_string(), map, language: String::new() }
 }
 
 /// Preferences › Hyphenation › Exceptions: comma-separated words. A word with no hyphens is never
 /// hyphenated; hyphens mark the only allowed break points (`ty-pog-ra-phy`). Matching is
 /// case-insensitive. Empty clears the list.
 pub fn set_hyphenation_exceptions(source: &str) {
+    let language = store().language.clone();
     *store() = parse_list(source);
+    store().language = language;
 }
 
 /// The last string passed to [`set_hyphenation_exceptions`] (empty when none).
 pub fn hyphenation_exceptions() -> String {
     store().source.clone()
+}
+
+/// Preferences › Hyphenation › Default Language. Only `English: USA` and `English: UK` enable the
+/// pattern hyphenator; other choices still honour Exceptions.
+pub fn set_hyphenation_language(language: &str) {
+    store().language = language.to_string();
+}
+
+/// The last string passed to [`set_hyphenation_language`].
+pub fn hyphenation_language() -> String {
+    #[cfg(test)]
+    if let Some(lang) = TEST_LANGUAGE.with(|c| c.borrow().clone()) {
+        return if lang.is_empty() { "English: USA".into() } else { lang };
+    }
+    let lang = store().language.clone();
+    if lang.is_empty() {
+        "English: USA".into()
+    } else {
+        lang
+    }
 }
 
 fn parse_exception(entry: &str) -> (String, Exception) {
@@ -108,6 +146,14 @@ fn exception_for(word: &str) -> Option<Exception> {
     TEST_OVERRIDE.with(|c| c.borrow().as_ref().and_then(|e| e.map.get(&normalize_word(word)).cloned()))
 }
 
+/// Run `f` with a Default Language on this thread only (tests).
+#[cfg(test)]
+pub(crate) fn with_hyphenation_language_for_test(language: &str, f: impl FnOnce()) {
+    TEST_LANGUAGE.with(|c| *c.borrow_mut() = Some(language.to_string()));
+    f();
+    TEST_LANGUAGE.with(|c| *c.borrow_mut() = None);
+}
+
 fn is_vowel(c: char) -> bool {
     matches!(c.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u' | 'y') || (c.is_alphabetic() && !c.is_ascii())
 }
@@ -142,6 +188,9 @@ pub fn hyphen_points_with(word: &str, opts: &HyphenationOptions) -> Vec<usize> {
             Exception::Never => vec![],
             Exception::Only(pts) => pts,
         };
+    }
+    if !pattern_hyphenation_enabled(&hyphenation_language()) {
+        return vec![];
     }
     let c: Vec<char> = word.chars().collect();
     let n = c.len();
@@ -191,12 +240,6 @@ pub fn hyphenate_word(word: &str) -> String {
         s.push(ch);
     }
     s
-}
-
-#[cfg(test)]
-thread_local! {
-    /// Per-thread list so unit tests don't race the process-wide preferences store.
-    static TEST_OVERRIDE: std::cell::RefCell<Option<Exceptions>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Run `f` with Preferences › Hyphenation › Exceptions applied on this thread only (tests).
@@ -287,5 +330,28 @@ mod tests {
         assert_eq!(hyphenation_exceptions(), "typography, hap-pen");
         set_hyphenation_exceptions("");
         assert!(hyphenation_exceptions().is_empty());
+    }
+
+    #[test]
+    fn hyphenation_language_gates_the_english_pattern() {
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                set_hyphenation_language("English: USA");
+            }
+        }
+        let _reset = Reset;
+        assert!(!hyphen_points("typography").is_empty());
+        with_hyphenation_language_for_test("French", || {
+            assert!(hyphen_points("typography").is_empty(), "no English pattern in French");
+            with_exceptions("typo-graphy", || {
+                assert_eq!(hyphen_points("typography"), vec![4], "exceptions still apply");
+            });
+        });
+        set_hyphenation_language("German");
+        assert!(hyphen_points("typography").is_empty());
+        set_hyphenation_language("English: UK");
+        assert!(!hyphen_points("typography").is_empty());
+        assert_eq!(hyphenation_language(), "English: UK");
     }
 }

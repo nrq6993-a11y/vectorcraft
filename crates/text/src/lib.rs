@@ -38,10 +38,9 @@ pub use fontdb::{
     FALLBACK_FAMILY, FontClass, FontDb, FontFace, FontMatch, FontTraits, IcfMargins, PlatformFontFiles, WantedFont, WantedFonts, app_font_dir,
     is_font_file, is_suitcase, set_app_font_dir, set_platform_font_files, set_user_font_dirs, style_weight, system_font_dirs, user_font_dirs,
 };
-pub use hyphen::{hyphenation_exceptions, set_hyphenation_exceptions};
+pub use hyphen::{hyphenation_exceptions, hyphenation_language, set_hyphenation_exceptions, set_hyphenation_language};
 use std::sync::Arc;
 pub use svg_glyph::{SvgGlyphReader, set_svg_glyph_reader};
-
 use kurbo::{Affine, BezPath, Point, Rect, Vec2};
 pub use layout::{decorations, fit_first_line, layout, layout_with, scaled};
 pub use vectorcraft_doc::TextObject;
