@@ -475,6 +475,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             json!({"size": 1.0, "contrast": 5.0, "patternType": "dot"}),
         ),
         r(
+            "sketch.photocopy",
+            "Photocopy…",
+            SKETCH,
+            "{detail: 1..24 (10; finer edges when higher), darkness: 1..50 (50; more midtones filled with ink when higher)} redraws the object in high-contrast black ink on white paper like a photocopy, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"detail": 10.0, "darkness": 50.0}),
+        ),
+        r(
             "stylize.glowingEdges",
             "Glowing Edges…",
             STYLIZE,

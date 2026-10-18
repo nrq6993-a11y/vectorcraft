@@ -1,12 +1,13 @@
-//! Effect › Sketch › Halftone Pattern. Original filter built from public behaviour documentation:
+//! Effect › Sketch › Halftone Pattern and Photocopy. Original filters built from public behaviour documentation:
 //! <https://helpx.adobe.com/illustrator/using/summary-effects.html> (Sketch effects redraw in
-//! black and white; Halftone Pattern simulates a halftone screen while keeping the range of tones)
+//! black and white; Halftone Pattern simulates a halftone screen while keeping the range of tones;
+//! Photocopy simulates a high-contrast photocopy)
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
 use super::pixelate::Place;
 use super::texture::{luma, premultiply, straight};
-use super::{PixelSpace, pick};
+use super::{PixelSpace, blur_plane, pick};
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
 pub const HALFTONE_TYPES: [(&str, &str); 3] = [("Circle", "circle"), ("Dot", "dot"), ("Line", "line")];
@@ -68,4 +69,42 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
         };
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
     });
+}
+
+/// Photocopy: the object redrawn in black ink on white paper like a photocopy. `detail` (1..24)
+/// keeps finer edges when higher; `darkness` (1..50) fills more of the midtones with ink when
+/// higher. Coverage is kept.
+pub(super) fn photocopy(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, detail: f64, darkness: f64) {
+    if w == 0 || h == 0 || !(detail.is_finite() && darkness.is_finite()) {
+        return;
+    }
+    let detail = detail.clamp(1.0, 24.0);
+    let darkness = darkness.clamp(1.0, 50.0);
+    let n = w * h;
+    let mut tone = vec![0.0f32; n];
+    let mut seen = vec![false; n];
+    for (i, p) in px.iter().enumerate() {
+        if p[3] == 0 {
+            continue;
+        }
+        seen[i] = true;
+        tone[i] = f64::from(1.0 - luma(straight(*p))).clamp(0.0, 1.0) as f32;
+    }
+    let radius = ((25.0 - detail) / 2.0).max(0.25);
+    let sigma = radius / space.px.max(1e-9);
+    let mut smooth = tone.clone();
+    blur_plane(&mut smooth, w, h, sigma);
+    let edge_w = (detail / 6.0) as f32;
+    let threshold = (0.52 - (darkness / 50.0) * 0.24) as f32;
+    let tone_w = (0.12 + darkness / 70.0) as f32;
+    for (i, p) in px.iter_mut().enumerate() {
+        if !seen[i] {
+            continue;
+        }
+        let dark = tone[i];
+        let edge = (dark - smooth[i]).abs();
+        let level = edge * edge_w + dark * tone_w;
+        let ink = f32::from(level > threshold);
+        *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    }
 }

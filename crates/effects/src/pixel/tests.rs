@@ -2005,6 +2005,13 @@ fn halftone(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace
     out
 }
 
+/// Photocopy of `p` over `w` × `h` pixels of `src`, laid out by `s`.
+fn photocopy(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.photocopy", p).apply(&mut out, w, h, s);
+    out
+}
+
 /// The smallest period of `values` (their length when they don't repeat).
 fn period(values: &[u8]) -> usize {
     (1..values.len()).find(|p| values.iter().zip(&values[*p..]).all(|(a, b)| a == b)).unwrap_or(values.len())
@@ -2031,6 +2038,48 @@ fn halftone_pattern_params_take_defaults_and_stay_in_range() {
     let f = fx("sketch.halftonePattern", json!({"size": 12}));
     assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
     assert_eq!(f.reach(), Some(0.0));
+}
+
+#[test]
+fn photocopy_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("sketch.photocopy", json!({})), PixelFx::Photocopy { detail: 10.0, darkness: 50.0 });
+    assert_eq!(
+        fx("sketch.photocopy", json!({"detail": 0, "darkness": 99})),
+        PixelFx::Photocopy { detail: 1.0, darkness: 50.0 }
+    );
+    assert_eq!(
+        fx("sketch.photocopy", json!({"detail": 30, "darkness": 0})),
+        PixelFx::Photocopy { detail: 24.0, darkness: 1.0 }
+    );
+    let f = fx("sketch.photocopy", json!({"detail": 24}));
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+    assert_eq!(f.reach(), Some(1.5));
+}
+
+/// Photocopy redraws in black ink on white paper and keeps coverage; more darkness adds ink.
+#[test]
+fn photocopy_draws_in_black_and_white_only() {
+    let (w, h) = (64, 64);
+    let src = image(w, h, |x, y| {
+        let t = if x < w / 2 { 40 } else { 200 };
+        grey(if y < h / 2 { t } else { 255 - t })
+    });
+    let out = photocopy(json!({"detail": 10, "darkness": 50}), &src, w, h, &space(w, h));
+    for (p, q) in out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0) {
+        assert_eq!(p[3], q[3], "coverage kept");
+        assert!(p[0] == p[1] && p[1] == p[2] && (p[0] == 0 || p[0] == p[3]), "{p:?}");
+    }
+    assert!(share(&out, |p| p[0] == 0) > 0.0 && share(&out, |p| p[0] == p[3]) > 0.0, "ink and paper");
+}
+
+/// Higher detail keeps finer edges in Photocopy.
+#[test]
+fn photocopy_detail_keeps_finer_edges() {
+    let (w, h) = (48, 48);
+    let src = image(w, h, |x, y| grey(((x + y) * 3) as u8));
+    let coarse = photocopy(json!({"detail": 2, "darkness": 50}), &src, w, h, &space(w, h));
+    let fine = photocopy(json!({"detail": 24, "darkness": 50}), &src, w, h, &space(w, h));
+    assert!(share(&fine, |p| p[0] == p[3]) > share(&coarse, |p| p[0] == p[3]), "finer detail, more ink");
 }
 
 /// Line's rows repeat every Size points: Size pixels at 72 ppi, twice as many at 144 ppi.
