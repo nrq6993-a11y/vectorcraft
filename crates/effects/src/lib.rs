@@ -154,6 +154,7 @@ fn lengths_of(id: &str) -> Lengths {
         "texture.patchwork" => always(&["squareSize"]),
         "texture.stainedGlass" => always(&["cellSize"]),
         "sketch.halftonePattern" => always(&["size"]),
+        "sketch.notePaper" => always(&["relief"]),
         RASTERIZE => always(&["addAround"]),
         _ => Lengths::default(),
     }
@@ -473,6 +474,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             SKETCH,
             "{size: pt 1..12 (1; how far apart the screen's dots, rings or lines are), contrast: 0..50 (5; 50 draws pure black and white), patternType: \"circle\"|\"dot\"|\"line\" (\"dot\"; rings round the object's centre, dots on a square grid, horizontal lines)} redraws the object in black ink on white paper through a halftone screen whose ink covers as much as the colour is dark, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
             json!({"size": 1.0, "contrast": 5.0, "patternType": "dot"}),
+        ),
+        r(
+            "sketch.notePaper",
+            "Note Paper…",
+            SKETCH,
+            "{imageBalance: 0..40 (25; shifts light and dark), graininess: 0..20 (4; how much grain shows), relief: 0..24 (4; how large each grain is and how deep the embossing reads)} redraws the object as handmade paper in black and white: dark areas read as holes in the paper surrounded by white, with grain and an embossed surface. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"imageBalance": 25.0, "graininess": 4.0, "relief": 4.0}),
         ),
         r(
             "stylize.glowingEdges",

@@ -2114,6 +2114,77 @@ fn halftone_draws_in_black_and_white_only() {
     }
 }
 
+/// Note Paper of `p` over `w` × `h` pixels of `src`, laid out by `s`.
+fn note_paper(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.notePaper", p).apply(&mut out, w, h, s);
+    out
+}
+
+#[test]
+fn note_paper_params_take_defaults_and_stay_in_range() {
+    assert_eq!(
+        fx("sketch.notePaper", json!({})),
+        PixelFx::NotePaper { image_balance: 25.0, graininess: 4.0, relief: 4.0 }
+    );
+    assert_eq!(
+        fx("sketch.notePaper", json!({"imageBalance": -5, "graininess": 1e9, "relief": -1})),
+        PixelFx::NotePaper { image_balance: 0.0, graininess: 20.0, relief: 0.0 }
+    );
+    assert_eq!(
+        fx("sketch.notePaper", json!({"imageBalance": 1e9, "graininess": "NaN", "relief": 1e9})),
+        PixelFx::NotePaper { image_balance: 40.0, graininess: 4.0, relief: 24.0 }
+    );
+    let f = fx("sketch.notePaper", json!({}));
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+    assert_eq!(f.reach(), Some(0.0));
+}
+
+/// Note Paper redraws in black and white and keeps coverage.
+#[test]
+fn note_paper_draws_in_black_and_white_only() {
+    let (w, h) = (48, 48);
+    let src = image(w, h, |x, y| {
+        let c = [[230u8, 20, 20], [20, 200, 40], [30, 60, 220], [240, 220, 30]][(x / 12) % 4];
+        let a: u16 = if y < 24 { 255 } else { 128 };
+        [c[0], c[1], c[2]].map(|v| (u16::from(v) * a / 255) as u8).into_iter().chain([a as u8]).collect::<Vec<_>>().try_into().unwrap()
+    });
+    let out = note_paper(json!({}), &src, w, h, &space(w, h));
+    for (p, q) in out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0) {
+        assert_eq!(p[3], q[3], "coverage kept");
+        assert!(p[0] == p[1] && p[1] == p[2], "{p:?} from {q:?}");
+    }
+    assert!(share(&out, |p| p[0] == 0) > 0.05 && share(&out, |p| p[0] == p[3]) > 0.05);
+    assert!(share(&out, |p| p[0] != 0 && p[0] != p[3]) > 0.02, "soft grain leaves greys");
+}
+
+/// Higher image balance leaves more paper white on a mid-grey field.
+#[test]
+fn note_paper_image_balance_shifts_tones() {
+    let (w, h) = (32, 32);
+    let src = image(w, h, |_, _| grey(128));
+    let dark = |d: &[u8]| share(d, |p| p[0] == 0);
+    let low = note_paper(json!({"imageBalance": 0, "graininess": 0, "relief": 0}), &src, w, h, &space(w, h));
+    let high = note_paper(json!({"imageBalance": 40, "graininess": 0, "relief": 0}), &src, w, h, &space(w, h));
+    assert!(dark(&low) > dark(&high), "{} vs {}", dark(&low), dark(&high));
+}
+
+/// Graininess and relief change the pattern; relief scales with raster resolution like other Sketch filters.
+#[test]
+fn note_paper_grain_and_relief_change_the_pattern() {
+    let (w, h) = (48, 48);
+    let src = image(w, h, |_, _| grey(140));
+    let plain = note_paper(json!({"graininess": 0, "relief": 0}), &src, w, h, &space(w, h));
+    let grainy = note_paper(json!({"graininess": 20, "relief": 0}), &src, w, h, &space(w, h));
+    let embossed = note_paper(json!({"graininess": 0, "relief": 24}), &src, w, h, &space(w, h));
+    assert_ne!(plain, grainy);
+    assert_ne!(plain, embossed);
+    let fine = PixelSpace { to_doc: Affine::scale(0.5), px: 0.5, ..space(w, h) };
+    let coarse = note_paper(json!({"relief": 12}), &src, w, h, &space(w, h));
+    let fine_out = note_paper(json!({"relief": 12}), &image(2 * w, 2 * h, |_, _| grey(140)), 2 * w, 2 * h, &fine);
+    assert_ne!(coarse, fine_out);
+}
+
 /// The distinct colours of the covered pixels.
 fn colours(d: &[u8]) -> std::collections::BTreeSet<[u8; 4]> {
     d.as_chunks::<4>().0.iter().filter(|p| p[3] > 0).copied().collect()

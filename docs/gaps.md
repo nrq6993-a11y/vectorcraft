@@ -217,11 +217,11 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 
 ## G2 Photoshop-style raster effects and the Effect Gallery
 
-- **Missing:** 24 of 57 filters (the remaining 11 Artistic filters and 13 of Sketch's 14), the Effect Gallery dialog, Load
+- **Missing:** 23 of 57 filters (the remaining 11 Artistic filters and 12 of Sketch's 14), the Effect Gallery dialog, Load
   Texture for Texturizer. Measured in
   [effects-parity.md](effects-parity.md).
-- **Done:** the pixel-filter pipeline and 33 filters (Artistic: Cutout, Film Grain, Neon Glow, Poster Edges, Blur, Brush Strokes, Distort, Pixelate, Sharpen, Sketch:
-  Halftone Pattern, Stylize, Texture, Video), Brush Strokes on 2026-10-11, Film Grain on 2026-10-12, Halftone Pattern on 2026-10-16, Cutout, Neon Glow and Poster Edges on 2026-10-16, and Smart Blur's Edge Only and Overlay Edge
+- **Done:** the pixel-filter pipeline and 34 filters (Artistic: Cutout, Film Grain, Neon Glow, Poster Edges, Blur, Brush Strokes, Distort, Pixelate, Sharpen, Sketch:
+  Halftone Pattern and Note Paper, Stylize, Texture, Video), Brush Strokes on 2026-10-11, Film Grain on 2026-10-12, Halftone Pattern on 2026-10-16, Note Paper on 2026-10-19, Cutout, Neon Glow and Poster Edges on 2026-10-16, and Smart Blur's Edge Only and Overlay Edge
   modes.
 - **Estimate:** 21–35 h (measured 0.7–1.2 h per filter); parallelizes well.
 
@@ -362,6 +362,7 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 | 2026-10-16 | minor | Correction to G12: quick Image Trace presets trace at once and leave the panel as it was; the Image Trace button in the Control bar or Properties opens the controls (<https://helpx.adobe.com/illustrator/using/image-trace-results-optimization.html>). Wording only; no entry opened or closed, estimates unchanged. |
 | 2026-10-16 | minor | Batch exporting in Export for Screens (#1935): a file name pattern (document and item names, a counter, the date), folders per format, item or both, Layers and Selection tabs with thumbnails, EPS, AI and VectorCraft rows, a PDF row with printer's marks, and export presets (built-in Logo Package and Print-Ready PDF, saved ones); scores and hours unchanged (estimated) |
 | 2026-10-16 | minor | G2: Effect › Sketch › Halftone Pattern (Size, Contrast, Pattern Type Circle, Dot or Line; black ink on white paper, Size in points at any Document Raster Effects resolution); measured Photoshop filters 30/57, 27 remaining (22–38 h). |
+| 2026-10-19 | minor | G2: Effect › Sketch › Note Paper (Image Balance, Graininess, Relief; handmade paper in black and white, Relief in points at any Document Raster Effects resolution); measured Photoshop filters 31/57, 26 remaining (21–37 h). |
 | 2026-10-16 | minor | G1: Smart Guides line extension for a dragged end of a straight segment, at any angle (#2120); estimate unchanged |
 | 2026-10-15 | minor | G1: no busy cursor during long operations, listed; estimate unchanged |
 | 2026-10-17 | minor | Colored Inflate: shared membrane normals and smooth RGB vector ramps replace flat polygon bands; channel groups are batched per solid-fill surface. White-light Inflate retains its original polygons, paint composition and seam joins; the 0.05 seam minimum is restored. Scores and hour estimates unchanged. |

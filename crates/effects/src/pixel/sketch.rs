@@ -4,9 +4,13 @@
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
+use vectorcraft_geom::Point;
+
 use super::pixelate::Place;
-use super::texture::{luma, premultiply, straight};
+use super::texture::{cell_noise, luma, premultiply, smooth_noise, straight};
 use super::{PixelSpace, pick};
+
+const SALT_NOTE: u64 = 120;
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
 pub const HALFTONE_TYPES: [(&str, &str); 3] = [("Circle", "circle"), ("Dot", "dot"), ("Line", "line")];
@@ -66,6 +70,40 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
         } else {
             0.0
         };
+        *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    });
+}
+
+/// Note Paper: the object redrawn as handmade paper — simplified tones (`image_balance` 0..40
+/// shifts light and dark), grain as strong as `graininess` (0..20), embossed as deeply as
+/// `relief` (0..24). Dark areas read as holes in the paper surrounded by white.
+pub(super) fn note_paper(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, image_balance: f64, graininess: f64, relief: f64) {
+    if !(image_balance.is_finite() && graininess.is_finite() && relief.is_finite()) {
+        return;
+    }
+    let Some(place) = Place::new(space, w, h) else { return };
+    let balance = image_balance.clamp(0.0, 40.0);
+    let grain = (graininess / 20.0).clamp(0.0, 1.0);
+    let rel = (relief / 24.0).clamp(0.0, 1.0);
+    // Higher balance leaves more paper white (raises the ink threshold).
+    let threshold = (0.35 + balance / 80.0).clamp(0.1, 0.9);
+    let grain_pt = 1.0 + rel * 2.5;
+    let emboss_pt = 0.75 + rel * 2.0;
+    let step = emboss_pt * 0.35;
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let q = place.at(x, y);
+        let dark = f64::from(1.0 - luma(straight(*p)).clamp(0.0, 1.0));
+        let n = 0.55 * cell_noise(SALT_NOTE, q, grain_pt, 0) + 0.45 * smooth_noise(SALT_NOTE + 1, q, grain_pt * 1.5);
+        let toned = (dark * (1.0 + grain * 0.4 * n)).clamp(0.0, 1.0);
+        let h0 = smooth_noise(SALT_NOTE + 2, q, emboss_pt);
+        let hx = smooth_noise(SALT_NOTE + 2, Point::new(q.x + step, q.y), emboss_pt);
+        let hy = smooth_noise(SALT_NOTE + 2, Point::new(q.x, q.y + step), emboss_pt);
+        let embossed = (toned + rel * 0.35 * (hx - hy + 0.25 * (h0 - 0.5))).clamp(0.0, 1.0);
+        let soft = 0.06 + grain * 0.12;
+        let ink = ((embossed - threshold) / soft + 0.5).clamp(0.0, 1.0);
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
     });
 }
