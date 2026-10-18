@@ -178,7 +178,7 @@ fn effect_menu_lists_the_sketch_filters_between_sharpen_and_stylize() {
     let entries = menus::menu_entries(&app);
     let sketch: Vec<_> = entries.iter().filter(|e| e.path == ["Effect", "Sketch"]).collect();
     let labels: Vec<&str> = sketch.iter().map(|e| e.label.as_str()).collect();
-    assert_eq!(labels, ["Halftone Pattern…"]);
+    assert_eq!(labels, ["Halftone Pattern…", "Stamp…"]);
     assert_eq!(sketch[0].command.as_deref(), Some("effect.dialog"));
     assert_eq!(sketch[0].params, json!({"effect": "sketch.halftonePattern"}));
     let at = |label: &str| entries.iter().position(|e| e.path[0] == "Effect" && e.label == label).unwrap();

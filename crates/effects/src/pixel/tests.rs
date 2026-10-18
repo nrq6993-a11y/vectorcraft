@@ -2005,6 +2005,13 @@ fn halftone(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace
     out
 }
 
+/// Stamp of `p` over `w` × `h` pixels of `src`, laid out by `s`.
+fn stamp(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.stamp", p).apply(&mut out, w, h, s);
+    out
+}
+
 /// The smallest period of `values` (their length when they don't repeat).
 fn period(values: &[u8]) -> usize {
     (1..values.len()).find(|p| values.iter().zip(&values[*p..]).all(|(a, b)| a == b)).unwrap_or(values.len())
@@ -2086,6 +2093,50 @@ fn halftone_contrast_sharpens_the_screen() {
     let hard = halftone(json!({"size": 6, "contrast": 50}), &src, w, h, &space(w, h));
     assert!(mid(&soft) > 0.3, "{}", mid(&soft));
     assert_eq!(mid(&hard), 0.0);
+}
+
+#[test]
+fn stamp_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("sketch.stamp", json!({})), PixelFx::Stamp { light_dark_balance: 5.0, smoothness: 6.0 });
+    assert_eq!(
+        fx("sketch.stamp", json!({"lightDarkBalance": -1, "smoothness": 1e9})),
+        PixelFx::Stamp { light_dark_balance: 0.0, smoothness: 50.0 }
+    );
+    assert_eq!(
+        fx("sketch.stamp", json!({"lightDarkBalance": 99, "smoothness": 0})),
+        PixelFx::Stamp { light_dark_balance: 25.0, smoothness: 1.0 }
+    );
+    let f = fx("sketch.stamp", json!({"smoothness": 12}));
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+    assert_eq!(f.reach(), Some(0.0));
+}
+
+#[test]
+fn stamp_smoothness_and_balance_change_the_drawn_result() {
+    let (w, h) = (64, 32);
+    let src = image(w, h, |x, _| grey((x * 4) as u8));
+    let soft = stamp(json!({"lightDarkBalance": 5, "smoothness": 30}), &src, w, h, &space(w, h));
+    let sharp = stamp(json!({"lightDarkBalance": 5, "smoothness": 1}), &src, w, h, &space(w, h));
+    assert_ne!(soft, sharp, "smoothness changes the stamp");
+    let light = stamp(json!({"lightDarkBalance": 2, "smoothness": 6}), &src, w, h, &space(w, h));
+    let dark = stamp(json!({"lightDarkBalance": 20, "smoothness": 6}), &src, w, h, &space(w, h));
+    assert_ne!(light, dark, "balance changes ink coverage");
+}
+
+#[test]
+fn stamp_draws_in_black_and_white_only() {
+    let (w, h) = (48, 48);
+    let src = image(w, h, |x, y| {
+        let c = [[230u8, 20, 20], [20, 200, 40], [30, 60, 220], [240, 220, 30]][(x / 12) % 4];
+        let a: u16 = if y < 24 { 255 } else { 128 };
+        [c[0], c[1], c[2]].map(|v| (u16::from(v) * a / 255) as u8).into_iter().chain([a as u8]).collect::<Vec<_>>().try_into().unwrap()
+    });
+    let out = stamp(json!({"lightDarkBalance": 8, "smoothness": 6}), &src, w, h, &space(w, h));
+    for (p, q) in out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0) {
+        assert_eq!(p[3], q[3], "coverage kept");
+        assert!(p[0] == p[1] && p[1] == p[2] && (p[0] == 0 || p[0] == p[3]), "{p:?} from {q:?}");
+    }
+    assert!(share(&out, |p| p[0] == 0) > 0.05 && share(&out, |p| p[0] == p[3]) > 0.05, "ink and paper");
 }
 
 /// Halftone Pattern redraws in black ink on white paper, whatever the object's colours, and

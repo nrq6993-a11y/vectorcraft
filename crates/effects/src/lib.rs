@@ -475,6 +475,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             json!({"size": 1.0, "contrast": 5.0, "patternType": "dot"}),
         ),
         r(
+            "sketch.stamp",
+            "Stamp…",
+            SKETCH,
+            "{lightDarkBalance: 0..25 (5; higher draws more midtones as ink), smoothness: 1..50 (6; higher softens edges)} simplifies the object to black ink on white paper like a rubber stamp, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"lightDarkBalance": 5.0, "smoothness": 6.0}),
+        ),
+        r(
             "stylize.glowingEdges",
             "Glowing Edges…",
             STYLIZE,
