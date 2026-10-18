@@ -304,6 +304,9 @@ pub struct UiState {
     /// the icon column (the dock's double arrow, `window.collapseDock`).
     #[serde(default)]
     pub dock_collapsed: bool,
+    /// The icon column shows panel names beside each icon (`window.expandIconColumn`).
+    #[serde(default)]
+    pub icon_column_expanded: bool,
     /// Icon panel currently popped out of the collapsed column (also `properties`, `layers` or
     /// `libraries` while the dock is collapsed).
     pub open_panel: Option<String>,
@@ -760,6 +763,7 @@ impl Default for UiState {
             brightness: Brightness::MediumDark,
             dock_tab: DockTab::Properties,
             dock_collapsed: false,
+            icon_column_expanded: false,
             open_panel: None,
             control_bar: false,
             toolbar: true,

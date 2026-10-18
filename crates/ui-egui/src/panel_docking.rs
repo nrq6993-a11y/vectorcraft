@@ -815,31 +815,33 @@ pub(crate) fn show(app: &mut VectorcraftApp, ui: &mut egui::Ui) -> bool {
 
 fn icon_rail(app: &mut VectorcraftApp, ui: &mut egui::Ui) {
     let t = crate::theme::Tokens::get(ui.ctx());
+    let expanded = app.ui.icon_column_expanded;
     let column = egui::Panel::right("shared-panel-icons")
-        .exact_size(38.0)
+        .exact_size(crate::dock::icon_column_width(expanded))
         .resizable(false)
         .frame(egui::Frame::NONE)
         .show(ui, |ui| {
             crate::theme::card(ui, &t, egui::Margin { left: 3, right: 3, top: 6, bottom: 6 }, |ui| {
-                egui::ScrollArea::vertical().id_salt("shared-panel-icons-scroll").show(ui, |ui| {
-                    ui.spacing_mut().item_spacing.y = 2.0;
-                    for &(id, label, icon) in crate::state::ICON_PANEL_GROUPS
-                        .iter()
-                        .flat_map(|group| group.iter())
-                        .filter_map(|id| crate::state::ICON_PANELS.iter().find(|entry| entry.0 == *id))
-                    {
-                        if app.ui.docking.as_ref().is_some_and(|layout| layout.contains(&id.to_string())) {
-                            continue;
+                let footer_h = 16.0;
+                let scroll_h = (ui.available_height() - footer_h).max(1.0);
+                ui.allocate_ui_with_layout(egui::vec2(ui.available_width(), scroll_h), egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                    egui::ScrollArea::vertical().id_salt("shared-panel-icons-scroll").show(ui, |ui| {
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        for &(id, label, icon) in crate::state::ICON_PANEL_GROUPS
+                            .iter()
+                            .flat_map(|group| group.iter())
+                            .filter_map(|id| crate::state::ICON_PANELS.iter().find(|entry| entry.0 == *id))
+                        {
+                            if app.ui.docking.as_ref().is_some_and(|layout| layout.contains(&id.to_string())) {
+                                continue;
+                            }
+                            crate::dock::panel_icon(app, ui, id, label, icon, expanded);
                         }
-                        let (_, rect) = ui.allocate_space(egui::vec2(30.0, 30.0));
-                        let response = ui.interact(rect, ui.id().with(("panel-icon", id)), egui::Sense::click_and_drag());
-                        let response = crate::widgets::paint_icon_button(ui, response, icon, tl!(label), app.ui.open_panel.as_deref() == Some(id));
-                        if response.clicked() {
-                            app.ui.open_panel = if app.ui.open_panel.as_deref() == Some(id) { None } else { Some(id.into()) };
-                        }
-                        legacy_tab(app, ui, id, &response);
-                    }
+                    });
                 });
+                if crate::dock::icon_column_expand_footer(ui, expanded) {
+                    crate::dock::set_icon_column_expanded(app, !expanded);
+                }
             })
         })
         .response
