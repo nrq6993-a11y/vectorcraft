@@ -66,7 +66,9 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
   them (handles along its tangent, `chord / (3 cos²(α/2))` long) and the ends of an open path mirror
   their neighbour's tangent, so a J or a U curves evenly, a turn tighter than 30° comes to a point,
   and uneven spacing doesn't loop (#1236, in part). The rubber band, dragged, inserted and converted
-  points use the same rule. Re-curving a dragged point's neighbours on an existing path remains open.
+  points use the same rule. **Done (#1236, in part):** dragging a point on an existing path re-curves
+  smooth neighbours on the segments at the drag (`curvature_move`); corner neighbours still scale
+  their handle on that segment only; segments beyond stay unchanged.
 - **Improved:** Eyedropper has an original pipette cursor at its sampling tip; Use Precise
   Cursors keeps the crosshair. Bitmap/DPI and preference checks cover the distinction (#1269).
   OS cursor display and Caps Lock remain unverified.
