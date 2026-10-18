@@ -251,15 +251,20 @@ impl Tool for ShapeTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // A box's size as drawn (from its centre with Alt, square with Shift).
-            let (w, h) = match self.id {
-                "polygon" | "star" | "lineSegment" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
-                _ => {
-                    let r = drag_rect(s, self.last, self.mods);
-                    (r.width(), r.height())
-                }
+            let text = if self.id == "lineSegment" {
+                cx.line_measure_label(s, self.last)
+            } else {
+                // A box's size as drawn (from its centre with Alt, square with Shift).
+                let (w, h) = match self.id {
+                    "polygon" | "star" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
+                    _ => {
+                        let r = drag_rect(s, self.last, self.mods);
+                        (r.width(), r.height())
+                    }
+                };
+                cx.size_label(w, h)
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -284,7 +289,8 @@ impl Tool for ShapeTool {
 mod tests {
     use super::*;
     use crate::testutil::*;
-    use vectorcraft_doc::Selection;
+    use vectorcraft_doc::{Document, Selection};
+    use vectorcraft_geom::Point;
 
     #[test]
     fn rect_drag() {
@@ -422,5 +428,21 @@ mod tests {
         let shift = Mods { shift: true, ..Mods::default() };
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 203.0, 302.0).with_mods(shift));
         assert!(matches!(&a[..], [_, Action::Preview(_, v)] if v["x2"] == 200.0 && (v["y2"].as_f64().unwrap() - 300.0).abs() < 1e-9), "{a:?}");
+    }
+
+    #[test]
+    fn line_segment_shows_distance_angle_and_offset_while_drawing() {
+        let d = Document::new(800.0, 600.0);
+        let s = Selection::default();
+        let p = paint();
+        let cx = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let mut t = ShapeTool::new("lineSegment");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 200.0, 150.0));
+        let want = cx.line_measure_label(Point::new(100.0, 100.0), Point::new(200.0, 150.0));
+        assert!(
+            t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+            "want {want:?}"
+        );
     }
 }
