@@ -1695,3 +1695,13 @@ fn a_straight_segment_dragged_by_direct_selection_lands_on_a_ruler_guide() {
         s.execute("edit.undo", &json!({})).unwrap();
     }
 }
+
+#[test]
+fn open_documents_as_tabs_roundtrips_through_prefs_set() {
+    let mut s = Session::new();
+    assert!(s.prefs.open_documents_as_tabs);
+    set_pref(&mut s, "openDocumentsAsTabs", json!(false));
+    assert!(!s.prefs.open_documents_as_tabs);
+    set_pref(&mut s, "openDocumentsAsTabs", json!(true));
+    assert!(s.prefs.open_documents_as_tabs);
+}
