@@ -1,12 +1,13 @@
-//! Effect › Sketch › Halftone Pattern. Original filter built from public behaviour documentation:
+//! Effect › Sketch (Halftone Pattern, Photocopy). Original filters built from public behaviour documentation:
 //! <https://helpx.adobe.com/illustrator/using/summary-effects.html> (Sketch effects redraw in
 //! black and white; Halftone Pattern simulates a halftone screen while keeping the range of tones)
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
+use super::edges::sobel;
 use super::pixelate::Place;
 use super::texture::{luma, premultiply, straight};
-use super::{PixelSpace, pick};
+use super::{PixelSpace, blur_plane, pick};
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
 pub const HALFTONE_TYPES: [(&str, &str); 3] = [("Circle", "circle"), ("Dot", "dot"), ("Line", "line")];
@@ -68,4 +69,51 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
         };
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
     });
+}
+
+/// How far (document units) Photocopy's softened tones and edges reach at `detail` (1..24).
+pub(super) fn photocopy_reach(detail: f64) -> f64 {
+    let detail = if detail.is_finite() { detail.clamp(1.0, 24.0) } else { 10.0 };
+    3.0 * photocopy_sigma_pt(detail) + 1.0
+}
+
+/// The σ (document units) of the blur that sets how fine Photocopy's detail is.
+fn photocopy_sigma_pt(detail: f64) -> f64 {
+    let detail = detail.clamp(1.0, 24.0);
+    0.35 * (25.0 - detail) / detail
+}
+
+/// Photocopy: the object redrawn as a high-contrast black photocopy on white paper. `detail`
+/// (1..24) keeps finer edges; `darkness` (1..50) fills more of the page with ink. Coverage is
+/// kept.
+pub(super) fn photocopy(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, detail: f64, darkness: f64) {
+    if !(detail.is_finite() && darkness.is_finite() && space.px.is_finite() && space.px > 0.0) || w == 0 || h == 0 || w.checked_mul(h) != Some(px.len()) {
+        return;
+    }
+    let detail = detail.clamp(1.0, 24.0);
+    let darkness = darkness.clamp(1.0, 50.0);
+    let src = px.to_vec();
+    let tone: Vec<f32> = src
+        .iter()
+        .map(|p| {
+            let a = f32::from(p[3]) / 255.0;
+            (1.0 - luma(straight(*p))) * a
+        })
+        .collect();
+    let mut smooth = tone.clone();
+    blur_plane(&mut smooth, w, h, photocopy_sigma_pt(detail) / space.px);
+    let edges = sobel(&tone, w, h);
+    let edge_gain = (0.15 + 0.85 * (detail - 1.0) / 23.0) as f32;
+    let fill = (0.08 + 0.92 * (darkness - 1.0) / 49.0) as f32;
+    let threshold = (0.18 + 0.62 * (1.0 - (detail - 1.0) / 23.0) - 0.004 * (darkness - 1.0)) as f32;
+    for (p, ((t, s), e)) in px.iter_mut().zip(tone.iter().zip(&smooth).zip(&edges)) {
+        if p[3] == 0 {
+            continue;
+        }
+        let high = (*t - *s).abs();
+        let edge = (*e / 4.0).clamp(0.0, 1.0);
+        let signal = (high + edge_gain * edge + fill * *t).clamp(0.0, 1.0);
+        let ink = if signal > threshold { 1.0 } else { 0.0 };
+        *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    }
 }

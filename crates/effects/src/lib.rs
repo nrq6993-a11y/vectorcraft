@@ -154,6 +154,7 @@ fn lengths_of(id: &str) -> Lengths {
         "texture.patchwork" => always(&["squareSize"]),
         "texture.stainedGlass" => always(&["cellSize"]),
         "sketch.halftonePattern" => always(&["size"]),
+        "sketch.photocopy" => Lengths::default(),
         RASTERIZE => always(&["addAround"]),
         _ => Lengths::default(),
     }
@@ -473,6 +474,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             SKETCH,
             "{size: pt 1..12 (1; how far apart the screen's dots, rings or lines are), contrast: 0..50 (5; 50 draws pure black and white), patternType: \"circle\"|\"dot\"|\"line\" (\"dot\"; rings round the object's centre, dots on a square grid, horizontal lines)} redraws the object in black ink on white paper through a halftone screen whose ink covers as much as the colour is dark, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
             json!({"size": 1.0, "contrast": 5.0, "patternType": "dot"}),
+        ),
+        r(
+            "sketch.photocopy",
+            "Photocopy…",
+            SKETCH,
+            "{detail: 1..24 (10; finer edges and texture), darkness: 1..50 (10; more of the page filled with black ink)} redraws the object as a high-contrast black photocopy on white paper, keeping its coverage. Original visual approximation based on public Sketch filter documentation.",
+            json!({"detail": 10.0, "darkness": 10.0}),
         ),
         r(
             "stylize.glowingEdges",

@@ -2129,6 +2129,56 @@ fn ramp(w: usize, h: usize) -> Vec<u8> {
     })
 }
 
+fn photocopy(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.photocopy", p).apply(&mut out, w, h, s);
+    out
+}
+
+#[test]
+fn photocopy_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("sketch.photocopy", json!({})), PixelFx::Photocopy { detail: 10.0, darkness: 10.0 });
+    assert_eq!(
+        fx("sketch.photocopy", json!({"detail": 0, "darkness": 1e308})),
+        PixelFx::Photocopy { detail: 1.0, darkness: 50.0 }
+    );
+    assert_eq!(
+        fx("sketch.photocopy", json!({"detail": 99, "darkness": -5})),
+        PixelFx::Photocopy { detail: 24.0, darkness: 1.0 }
+    );
+    for junk in [json!({"detail": "x"}), json!({"darkness": []})] {
+        assert_eq!(fx("sketch.photocopy", junk), fx("sketch.photocopy", json!({})));
+    }
+    let f = fx("sketch.photocopy", json!({"detail": 20}));
+    assert!(f.reach().unwrap() > 0.0);
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+}
+
+#[test]
+fn photocopy_detail_and_darkness_change_how_much_ink_appears() {
+    let (w, h) = (64, 48);
+    let src = ramp(w, h);
+    let ink = |d: &[u8]| share(d, |p| p[0] == 0 && p[3] > 0);
+    let fine = photocopy(json!({"detail": 24, "darkness": 5}), &src, w, h, &space(w, h));
+    let coarse = photocopy(json!({"detail": 2, "darkness": 5}), &src, w, h, &space(w, h));
+    assert!(ink(&fine) > ink(&coarse), "detail: {} vs {}", ink(&fine), ink(&coarse));
+    let light = photocopy(json!({"detail": 10, "darkness": 2}), &src, w, h, &space(w, h));
+    let heavy = photocopy(json!({"detail": 10, "darkness": 40}), &src, w, h, &space(w, h));
+    assert!(ink(&heavy) > ink(&light), "darkness: {} vs {}", ink(&heavy), ink(&light));
+}
+
+#[test]
+fn photocopy_draws_in_black_and_white_only_and_keeps_coverage() {
+    let (w, h) = (48, 48);
+    let src = ramp(w, h);
+    let out = photocopy(json!({"detail": 14, "darkness": 18}), &src, w, h, &space(w, h));
+    for (p, q) in out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0) {
+        assert_eq!(p[3], q[3]);
+        assert!(p[0] == p[1] && p[1] == p[2] && (p[0] == 0 || p[0] == p[3]), "{p:?}");
+    }
+    assert!(share(&out, |p| p[0] == 0) > 0.05 && share(&out, |p| p[0] == p[3]) > 0.05);
+}
+
 #[test]
 fn artistic_params_take_defaults_and_stay_in_range() {
     assert_eq!(fx("artistic.cutout", json!({})), PixelFx::Cutout { levels: 4.0, simplicity: 4.0, fidelity: 2.0 });
