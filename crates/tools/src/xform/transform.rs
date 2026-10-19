@@ -215,7 +215,7 @@ impl Tool for TransformTool {
                 let (m, text) = self.matrix_for(d.origin, d.pick, p, ev.mods.shift, d.bounds);
                 d.last = m;
                 self.drag = Some(d);
-                self.measure = cx.transform_tools_guides.then(|| (p, text));
+                self.measure = cx.transform_tools_guides.then_some((p, text));
                 out.push(preview(m, ev.mods.alt));
                 out
             }
