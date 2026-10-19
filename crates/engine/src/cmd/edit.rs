@@ -103,7 +103,7 @@ pub fn specs() -> Vec<CommandSpec> {
             undo_group_end
         ),
         cmd!("edit.cut", "Cut", ["Edit"], Some("Cmd+X"), "{} (the Artboard tool chosen: artboard.cut)", has_selection_or_artboard_tool, cut),
-        cmd!("edit.copy", "Copy", ["Edit"], Some("Cmd+C"), "{} (the Artboard tool chosen: artboard.copy)", has_selection_or_artboard_tool, copy),
+        cmd!("edit.copy", "Copy", ["Edit"], Some("Cmd+C"), "{} (the Artboard tool chosen: artboard.copy; the Measure tool chosen: {text})", can_copy, copy),
         cmd!(
             "edit.paste",
             "Paste",
@@ -515,6 +515,9 @@ fn copy(s: &mut Session, _: &Value) -> Result<Value> {
     // The Artboard tool copies its artboard (and the art on it).
     if s.tool_id() == "artboard" {
         return super::panelcmds::artboard_copy(s, &json!({}), false);
+    }
+    if let Some(text) = super::measure_readout(s) {
+        return Ok(json!({ "text": text }));
     }
     let roots = selected_roots(s)?;
     s.clipboard = Clipboard::copy(s.doc()?, &roots);

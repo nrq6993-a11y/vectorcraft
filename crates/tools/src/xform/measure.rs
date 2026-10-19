@@ -3,6 +3,7 @@
 //! document is never changed.
 
 use serde_json::{Value, json};
+use vectorcraft_doc::Unit;
 use vectorcraft_geom::{Point, Vec2};
 
 use super::CYAN;
@@ -18,6 +19,12 @@ pub struct MeasureTool {
 pub fn measure(a: Point, b: Point) -> (f64, f64, f64, f64) {
     let d = b - a;
     (d.hypot(), (-d.y).atan2(d.x).to_degrees(), d.x, d.y)
+}
+
+/// The on-canvas measurement label and Measure-tool copy text, in the General unit.
+pub fn readout_text(unit: Unit, dist: f64, ang: f64, dx: f64, dy: f64) -> String {
+    let len = |v: f64| unit.readout(v);
+    format!("D: {}\nAngle: {ang:.1}°\ndX: {}\ndY: {}", len(dist), len(dx), len(dy))
 }
 
 impl Tool for MeasureTool {
@@ -62,7 +69,7 @@ impl Tool for MeasureTool {
             Overlay::Line { a, b, color: CYAN, dashed: false },
             Overlay::Measure {
                 p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                text: format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy)),
+                text: readout_text(cx.unit, dist, ang, dx, dy),
             },
         ]
     }

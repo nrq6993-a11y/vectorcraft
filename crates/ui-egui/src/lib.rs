@@ -769,7 +769,11 @@ impl VectorcraftApp {
         }
         let r = self.session.execute(id, &params).map_err(|e| e.to_string());
         if r.is_ok() && matches!(id, "edit.copy" | "edit.cut") {
-            self.publish_clipboard();
+            if let Some(text) = r.as_ref().ok().and_then(|v| v.get("text").and_then(|t| t.as_str())) {
+                self.clipboard_out = Some(text.to_string());
+            } else {
+                self.publish_clipboard();
+            }
         }
         self.sync_views();
         match &r {

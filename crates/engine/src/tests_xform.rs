@@ -1012,6 +1012,23 @@ fn measure_tool_leaves_document_untouched() {
 }
 
 #[test]
+fn measure_tool_copy_returns_readout_text() {
+    let mut s = session();
+    gesture(&mut s, "measure", &[(0.0, 0.0), (30.0, 40.0), (30.0, 40.0)], Mods::default());
+    assert!(s.execute("edit.copy", &json!({})).is_ok());
+    let out = s.execute("edit.copy", &json!({})).unwrap();
+    assert!(out.get("copied").is_none());
+    let text = out["text"].as_str().unwrap();
+    assert!(text.starts_with("D: 50.00 pt"));
+    assert!(text.contains("Angle: -53.1°"));
+    assert!(text.contains("dX: 30.00 pt"));
+    assert!(text.contains("dY: 40.00 pt"));
+    assert!(s.execute("edit.copy", &json!({})).is_ok(), "copy stays enabled with a readout on screen");
+    s.select_tool("selection", ViewInfo::default()).unwrap();
+    assert!(s.execute("edit.copy", &json!({})).is_err(), "needs a selection again");
+}
+
+#[test]
 fn copy_from_requires_source() {
     let mut s = session();
     assert!(s.execute("appearance.copyFrom", &json!({})).is_err());
