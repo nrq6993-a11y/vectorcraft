@@ -170,7 +170,12 @@ impl Tool for CutTool {
         let Some(a) = self.start else { return vec![] };
         let b = self.end;
         if self.id == "rectCut" {
-            return vec![Overlay::Marquee(drag_rect(a, b, self.mods))];
+            let r = drag_rect(a, b, self.mods);
+            let mut o = vec![Overlay::Marquee(r)];
+            if self.began && cx.measurement_labels {
+                o.push(Overlay::Measure { p: b, text: cx.size_label(r.width(), r.height()) });
+            }
+            return o;
         }
         // The axis and the cut line run across the art: draw them across the view.
         let d = match (self.id, self.axis) {
@@ -283,6 +288,23 @@ mod tests {
         assert!(matches!(&a[1], Action::Preview(_, v) if v["axis"] == "vertical" && v["from"] == json!([140.0, 150.0]) && v["keep"] == "right"));
         t.set_option("axis", &json!("diagonal"));
         assert_eq!(t.axis, "vertical");
+    }
+
+    #[test]
+    fn rect_cut_measurement_labels_follow_preference() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let measures = |labels: bool| {
+            let c = ToolContext { measurement_labels: labels, ..cx(&d, &s, &p) };
+            let mut t = CutTool::new("rectCut");
+            t.pointer(&c, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+            t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 200.0, 160.0));
+            t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { .. }))
+        };
+        assert!(measures(true));
+        assert!(!measures(false));
     }
 
     #[test]
