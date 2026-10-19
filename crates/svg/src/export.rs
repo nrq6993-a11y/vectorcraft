@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use vectorcraft_color::{BlendMode, GradientKind, GradientPaint, Paint};
 use vectorcraft_doc::{
-    AppearanceItem, Document, FillLayer, LineCap, LineJoin, Node, NodeId, NodeKind, SVG_EVENTS, StrokeAlign, StrokeLayer, TextKind, TextObject,
+    AppearanceItem, Document, FillLayer, LineCap, LineJoin, Node, NodeId, NodeKind, SVG_EVENTS, StrokeAlign, StrokeLayer, TextKind, TextObject, Unit,
 };
 use vectorcraft_doc::{CharStyle, ImageBlob, Justify};
 use vectorcraft_effects::stroke::{self, Written, WrittenShape};
@@ -35,6 +35,19 @@ pub(crate) fn export(doc: &Document, opts: &ExportOptions, native: Option<&[u8]>
     write(doc, opts, native, &prefix)
 }
 
+/// The unit suffix on the root `width` / `height` when the document uses an SVG absolute length
+/// (as on import); `None` keeps unitless user units (one per point).
+fn svg_root_length_suffix(unit: Unit) -> Option<&'static str> {
+    match unit {
+        Unit::Millimeters => Some("mm"),
+        Unit::Centimeters => Some("cm"),
+        Unit::Inches => Some("in"),
+        Unit::Picas => Some("pc"),
+        Unit::Pixels | Unit::Points => None,
+        _ => None,
+    }
+}
+
 fn write(doc: &Document, opts: &ExportOptions, native: Option<&[u8]>, id_prefix: &str) -> Output {
     let rect = opts
         .artboard
@@ -43,10 +56,11 @@ fn write(doc: &Document, opts: &ExportOptions, native: Option<&[u8]>, id_prefix:
         .or_else(|| doc.art_bounds())
         .or_else(|| doc.artboards.first().map(|a| a.rect))
         .unwrap_or(Rect::new(0.0, 0.0, 1.0, 1.0));
+    let user_per_pt = svg_root_length_suffix(doc.units).map(|_| 1.0 / doc.units.points()).unwrap_or(1.0);
     let mut w = Writer {
         doc,
         opts,
-        xf: Affine::translate((-rect.x0, -rect.y0)),
+        xf: Affine::translate((-rect.x0, -rect.y0)) * Affine::scale(user_per_pt),
         body: String::new(),
         defs: String::new(),
         classes: Vec::new(),
@@ -106,13 +120,17 @@ fn write(doc: &Document, opts: &ExportOptions, native: Option<&[u8]>, id_prefix:
         }
         out.push_str(&format!("{nl}]>{nl}"));
     }
-    let (ww, hh) = (w.num(rect.width()), w.num(rect.height()));
+    let (ww, hh) = (w.num(rect.width() * user_per_pt), w.num(rect.height() * user_per_pt));
+    let (width_attr, height_attr) = match svg_root_length_suffix(doc.units) {
+        Some(suf) => (format!("{ww}{suf}"), format!("{hh}{suf}")),
+        None => (ww.clone(), hh.clone()),
+    };
     out.push_str("<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
     if w.tiny() {
         out.push_str(" version=\"1.2\" baseProfile=\"tiny\"");
     }
     if !opts.responsive {
-        out.push_str(&format!(" width=\"{ww}\" height=\"{hh}\""));
+        out.push_str(&format!(" width=\"{width_attr}\" height=\"{height_attr}\""));
     }
     out.push_str(&format!(" viewBox=\"0 0 {ww} {hh}\">{nl}"));
     let css = opts.styling == Styling::InternalCss && !w.classes.is_empty();

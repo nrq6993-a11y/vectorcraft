@@ -178,8 +178,9 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
   Axis).
 - **Missing (noted for reporters, 2026-10-14):** deleting an interior anchor of an open path joins across the gap,
   where the documented behaviour removes the point and its connecting segments. Inside the estimate below.
+- **Done:** SVG export keeps the document ruler units on the root `width`/`height` with matching viewBox scaling (#864).
 - **Missing:** Shape Builder misses planar regions and targets whole shapes (#937); Transform effect dialog's invisible checkboxes and missing options (#885);
-  PDF text boxes moving on open (#722); SVG units reverting to points (#864); bezier drag preview freezing (#834).
+  PDF text boxes moving on open (#722); bezier drag preview freezing (#834).
 - **Impact:** wrong output in everyday work.
 - **Estimate:** 8–15 h.
 
