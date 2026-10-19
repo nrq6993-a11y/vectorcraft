@@ -21,13 +21,13 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather, Zig Zag) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::Paint;
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
 
@@ -36,10 +36,20 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 8] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, FEATHER];
+const PLAIN: [&str; 9] = [
+    "Chain Style Filter",
+    "Stack Style Filter",
+    "Stroke Style Filter",
+    "Fill Style Filter",
+    "Conduit Filter",
+    "Blend Style Filter",
+    GLOW,
+    FEATHER,
+    ZIGZAG,
+];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
+const ZIGZAG: &str = "Adobe Zig Zag"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -308,7 +318,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == FEATHER || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == FEATHER || f.name == ZIGZAG || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -337,6 +347,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
                 params: json!({"radius": param("rad").or_else(|| param("radius")).filter(|v| v.is_finite()).unwrap_or(5.0)}),
                 visible: true,
             }),
+            ZIGZAG => effects.push(Effect { id: "distort.zigZag".into(), params: zig_zag_params(&param), visible: true }),
             SHADOW => {
                 let mut params = json!({
                     "mode": mode(1),
@@ -360,6 +371,15 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     ArtStyle { plain, items, effects }
+}
+
+/// LiveEffect XML for Zig Zag (`size`, `absoluteness`, `ridges`, `roundness`; public scripting notes).
+fn zig_zag_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let size = param("size").or_else(|| param("asiz")).filter(|v| v.is_finite()).unwrap_or(10.0);
+    let relative = param("absoluteness").unwrap_or(1.0) == 0.0;
+    let ridges = param("ridges").filter(|v| v.is_finite()).map(|v| v.clamp(0.0, 100.0)).unwrap_or(4.0);
+    let points = if param("roundness").unwrap_or(1.0) <= 0.0 { "corner" } else { "smooth" };
+    json!({"size": size, "relative": relative, "ridges": ridges, "points": points})
 }
 
 #[cfg(test)]
@@ -469,6 +489,30 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_zig_zag_style_reads_its_size_ridges_and_points() {
+        let data = b"/KnownStyle :\n(Wavy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Zig Zag) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n12 /Real (size) ,\n6 /Real (ridges) ,\n1 /Int (absoluteness) ,\n0 /Int (roundness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Wavy").unwrap_or_default();
+        let [zig] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (zig.id.as_str(), &zig.params["size"], &zig.params["ridges"], &zig.params["relative"], &zig.params["points"]),
+            ("distort.zigZag", &json!(12.0), &json!(6.0), &json!(false), &json!("corner"))
+        );
+    }
+
+    #[test]
+    fn a_zig_zag_style_defaults_and_reads_relative_size() {
+        let data = b"/KnownStyle :\n(Wavy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Zig Zag) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n8 /Real (asiz) ,\n0 /Int (absoluteness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Wavy").unwrap_or_default();
+        let [zig] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (zig.params["size"].as_f64(), zig.params["ridges"].as_f64(), zig.params["relative"].as_bool(), zig.params["points"].as_str()),
+            (Some(8.0), Some(4.0), Some(true), Some("smooth"))
+        );
     }
 
     #[test]
