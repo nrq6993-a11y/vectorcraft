@@ -6,7 +6,7 @@
 //! `path.reshape` adds an anchor there if needed and moves the neighbourhood smoothly.
 
 use serde_json::{Value, json};
-use vectorcraft_geom::{Point, Vec2};
+use vectorcraft_geom::{Point, Rect, Vec2};
 
 use crate::distort::{BLUE, ellipse_path};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -386,11 +386,17 @@ impl Tool for ShaperTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         if self.points.len() < 2 {
             return vec![];
         }
-        vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }]
+        let mut o = vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }];
+        if cx.measurement_labels {
+            let r = self.points.iter().fold(Rect::from_points(self.points[0], self.points[0]), |b, p| b.union_pt(*p));
+            let p = self.points.last().copied().unwrap_or(self.points[0]);
+            o.push(Overlay::Measure { p, text: cx.size_label(r.width(), r.height()) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Shaper
@@ -501,6 +507,24 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn shaper_shows_bbox_in_measurement_labels() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = ShaperTool::default();
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 50.0, 30.0));
+        let want = on.size_label(40.0, 20.0);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
