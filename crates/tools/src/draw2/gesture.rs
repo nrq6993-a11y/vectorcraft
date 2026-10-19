@@ -320,6 +320,18 @@ impl Tool for GestureTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
+        if self.id == "paintbrush"
+            && self.active
+            && self.began
+            && self.points.len() >= 2
+            && cx.measurement_labels
+            && let Some(p) = self.points.last()
+        {
+            o.push(Overlay::Measure {
+                p: *p,
+                text: format!("D: {}", cx.stroke_unit.readout(cx.paint.stroke_width)),
+            });
+        }
         if !self.active || self.points.len() < 2 || self.began {
             return o;
         }
@@ -378,6 +390,7 @@ impl Tool for GestureTool {
 mod tests {
     use super::*;
     use crate::testutil::*;
+    use crate::PaintDefaults;
     use vectorcraft_doc::Selection;
 
     fn drag(t: &mut GestureTool, cx: &ToolContext, pts: &[(f64, f64)], m: Mods) -> Vec<Vec<Action>> {
@@ -447,6 +460,31 @@ mod tests {
         assert!(matches!(&last[0], Action::Preview(_, v) if v["closed"] == false && v["style"] == "pencil"));
         assert_eq!(last[1], Action::Commit);
         assert!(!t.busy());
+    }
+
+    /// The Paintbrush shows the new-art stroke width in measurement labels while drawing.
+    #[test]
+    fn paintbrush_shows_diameter_in_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = PaintDefaults { stroke_width: 5.0, ..paint() };
+        let cx = cx(&d, &s, &p);
+        let measure = |t: &GestureTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut brush = GestureTool::new("paintbrush");
+        brush.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        brush.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 30.0, 10.0));
+        assert_eq!(measure(&brush, &cx).as_deref(), Some("D: 5.00 pt"));
+        let quiet = ToolContext { measurement_labels: false, ..crate::testutil::cx(&d, &s, &p) };
+        assert!(measure(&brush, &quiet).is_none());
+        let mut pencil = GestureTool::new("pencil");
+        pencil.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        pencil.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 5.0, 0.0));
+        assert!(measure(&pencil, &cx).is_none());
     }
 
     /// Keep selected is on by default, and every Pencil and Paintbrush preview sends it.
