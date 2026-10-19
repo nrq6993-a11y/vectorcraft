@@ -13,6 +13,15 @@ use crate::guides::{DrawSnap, Leave, square};
 use crate::shape::drag_rect;
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
 
+/// Distance, angle and offset between two points (same readout as the Measure tool).
+fn draw_measure_label(cx: &ToolContext, a: Point, b: Point) -> String {
+    let d = b - a;
+    let dist = d.hypot();
+    let ang = (-d.y).atan2(d.x).to_degrees();
+    let (dx, dy) = (d.x, d.y);
+    format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy))
+}
+
 pub struct FamilyTool {
     id: &'static str,
     start: Option<Point>,
@@ -200,10 +209,14 @@ impl Tool for FamilyTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // The size as drawn (from the centre with Alt, square with Shift).
-            let r = drag_rect(s, self.last, self.mods);
-            let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = if self.id == "spiral" {
+                draw_measure_label(cx, s, self.last)
+            } else {
+                // The size as drawn (from the centre with Alt, square with Shift).
+                let r = drag_rect(s, self.last, self.mods);
+                cx.size_label(r.width(), r.height())
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -309,6 +322,25 @@ mod tests {
         t.set_option("frame", &json!(false));
         t.set_option("rowSkew", &json!(12.5));
         assert_eq!(t.options(), json!({"rows": 5, "columns": 5, "rowSkew": 12.5, "columnSkew": 0.0, "frame": false, "fill": false}));
+    }
+
+    #[test]
+    fn spiral_drag_shows_distance_and_angle_in_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = FamilyTool::new("spiral");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 30.0, 40.0));
+        let want = draw_measure_label(&cx, Point::new(0.0, 0.0), Point::new(30.0, 40.0));
+        assert!(
+            t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+            "{:?}",
+            t.overlays(&cx)
+        );
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert!(t.overlays(&quiet).is_empty());
     }
 
     #[test]
