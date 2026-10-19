@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 use vectorcraft_doc::{Document, Node, NodeId, PuppetPin, PuppetPins};
-use vectorcraft_geom::{BezPath, Point, Rect};
+use vectorcraft_geom::{BezPath, Point, Rect, Vec2};
 
 use super::arap::{self, Mesh, MeshOptions, default_pins};
 use super::{BLUE, collect_points, warp_node_with};
@@ -466,6 +466,28 @@ impl Tool for PuppetWarpTool {
         if let Some(p) = self.off_mesh {
             out.push(Overlay::Label { p, text: OFF_MESH.into(), color: WARN });
         }
+        if cx.measurement_labels {
+            match self.drag {
+                Some(Gesture::Move { from, to }) => {
+                    let d = to - from;
+                    if d.hypot() > 1e-9 {
+                        out.push(Overlay::Measure {
+                            p: to + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                            text: cx.offset_label(d.x, d.y),
+                        });
+                    }
+                }
+                Some(Gesture::Turn { angle, .. }) if angle.abs() > 1e-9 => {
+                    if let Some((p, _)) = self.hover {
+                        out.push(Overlay::Measure {
+                            p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                            text: format!("{:.1}°", -angle.to_degrees()),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
         out
     }
     fn cursor(&self, cx: &ToolContext, p: Point, mods: Mods) -> Cursor {
@@ -649,6 +671,23 @@ mod tests {
         r.key(ToolKey::Delete);
         assert_eq!(r.pins().len(), 3);
         assert!(!r.claims(ToolKey::Delete), "nothing selected: Delete is Clear's");
+    }
+
+    #[test]
+    fn puppet_pin_drag_measurement_labels_follow_the_preference() {
+        let mut r = Rig::new();
+        r.click(130.0, 170.0, Mods::default());
+        r.ev(PointerKind::Down, 130.0, 170.0, Mods::default());
+        r.ev(PointerKind::Drag, 120.0, 190.0, Mods::default());
+        let p = paint();
+        let on = cx(&r.doc, &r.sel, &p);
+        assert!(
+            r.tool.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &on.offset_label(-10.0, 20.0))),
+            "move readout"
+        );
+        let off = ToolContext { measurement_labels: false, ..on };
+        assert!(!r.tool.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        r.ev(PointerKind::Up, 120.0, 190.0, Mods::default());
     }
 
     #[test]
