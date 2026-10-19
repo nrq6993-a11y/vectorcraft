@@ -251,15 +251,20 @@ impl Tool for ShapeTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // A box's size as drawn (from its centre with Alt, square with Shift).
-            let (w, h) = match self.id {
-                "polygon" | "star" | "lineSegment" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
-                _ => {
-                    let r = drag_rect(s, self.last, self.mods);
-                    (r.width(), r.height())
-                }
-            };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            if self.id == "lineSegment" {
+                let (a, b) = if self.mods.alt { (s - (self.last - s), self.last) } else { (s, self.last) };
+                o.push(Overlay::Measure { p: self.last, text: cx.line_measure_label(a, b) });
+            } else {
+                // A box's size as drawn (from its centre with Alt, square with Shift).
+                let (w, h) = match self.id {
+                    "polygon" | "star" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
+                    _ => {
+                        let r = drag_rect(s, self.last, self.mods);
+                        (r.width(), r.height())
+                    }
+                };
+                o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            }
         }
         o
     }
@@ -422,5 +427,12 @@ mod tests {
         let shift = Mods { shift: true, ..Mods::default() };
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 203.0, 302.0).with_mods(shift));
         assert!(matches!(&a[..], [_, Action::Preview(_, v)] if v["x2"] == 200.0 && (v["y2"].as_f64().unwrap() - 300.0).abs() < 1e-9), "{a:?}");
+        // A diagonal line shows length and angle, not W/H of its bounding box.
+        let mut t = ShapeTool::new("lineSegment");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 30.0, 40.0));
+        let label = cx.line_measure_label(Point::new(0.0, 0.0), Point::new(30.0, 40.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &label)));
+        assert!(!label.contains("W:"));
     }
 }
