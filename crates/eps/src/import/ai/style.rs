@@ -21,24 +21,26 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Free Distort) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::Paint;
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
+use vectorcraft_effects::merged_params;
 
 use super::lex::{Lexer, Tok};
 use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 7] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW];
+const PLAIN: [&str; 8] =
+    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, FREE_DISTORT];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
+const FREE_DISTORT: &str = "Adobe Free Distort"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -307,7 +309,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == FREE_DISTORT || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -349,10 +351,28 @@ fn style(filters: &[Filter]) -> ArtStyle {
                 }
                 effects.push(Effect { id: "stylize.dropShadow".into(), params, visible: true });
             }
+            FREE_DISTORT => effects.push(Effect { id: "distort.freeDistort".into(), params: free_distort_params(&param), visible: true }),
             _ => {}
         }
     }
     ArtStyle { plain, items, effects }
+}
+
+/// LiveEffect keys for Free Distort (`dst0h`…`dst3v`; public `applyEffect` XML). Corners are TL, TR, BL, BR;
+/// `v` is negated when mapped into the unit box (y down), then reordered to TL, TR, BR, BL for `distort.freeDistort`.
+fn free_distort_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let corner = |h: &str, v: &str, default: (f64, f64)| {
+        let x = param(h).filter(|n| n.is_finite()).unwrap_or(default.0);
+        let y = param(v).filter(|n| n.is_finite()).map(|n| -n).unwrap_or(default.1);
+        [x, y]
+    };
+    let corners = json!([
+        corner("dst0h", "dst0v", (0.0, 0.0)),
+        corner("dst1h", "dst1v", (1.0, 0.0)),
+        corner("dst3h", "dst3v", (1.0, 1.0)),
+        corner("dst2h", "dst2v", (0.0, 1.0)),
+    ]);
+    merged_params("distort.freeDistort", &json!({"corners": corners}))
 }
 
 #[cfg(test)]
@@ -438,6 +458,32 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_free_distort_style_reads_corner_positions() {
+        let data = b"/KnownStyle :\n(Warped) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            0 /Real (dst0h) ,\n0 /Real (dst0v) ,\n1.1 /Real (dst1h) ,\n0 /Real (dst1v) ,\n0 /Real (dst2h) ,\n-1 /Real (dst2v) ,\n1 /Real (dst3h) ,\n-0.9 /Real (dst3v) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Warped"];
+        assert!(style.plain, "{style:?}");
+        let [fx] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(fx.id, "distort.freeDistort");
+        assert_eq!(
+            fx.params["corners"],
+            json!([[0.0, 0.0], [1.1, 0.0], [1.0, 0.9], [0.0, 1.0]])
+        );
+    }
+
+    #[test]
+    fn a_free_distort_style_without_corners_is_identity() {
+        let data = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Flat"];
+        assert!(style.plain);
+        let [fx] = style.effects.as_slice() else { panic!() };
+        assert_eq!(fx.params["corners"], json!([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]));
     }
 
     #[test]
