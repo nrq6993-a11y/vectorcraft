@@ -249,11 +249,15 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
     let Some(st) = app.session.active() else { return };
     let doc = st.doc.clone();
     let mask_view = st.shown_mask();
+    // Performance › Real-time Drawing and Editing (#394): off, only path outlines while an
+    // interaction is in progress (a tool drag or a dialog's preview).
+    let perf_outline = !app.session.prefs.real_time_drawing && st.interaction.is_some();
+    let outline = app.ui.view.outline || perf_outline;
 
     // Pasteboard, artboard shadows and paper (Document Setup: the transparency grid's look, the
     // simulated paper colour; a white Background Contents hides the grid).
     painter.rect_filled(rect, 0.0, t.pasteboard);
-    if app.ui.view.artboards && !app.ui.view.outline {
+    if app.ui.view.artboards && !outline {
         let setup = &doc.setup;
         let grid = (st.transparency_grid && setup.background == vectorcraft_doc::Background::Transparent).then(|| checker_texture(ui.ctx(), setup));
         let paper = if setup.simulate_paper { crate::panels::c32(&setup.paper()) } else { Color32::WHITE };
@@ -270,7 +274,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
                 }
             }
         }
-    } else if app.ui.view.outline {
+    } else if outline {
         for ab in &doc.artboards {
             painter.add(Shape::convex_polygon(xf.quad(ab.rect), Color32::WHITE, Stroke::NONE));
         }
@@ -303,7 +307,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         cy: v.center.y,
         w,
         h,
-        outline: app.ui.view.outline,
+        outline,
         trim: app.ui.view.trim_view,
         templates: app.ui.view.templates,
         ppp,
@@ -352,7 +356,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
                     * Affine::translate(-v.center.to_vec2()),
             ),
         };
-        let opts = vectorcraft_render::RenderOptions { outline: app.ui.view.outline, background: None, artboards: false, ..Default::default() };
+        let opts = vectorcraft_render::RenderOptions { outline, background: None, artboards: false, ..Default::default() };
         let opts = vectorcraft_render::RenderOptions {
             proof: vectorcraft_render::proof::active_proof(),
             overprint_preview: vectorcraft_render::proof::overprint_preview_on(),
@@ -4608,6 +4612,45 @@ mod tests {
         assert!(off.iter().filter(|&&a| a == 255).count() > 1000, "the disc is still painted");
         app.session.execute("prefs.set", &json!({"key": "antiAliasedArtwork", "value": true})).unwrap();
         assert!(partial(&alphas(&mut app).expect("re-rendered")) > 50, "smooth again");
+    }
+
+    /// Performance › Real-time Drawing and Editing (#394): on (the default), a tool drag keeps the
+    /// full art on the canvas; off, each frame of the drag renders in outline mode until the
+    /// interaction ends.
+    #[test]
+    fn real_time_drawing_preference_outlines_the_canvas_during_an_interaction() {
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        app.session.execute("file.new", &json!({"width": 400, "height": 300})).unwrap();
+        app.canvas.worker_started = true;
+        app.run("shape.rectangle", json!({"x": 100, "y": 80, "width": 120, "height": 90})).unwrap();
+        let ctx = egui::Context::default();
+        let frame = |app: &mut VectorcraftApp| {
+            let (_, mut delta) = frame_output(app, &ctx);
+            delta.clear();
+        };
+        frame(&mut app);
+        app.select_tool("selection");
+        let view = app.view_info();
+        app.session.pointer(&PointerEvent::new(PointerKind::Down, 160.0, 125.0), view).unwrap();
+        frame(&mut app);
+        app.session.pointer(&PointerEvent::new(PointerKind::Drag, 170.0, 130.0), view).unwrap();
+        frame(&mut app);
+        assert!(app.canvas.key.as_ref().is_some_and(|k| k.interacting && !k.outline), "on by default: full art during an interaction");
+        app.session.pointer(&PointerEvent::new(PointerKind::Up, 170.0, 130.0), view).unwrap();
+        frame(&mut app);
+        assert!(app.canvas.key.as_ref().is_some_and(|k| !k.interacting && !k.outline));
+        app.session.execute("prefs.set", &json!({"key": "realTimeDrawing", "value": false})).unwrap();
+        app.session.pointer(&PointerEvent::new(PointerKind::Down, 160.0, 125.0), view).unwrap();
+        frame(&mut app);
+        app.session.pointer(&PointerEvent::new(PointerKind::Drag, 175.0, 132.0), view).unwrap();
+        frame(&mut app);
+        assert!(app.canvas.key.as_ref().is_some_and(|k| k.interacting && k.outline), "off: outline during an interaction");
+        app.session.pointer(&PointerEvent::new(PointerKind::Up, 175.0, 132.0), view).unwrap();
+        frame(&mut app);
+        assert!(app.canvas.key.as_ref().is_some_and(|k| !k.interacting && !k.outline), "outline ends with the drag");
+        app.session.execute("prefs.set", &json!({"key": "realTimeDrawing", "value": true})).unwrap();
+        frame(&mut app);
+        assert!(app.canvas.key.as_ref().is_some_and(|k| !k.outline), "turning it on again re-renders full art");
     }
 
     /// A drag of an object with raster effects (#1257): the drag's frames render while

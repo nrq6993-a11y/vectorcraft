@@ -207,10 +207,9 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 - **Done (2026-10-17):** Background Export shows its progress in a dialog with Cancel and Continue in Background (#2564), on the shared cancel token (#2546); a cancelled export writes no file. Save As, Export for Screens and Export Selection don't show it yet. Estimate unchanged.
 - **Done:** quick Image Trace presets trace at once and leave the panel as it was; the Image Trace button (Control bar, Properties) opens the controls with Threshold and Advanced (Paths, Corners, Noise), as the public documentation describes (<https://helpx.adobe.com/illustrator/using/image-trace-results-optimization.html>). Other context-specific Properties gaps remain.
 
-- **Missing:** ~14 Preferences options stored but not acted on (#394: Open
-- **Done:** quick Image Trace presets reveal Threshold and Advanced controls (Paths, Corners, Noise); Properties can reopen them. Other context-specific Properties gaps remain.
-- **Missing:** ~15 Preferences options stored but not acted on (#394: Highlight Alternate Glyphs, Open
-  Documents As Tabs, Real-time Drawing, hyphenation language, devices…), Properties panel per
+- **Done:** Preferences › Performance › Real-time Drawing and Editing (#394): off, the canvas renders path outlines during an in-progress interaction; on (the default), full art as before. Headless canvas and `prefs.set` regressions; other stored-but-unused options remain.
+- **Missing:** ~14 Preferences options stored but not acted on (#394: Highlight Alternate Glyphs, Open
+  Documents As Tabs, hyphenation language, devices…), Properties panel per
   context, context menus beyond the canvas, Layers panel row menus and Collect for Export, SVG Interactivity.
 - **Impact:** settings that silently do nothing erode trust.
 - **Estimate:** 13–20 h.

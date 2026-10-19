@@ -1352,6 +1352,18 @@ fn show_font_names_in_english_preference_is_stored() {
     assert!(s.prefs.font_names_in_english);
 }
 
+/// Preferences › Performance › Real-time Drawing and Editing (#394): on by default; `prefs.set`
+/// updates it.
+#[test]
+fn real_time_drawing_preference_is_on_by_default() {
+    let mut s = Session::new();
+    assert!(s.prefs.real_time_drawing, "on by default");
+    set_pref(&mut s, "realTimeDrawing", json!(false));
+    assert!(!s.prefs.real_time_drawing);
+    set_pref(&mut s, "realTimeDrawing", json!(true));
+    assert!(s.prefs.real_time_drawing);
+}
+
 /// Preferences › Type › Highlight Alternate Glyphs (#394): off by default so OpenType
 /// substitutions are not pink on every canvas until the user turns the preference on.
 #[test]
