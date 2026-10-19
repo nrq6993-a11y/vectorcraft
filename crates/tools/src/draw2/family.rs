@@ -200,10 +200,21 @@ impl Tool for FamilyTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // The size as drawn (from the centre with Alt, square with Shift).
-            let r = drag_rect(s, self.last, self.mods);
-            let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = match self.id {
+                "arc" => {
+                    let d = if self.mods.shift { square(self.last - s) } else { self.last - s };
+                    let (a, b) = if self.mods.alt { (s - d, s + d) } else { (s, s + d) };
+                    cx.draw_measure_label(a, b)
+                }
+                "spiral" => cx.draw_measure_label(s, self.last),
+                _ => {
+                    // The size as drawn (from the centre with Alt, square with Shift).
+                    let r = drag_rect(s, self.last, self.mods);
+                    let (w, h) = (r.width(), r.height());
+                    cx.size_label(w, h)
+                }
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -328,6 +339,25 @@ mod tests {
         let (c, v) = t.command(Point::new(0.0, 0.0), Point::new(10.0, 4.0), Mods { shift: true, ..Default::default() });
         assert_eq!(c, "shape.arc");
         assert_eq!(v, json!({"x1": 0.0, "y1": 0.0, "x2": 10.0, "y2": 10.0, "closed": false}));
+    }
+
+    #[test]
+    fn arc_and_spiral_drags_show_distance_and_angle() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut arc = FamilyTool::new("arc");
+        arc.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        arc.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, -30.0));
+        let want = cx.draw_measure_label(Point::new(0.0, 0.0), Point::new(40.0, -30.0));
+        assert!(arc.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)));
+        let mut spiral = FamilyTool::new("spiral");
+        spiral.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        spiral.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 60.0, 10.0));
+        let want = cx.draw_measure_label(Point::new(10.0, 10.0), Point::new(60.0, 10.0));
+        assert!(spiral.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)));
+        assert!(!arc.overlays(&ToolContext { measurement_labels: false, ..cx }).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     /// The start and the dragged corner snap to Smart Guides (#506), Shift sliding the corner of
