@@ -96,6 +96,39 @@ fn shapes_doc() -> Document {
     })
 }
 
+/// The named entries on the root `OBJECTS` dictionary (`handle` `A`).
+fn root_dictionary_keys(p: &[(i32, String)]) -> Vec<String> {
+    for o in section(p, "OBJECTS") {
+        if kind(&o) == "DICTIONARY" && get(&o, 5) == Some("A") {
+            return o.iter().filter(|pair| pair.0 == 3).map(|pair| pair.1.clone()).collect();
+        }
+    }
+    vec![]
+}
+
+#[test]
+fn cam_importers_find_stock_root_dictionary_entries() {
+    let d = shapes_doc();
+    let out = export(&d, &opts(&d)).unwrap();
+    let p = pairs(&out.bytes);
+    let keys = root_dictionary_keys(&p);
+    for name in [
+        "ACAD_COLOR",
+        "ACAD_MATERIAL",
+        "ACAD_MLEADERSTYLE",
+        "ACAD_MLINESTYLE",
+        "ACAD_PLOTSETTINGS",
+        "ACAD_SCALELIST",
+        "ACAD_TABLESTYLE",
+        "ACAD_VISUALSTYLE",
+    ] {
+        assert!(keys.iter().any(|k| k == name), "missing {name}: {keys:?}");
+    }
+    let objects = section(&p, "OBJECTS");
+    assert!(objects.iter().any(|o| kind(o) == "MATERIAL"), "stock materials");
+    assert!(objects.iter().any(|o| kind(o) == "MLINESTYLE"), "stock multiline style");
+}
+
 #[test]
 fn every_version_declares_its_acadver_and_is_well_formed() {
     let d = shapes_doc();

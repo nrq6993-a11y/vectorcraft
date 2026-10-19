@@ -41,6 +41,20 @@ pub(crate) mod fixed {
     pub const IMAGE_VARS: Handle = Handle(0x19);
     pub const PLOT_STYLES: Handle = Handle(0x1A);
     pub const PLOT_NORMAL: Handle = Handle(0x1B);
+    /// Stock dictionaries and records CAM importers (e.g. Fusion) expect on the root dictionary.
+    pub const COLOR_DICT: Handle = Handle(0x1C);
+    pub const MATERIAL_DICT: Handle = Handle(0x1D);
+    pub const MAT_BYBLOCK: Handle = Handle(0x1E);
+    pub const MAT_BYLAYER: Handle = Handle(0x1F);
+    pub const MAT_GLOBAL: Handle = Handle(0x20);
+    pub const MLEADERSTYLE_DICT: Handle = Handle(0x21);
+    pub const MLEADERSTYLE: Handle = Handle(0x22);
+    pub const MLINESTYLE_DICT: Handle = Handle(0x23);
+    pub const MLINESTYLE: Handle = Handle(0x24);
+    pub const PLOTSETTINGS_DICT: Handle = Handle(0x25);
+    pub const SCALELIST_DICT: Handle = Handle(0x26);
+    pub const TABLESTYLE_DICT: Handle = Handle(0x27);
+    pub const VISUALSTYLE_DICT: Handle = Handle(0x28);
     pub const FIRST_FREE: u32 = 0x30;
 }
 
@@ -354,7 +368,7 @@ impl Drawing {
         c.append(&self.entities);
         c.end_section();
         if v.handles() {
-            self.objects(&mut c);
+            self.objects(&mut c, Handle(style_base));
         }
         c.raw(0, "EOF");
         c.into_string()
@@ -366,6 +380,10 @@ impl Drawing {
         c.section("HEADER");
         var(c, "$ACADVER");
         c.raw(1, v.acadver());
+        if v >= DxfVersion::R2007 {
+            var(c, "$ACADMAINTVER");
+            c.int(90, 4);
+        }
         var(c, "$DWGCODEPAGE");
         c.raw(3, "ANSI_1252");
         var(c, "$INSBASE");
@@ -535,7 +553,7 @@ impl Drawing {
         c.end_table();
     }
 
-    fn objects(&self, c: &mut Codes) {
+    fn objects(&self, c: &mut Codes, standard_style: Handle) {
         let v = self.version;
         let images = !self.images.is_empty();
         c.section("OBJECTS");
@@ -552,7 +570,18 @@ impl Drawing {
             root.extend([("ACAD_IMAGE_DICT", fixed::IMAGE_DICT), ("ACAD_IMAGE_VARS", fixed::IMAGE_VARS)]);
         }
         if v.r2000() {
-            root.extend([("ACAD_LAYOUT", fixed::LAYOUTS), ("ACAD_PLOTSTYLENAME", fixed::PLOT_STYLES)]);
+            root.extend([
+                ("ACAD_LAYOUT", fixed::LAYOUTS),
+                ("ACAD_PLOTSTYLENAME", fixed::PLOT_STYLES),
+                ("ACAD_COLOR", fixed::COLOR_DICT),
+                ("ACAD_MATERIAL", fixed::MATERIAL_DICT),
+                ("ACAD_MLEADERSTYLE", fixed::MLEADERSTYLE_DICT),
+                ("ACAD_MLINESTYLE", fixed::MLINESTYLE_DICT),
+                ("ACAD_PLOTSETTINGS", fixed::PLOTSETTINGS_DICT),
+                ("ACAD_SCALELIST", fixed::SCALELIST_DICT),
+                ("ACAD_TABLESTYLE", fixed::TABLESTYLE_DICT),
+                ("ACAD_VISUALSTYLE", fixed::VISUALSTYLE_DICT),
+            ]);
         }
         dict(c, fixed::ROOT, Handle(0), &root);
         dict(c, fixed::GROUPS, fixed::ROOT, &[]);
@@ -567,6 +596,7 @@ impl Drawing {
             c.object("ACDBPLACEHOLDER", fixed::PLOT_NORMAL, fixed::PLOT_STYLES, "AcDbPlaceHolder");
             self.layout(c, fixed::MODEL_LAYOUT, "Model", 0, fixed::MODEL_RECORD);
             self.layout(c, fixed::PAPER_LAYOUT, "Layout1", 1, fixed::PAPER_RECORD);
+            self.cam_database(c, standard_style);
         }
         if images {
             c.object("RASTERVARIABLES", fixed::IMAGE_VARS, fixed::ROOT, "AcDbRasterVariables");
@@ -601,6 +631,177 @@ impl Drawing {
             }
         }
         c.end_section();
+    }
+
+    fn named_dict(c: &mut Codes, h: Handle, owner: Handle, entries: &[(&str, Handle)]) {
+        c.object("DICTIONARY", h, owner, "AcDbDictionary");
+        c.int(281, 1);
+        for (name, e) in entries {
+            c.str(3, name);
+            c.handle(350, *e);
+        }
+    }
+
+    /// Stock `ACAD_*` object dictionaries CAM importers (e.g. Fusion) look up on the root dictionary (#3085).
+    fn cam_database(&self, c: &mut Codes, standard_style: Handle) {
+        Self::named_dict(c, fixed::COLOR_DICT, fixed::ROOT, &[]);
+        Self::named_dict(
+            c,
+            fixed::MATERIAL_DICT,
+            fixed::ROOT,
+            &[("ByBlock", fixed::MAT_BYBLOCK), ("ByLayer", fixed::MAT_BYLAYER), ("Global", fixed::MAT_GLOBAL)],
+        );
+        for (h, name) in [(fixed::MAT_BYBLOCK, "ByBlock"), (fixed::MAT_BYLAYER, "ByLayer"), (fixed::MAT_GLOBAL, "Global")] {
+            self.material(c, h, fixed::MATERIAL_DICT, name);
+        }
+        Self::named_dict(c, fixed::MLEADERSTYLE_DICT, fixed::ROOT, &[("Standard", fixed::MLEADERSTYLE)]);
+        self.mleader_style(c, fixed::MLEADERSTYLE, fixed::MLEADERSTYLE_DICT, standard_style);
+        Self::named_dict(c, fixed::MLINESTYLE_DICT, fixed::ROOT, &[("Standard", fixed::MLINESTYLE)]);
+        self.mline_style(c);
+        Self::named_dict(c, fixed::PLOTSETTINGS_DICT, fixed::ROOT, &[]);
+        Self::named_dict(c, fixed::SCALELIST_DICT, fixed::ROOT, &[]);
+        Self::named_dict(c, fixed::TABLESTYLE_DICT, fixed::ROOT, &[]);
+        Self::named_dict(c, fixed::VISUALSTYLE_DICT, fixed::ROOT, &[]);
+    }
+
+    /// A default material record (`ByBlock`, `ByLayer`, `Global`).
+    fn material(&self, c: &mut Codes, h: Handle, owner: Handle, name: &str) {
+        c.raw(0, "MATERIAL");
+        c.handle(5, h);
+        c.raw(102, "{ACAD_REACTORS");
+        c.handle(330, owner);
+        c.raw(102, "}");
+        c.handle(330, owner);
+        c.raw(100, "AcDbMaterial");
+        c.str(1, name);
+        c.raw(2, "");
+        c.int(70, 0);
+        c.num(40, 1.0);
+        c.int(71, 1);
+        c.num(41, 1.0);
+        c.int(91, -1023410177);
+        c.num(42, 1.0);
+        c.int(72, 1);
+        c.raw(3, "");
+        c.int(73, 1);
+        c.int(74, 1);
+        c.int(75, 1);
+        c.num(44, 0.5);
+        c.int(73, 0);
+        c.num(45, 1.0);
+        c.num(46, 1.0);
+        c.int(77, 1);
+        c.raw(4, "");
+        c.int(78, 1);
+        c.int(79, 1);
+        c.int(170, 1);
+        c.num(48, 1.0);
+        c.int(171, 1);
+        c.raw(6, "");
+        c.int(172, 1);
+        c.int(173, 1);
+        c.int(174, 1);
+        c.num(140, 1.0);
+        c.num(141, 1.0);
+        c.int(175, 1);
+        c.raw(7, "");
+        c.int(176, 1);
+        c.int(177, 1);
+        c.int(178, 1);
+        c.num(143, 1.0);
+        c.int(179, 1);
+        c.raw(8, "");
+        c.int(270, 1);
+        c.int(271, 1);
+        c.int(272, 1);
+        c.num(145, 1.0);
+        c.num(146, 1.0);
+        c.int(273, 1);
+        c.raw(9, "");
+        c.int(274, 1);
+        c.int(275, 1);
+        c.int(276, 1);
+        c.num(42, 1.0);
+        c.int(72, 1);
+        c.raw(3, "");
+        c.int(73, 1);
+        c.int(74, 1);
+        c.int(75, 1);
+        c.int(94, 63);
+    }
+
+    fn mline_style(&self, c: &mut Codes) {
+        c.raw(0, "MLINESTYLE");
+        c.handle(5, fixed::MLINESTYLE);
+        c.raw(102, "{ACAD_REACTORS");
+        c.handle(330, fixed::MLINESTYLE_DICT);
+        c.raw(102, "}");
+        c.handle(330, fixed::MLINESTYLE_DICT);
+        c.raw(100, "AcDbMlineStyle");
+        c.raw(2, "Standard");
+        c.int(70, 0);
+        c.raw(3, "");
+        c.int(62, 256);
+        c.num(51, 90.0);
+        c.num(52, 90.0);
+        c.int(71, 2);
+        c.num(49, 0.5);
+        c.int(62, 256);
+        c.raw(6, "BYLAYER");
+        c.num(49, -0.5);
+        c.int(62, 256);
+        c.raw(6, "BYLAYER");
+    }
+
+    fn mleader_style(&self, c: &mut Codes, h: Handle, owner: Handle, standard_style: Handle) {
+        c.raw(0, "MLEADERSTYLE");
+        c.handle(5, h);
+        c.raw(102, "{ACAD_REACTORS");
+        c.handle(330, owner);
+        c.raw(102, "}");
+        c.handle(330, owner);
+        c.raw(100, "AcDbMLeaderStyle");
+        c.int(179, 2);
+        c.int(170, 2);
+        c.int(171, 1);
+        c.int(172, 0);
+        c.int(90, 2);
+        c.num(40, 0.0);
+        c.num(41, 0.0);
+        c.int(173, 1);
+        c.int(91, -1056964608);
+        c.int(92, -2);
+        c.int(290, 1);
+        c.num(42, 2.0);
+        c.int(291, 1);
+        c.num(43, 8.0);
+        c.str(3, "Standard");
+        c.num(44, 4.0);
+        c.raw(300, "");
+        c.handle(342, standard_style);
+        c.int(174, 1);
+        c.int(175, 1);
+        c.int(176, 0);
+        c.int(178, 1);
+        c.int(93, -1056964608);
+        c.num(45, 4.0);
+        c.int(292, 0);
+        c.int(297, 0);
+        c.num(46, 4.0);
+        c.int(94, -1056964608);
+        c.num(47, 1.0);
+        c.num(49, 1.0);
+        c.num(140, 1.0);
+        c.int(294, 1);
+        c.num(141, 0.0);
+        c.int(177, 0);
+        c.num(142, 1.0);
+        c.int(295, 0);
+        c.int(296, 0);
+        c.num(143, 3.75);
+        c.int(271, 0);
+        c.int(272, 9);
+        c.int(273, 9);
     }
 
     /// A layout (DXF 2000 and later): its plot settings, then the layout itself.
