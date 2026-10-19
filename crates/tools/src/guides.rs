@@ -986,7 +986,7 @@ impl Targets {
                 (nx, ny, snap) = (c.0 + s * e.0, c.1 + s * e.1, found);
             }
         }
-        let out = Affine::translate(origin.to_vec2()) * Affine::scale_non_uniform(nx, ny) * Affine::translate(-origin.to_vec2());
+        let mut out = Affine::translate(origin.to_vec2()) * Affine::scale_non_uniform(nx, ny) * Affine::translate(-origin.to_vec2());
         let (hit_x, hit_y, on) = snap;
         if let Some((q, k)) = on {
             return (out, self.label(q, k.label()).into_iter().collect());
@@ -1003,8 +1003,47 @@ impl Targets {
         if hit_x.is_some() || hit_y.is_some() {
             ov.extend(self.label(to_doc * (out * handle.pos(r)), "align"));
         }
+        if !self.boxes.is_empty() && bx.angle == 0.0 {
+            use crate::bbox::scale_for_drag;
+            let origin = if from_center { r.center() } else { handle.opposite().pos(r) };
+            let (ax, ay) = handle.axes();
+            let mut nr2 = nr;
+            for (x, lined_up, moves) in [(true, hit_x.is_some(), ax), (false, hit_y.is_some(), ay)] {
+                if lined_up || !moves {
+                    continue;
+                }
+                if let Some((shift, gaps)) = self.even_spacing(nr2, x, tol) {
+                    nr2 = nudge_rect_for_spacing(nr2, origin, handle, from_center, x, shift);
+                    ov.extend(gaps.into_iter().flat_map(|g| self.gap_marks(g, x, tol)));
+                }
+            }
+            if nr2 != nr {
+                out = scale_for_drag(r, handle, handle.pos(nr2), proportional, from_center);
+            }
+        }
         (out, ov)
     }
+}
+
+/// Move only the edges a resize handle drags when spacing guides nudge along one axis.
+fn nudge_rect_for_spacing(nr: Rect, origin: Point, handle: crate::bbox::Handle, from_center: bool, x_axis: bool, shift: f64) -> Rect {
+    if from_center {
+        let half = shift / 2.0;
+        return if x_axis { Rect::new(nr.x0 - half, nr.y0, nr.x1 + half, nr.y1) } else { Rect::new(nr.x0, nr.y0 - half, nr.x1, nr.y1 + half) };
+    }
+    let mut r = nr;
+    if x_axis {
+        if handle.pos(nr).x >= origin.x - 1e-9 {
+            r.x1 += shift;
+        } else {
+            r.x0 += shift;
+        }
+    } else if handle.pos(nr).y >= origin.y - 1e-9 {
+        r.y1 += shift;
+    } else {
+        r.y0 += shift;
+    }
+    r
 }
 
 /// Where curves `a` and `b` cross near `p`: a point projected from one onto the other and back
@@ -1492,6 +1531,49 @@ mod tests {
         let off = ToolContext { spacing_guides: false, ..cx(&d, &s, &p) };
         let (dv, ov) = Targets::for_move(&off, &s.objects).snap_rect(Rect::new(141.0, 305.0, 181.0, 345.0), 4.0);
         assert_eq!((dv, lines(&ov)), (Vec2::ZERO, 0));
+    }
+
+    /// Smart Guides › Spacing Guides (#394): resizing by a side handle spaces the selection evenly
+    /// along that axis when it lines up with nothing, and marks the equal gaps.
+    #[test]
+    fn spacing_guides_space_a_resized_selection_evenly() {
+        use crate::bbox::{Handle, scale_for_drag};
+        let mut d = Document::new(500.0, 500.0);
+        let l = d.layers[0].id;
+        for r in [Rect::new(20.0, 300.0, 60.0, 340.0), Rect::new(80.0, 300.0, 120.0, 340.0)] {
+            let id = d.alloc_id();
+            d.insert(Some(l), 0, Node::path(id, vectorcraft_geom::shapes::rectangle(r), Default::default())).unwrap();
+        }
+        let (s, p) = (Selection::default(), paint());
+        let lines = |ov: &[Overlay]| ov.iter().filter(|o| matches!(o, Overlay::Line { color, .. } if *color == MAGENTA)).count();
+        let t = Targets::for_move(&cx(&d, &s, &p), &s.objects);
+        let r = Rect::new(181.0, 305.0, 221.0, 345.0);
+        let snap = |p: Point| {
+            let (a, ov) = t.snap_scale(
+                &OrientedBox::aligned(r),
+                Handle::Left,
+                scale_for_drag(r, Handle::Left, p, false, false),
+                false,
+                false,
+                4.0,
+            );
+            (a.transform_rect_bbox(r), ov)
+        };
+        // 21 pt after B: 20, as A and B, with both gaps marked.
+        let (nr, ov) = snap(Point::new(141.0, 325.0));
+        assert_eq!(nr.x0, 140.0, "20 pt after B");
+        assert_eq!(lines(&ov), 6, "{ov:?}");
+        let off = ToolContext { spacing_guides: false, ..cx(&d, &s, &p) };
+        let (a, ov) = Targets::for_move(&off, &s.objects).snap_scale(
+            &OrientedBox::aligned(r),
+            Handle::Left,
+            scale_for_drag(r, Handle::Left, Point::new(141.0, 325.0), false, false),
+            false,
+            false,
+            4.0,
+        );
+        assert_eq!(a.transform_rect_bbox(r).x0, 141.0, "off: where it was dragged");
+        assert!(ov.is_empty());
     }
 
     /// Preferences › Smart Guides › Display Options (#394): the colour, and Alignment Guides and

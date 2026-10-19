@@ -542,7 +542,13 @@ impl Tool for SelectionTool {
                             // What the handle moves snaps as a dragged point does: to pixels or the
                             // grid, else with Smart Guides to the other objects, else with Snap to
                             // Point to their anchors; the ruler guides with Snap to Point.
-                            self.targets = Some(PointSnap::new(cx, || Targets::collect(cx.doc, &cx.selection.objects, None)));
+                            self.targets = Some(PointSnap::new(cx, || {
+                                if cx.smart_guides {
+                                    Targets::for_move(cx, &cx.selection.objects)
+                                } else {
+                                    Targets::collect(cx.doc, &cx.selection.objects, None)
+                                }
+                            }));
                             self.state = State::Scaling { handle, bx, areas };
                             return vec![Action::Begin(label.into())];
                         }
