@@ -867,7 +867,7 @@ fn handle_input(app: &mut VectorcraftApp, ui: &Ui, resp: &egui::Response, rect: 
                     ui.data_mut(|dd| dd.insert_temp(drag_id(), Drag::Art));
                 }
                 Drag::Tool => {
-                    if pointer.delta() != egui::Vec2::ZERO {
+                    if pointer.delta() != egui::Vec2::ZERO || mods_changed {
                         // Every position the pen or mouse passed this frame, not just the last: a
                         // fast stroke keeps its curve (a pen reports far more often than frames come).
                         for (at, force) in frame_moves(ui) {

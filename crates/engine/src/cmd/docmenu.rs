@@ -207,7 +207,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Move Guide",
             [],
             None,
-            "{index, pos: pt} | {dx?, dy?: pt, copy?: bool} put ruler guide `index` at `pos`, or move the selected guides (vertical ones by dx, horizontal ones by dy); copy leaves them and selects the moved copies",
+            "{index, pos: pt, vertical?: bool, copy?: bool} | {dx?, dy?: pt, copy?: bool} put ruler guide `index` at `pos` (and set `vertical` when given), or move the selected guides (vertical ones by dx, horizontal ones by dy); copy leaves them and selects the moved copies",
             guides_unlocked,
             guide_move
         ),
@@ -766,9 +766,24 @@ pub(crate) fn guide_move(s: &mut Session, p: &Value) -> Result<Value> {
     if let Some(v) = p.get("index") {
         let i = editable_guide_index(s, Some(v), "guide.move")?;
         let pos = f64_req(p, "pos", "guide.move")?;
-        s.edit("Move Guide", |d, _| {
-            if let Some(g) = d.guides.get_mut(i) {
+        let vertical = p.get("vertical").and_then(Value::as_bool);
+        let copy = bool_or(p, "copy", false);
+        s.edit(if copy { "Copy Guide" } else { "Move Guide" }, |d, sel| {
+            if copy {
+                let Some(g) = d.guides.get(i) else { return Ok(()) };
+                let mut g = g.clone();
                 g.pos = pos;
+                if let Some(v) = vertical {
+                    g.vertical = v;
+                }
+                let at = d.guides.len();
+                d.guides.push(g);
+                sel.set_guides([at]);
+            } else if let Some(g) = d.guides.get_mut(i) {
+                g.pos = pos;
+                if let Some(v) = vertical {
+                    g.vertical = v;
+                }
             }
             Ok(())
         })?;

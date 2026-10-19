@@ -90,6 +90,10 @@ struct Drag {
     start: Point,
     pointer: Point,
     began: bool,
+    /// Alt was down when the drag began: copy, not orientation swap.
+    copy: bool,
+    /// Orientation after an Alt swap during the drag (only meaningful once [`Drag::began`]).
+    effective_vertical: bool,
     /// Shift-pressed on a selected guide: released without a drag, it leaves the selection.
     deselect: bool,
 }
@@ -245,6 +249,8 @@ impl GuideEdit {
             start: ev.pos,
             pointer: ev.pos,
             began: false,
+            copy: ev.mods.alt,
+            effective_vertical: g.vertical,
             deselect: shift && selected,
         });
         self.snap = GuideSnap::default();
@@ -298,22 +304,28 @@ impl GuideEdit {
                 return out;
             }
             d.began = true;
-            out.push(Action::Begin(if ev.mods.alt { "Copy Guide" } else { "Move Guide" }.into()));
+            out.push(Action::Begin(if d.copy { "Copy Guide" } else { "Move Guide" }.into()));
             self.snap = GuideSnap::new(cx);
         }
-        let moved = p - d.start;
-        let at = self.snap.snap(cx, d.vertical, d.from + if d.vertical { moved.x } else { moved.y }, ev.mods.shift);
-        (d.at, d.pointer) = (at, p);
-        // The other selected guides follow the pointer: vertical ones across, horizontal ones down.
-        let (dx, dy) = if d.vertical { (at - d.from, moved.y) } else { (moved.x, at - d.from) };
-        out.push(Action::Preview("guide.move".into(), json!({ "dx": dx, "dy": dy, "copy": ev.mods.alt })));
+        let swap = ev.mods.alt != d.copy;
+        let vertical = d.vertical != swap;
+        let at = self.snap.snap(cx, vertical, if vertical { p.x } else { p.y }, ev.mods.shift);
+        (d.at, d.pointer, d.effective_vertical) = (at, p, vertical);
+        let preview = if swap {
+            json!({ "index": d.index, "vertical": vertical, "pos": at, "copy": d.copy })
+        } else {
+            let moved = p - d.start;
+            let (dx, dy) = if d.vertical { (at - d.from, moved.y) } else { (moved.x, at - d.from) };
+            json!({ "dx": dx, "dy": dy, "copy": d.copy })
+        };
+        out.push(Action::Preview("guide.move".into(), preview));
         out
     }
 
     /// The pointer over a guide, or while one is dragged, turned with the view.
     pub fn cursor(&self, cx: &ToolContext, p: Point) -> Option<Cursor> {
-        if let Some(d) = &self.drag {
-            return Some(guide_cursor(d.vertical).turned(cx.view_angle()));
+        if let Some(d) = &self.drag.filter(|d| d.began) {
+            return Some(guide_cursor(d.effective_vertical).turned(cx.view_angle()));
         }
         guide_at(cx, p).and_then(|i| cx.doc.guides.get(i)).map(|g| guide_cursor(g.vertical).turned(cx.view_angle()))
     }
@@ -321,7 +333,7 @@ impl GuideEdit {
     /// While a guide is dragged: the smart guide it snapped to and its position by the pointer.
     pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(d) = self.drag.filter(|d| d.began) else { return vec![] };
-        self.snap.overlays(cx, d.vertical, d.at, d.pointer)
+        self.snap.overlays(cx, d.effective_vertical, d.at, d.pointer)
     }
 }
 
@@ -600,6 +612,42 @@ mod tests {
         let t = Targets::snap_to_point(&ToolContext { smart_guides: false, ..c }, &[]).unwrap();
         assert_eq!(t.snap_point(Point::new(700.0, 151.5), 2.0).0, Point::new(700.0, 150.0));
         assert_eq!(t.snap_point(Point::new(300.0, 151.5), 2.0).0, Point::new(300.0, 151.5));
+    }
+
+    #[test]
+    fn moving_a_guide_alt_switches_axis_and_uses_the_pointer_position() {
+        let d = guides_doc();
+        let mut s = Selection::default();
+        s.set_guides([0]);
+        let p = paint();
+        let c = ToolContext { smart_guides: false, snap_to_point: false, ..cx(&d, &s, &p) };
+        for source_vertical in [false, true] {
+            let index = if source_vertical { 0 } else { 1 };
+            let from = if source_vertical { 300.0 } else { 400.0 };
+            let start = if source_vertical { Point::new(from, 50.0) } else { Point::new(50.0, from) };
+            let mut g = GuideEdit::default();
+            g.press(&c, &ev(PointerKind::Down, start.x, start.y, Mods::default()));
+            for (i, alt) in [false, true, false, true].into_iter().enumerate() {
+                let swap = alt;
+                let pointer = if source_vertical != alt { Point::new(80.0, 120.0) } else { Point::new(120.0, 80.0) };
+                let mut expected = vec![];
+                if i == 0 {
+                    expected.push(Action::Begin("Move Guide".into()));
+                }
+                let preview = if swap {
+                    let vertical = source_vertical != alt;
+                    let pos = if vertical { pointer.x } else { pointer.y };
+                    json!({"index": index, "vertical": vertical, "pos": pos, "copy": false})
+                } else {
+                    let moved = pointer - start;
+                    let at = from + if source_vertical { moved.x } else { moved.y };
+                    let (dx, dy) = if source_vertical { (at - from, moved.y) } else { (moved.x, at - from) };
+                    json!({"dx": dx, "dy": dy, "copy": false})
+                };
+                expected.push(Action::Preview("guide.move".into(), preview));
+                assert_eq!(g.pointer(&c, &ev(PointerKind::Drag, pointer.x, pointer.y, Mods { alt, ..Default::default() })), Some(expected));
+            }
+        }
     }
 
     #[test]
