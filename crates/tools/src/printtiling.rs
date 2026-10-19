@@ -77,6 +77,9 @@ impl Tool for PrintTilingTool {
     }
 
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !cx.measurement_labels {
+            return vec![];
+        }
         match self.drag {
             // How far the corner is from the artboard's.
             Some((_, Some(r))) if self.began => {
@@ -160,5 +163,17 @@ mod tests {
         assert_eq!(drag(500.0, 100.0), preview([500.0, 97.0], json!(1)), "the shared edge: the artboard to its right");
         assert_eq!(drag(800.0 + 1e-9, 100.0), preview([800.0, 97.0], json!(1)), "roundoff past the edge");
         assert_eq!(drag(800.001, 100.0), preview([800.001 - 3.0, 97.0], Value::Null), "beyond the edge");
+    }
+
+    #[test]
+    fn measurement_labels_off_hides_the_offset_readout() {
+        let (d, _) = doc_with_rect();
+        let (s, pd) = (Selection::default(), paint());
+        let mut c = cx(&d, &s, &pd);
+        c.measurement_labels = false;
+        let mut t = PrintTilingTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, 50.0, 60.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 40.0, 30.0));
+        assert!(t.overlays(&c).is_empty());
     }
 }

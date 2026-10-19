@@ -187,8 +187,8 @@ impl PieDrag {
     }
 
     /// The angle readout next to the pointer.
-    pub fn overlays(&self) -> Vec<Overlay> {
-        if !self.began {
+    pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels {
             return vec![];
         }
         vec![Overlay::Measure { p: self.at, text: format!("{:.1}°", self.angle) }]
@@ -282,6 +282,18 @@ mod tests {
         // A click that doesn't move sends no action.
         assert!(t.pointer(&c, &ev(PointerKind::Down, Point::new(312.0, 150.0))).is_empty());
         assert!(t.pointer(&c, &ev(PointerKind::Up, Point::new(312.0, 150.0))).is_empty());
+    }
+
+    #[test]
+    fn measurement_labels_off_hides_the_angle_readout() {
+        let (d, _id, s) = doc_with_ellipse((0.0, 360.0));
+        let p = paint();
+        let mut c = cx(&d, &s, &p);
+        c.measurement_labels = false;
+        let mut t = SelectionTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, Point::new(312.0, 150.0)));
+        t.pointer(&c, &ev(PointerKind::Drag, Point::new(200.0, 20.0)));
+        assert!(t.overlays(&c).iter().all(|o| !matches!(o, Overlay::Measure { .. })));
     }
 
     /// On a whole ellipse the two widgets sit at the very same point, whatever its size, place or
