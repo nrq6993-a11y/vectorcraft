@@ -4,9 +4,12 @@
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
-use super::pixelate::Place;
+use super::pixelate::{Place, value_noise};
 use super::texture::{luma, premultiply, straight};
 use super::{PixelSpace, pick};
+use vectorcraft_geom::Point;
+
+const SALT_CONTE: u64 = 0xC0A7E_C0A7E;
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
 pub const HALFTONE_TYPES: [(&str, &str); 3] = [("Circle", "circle"), ("Dot", "dot"), ("Line", "line")];
@@ -67,5 +70,38 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
             0.0
         };
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    });
+}
+
+/// Conté Crayon: the object redrawn as dense black conté in its dark areas and white crayon in its
+/// lights on grainy paper. `foreground` and `background` (1..25) set how strongly the black and
+/// white crayons bite into shadows and highlights. Coverage is kept; hues become grey like the
+/// public Sketch summary describes.
+pub(super) fn conte_crayon(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, foreground: f64, background: f64) {
+    if !(foreground.is_finite() && background.is_finite()) {
+        return;
+    }
+    let Some(place) = Place::new(space, w, h) else { return };
+    let fg = foreground.clamp(1.0, 25.0) / 25.0;
+    let bg = background.clamp(1.0, 25.0) / 25.0;
+    let grain_at = |salt: u64, q: Point, scale: f64| 2.0 * value_noise(salt, q.x / scale, q.y / scale) - 1.0;
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let q = place.at(x, y);
+        let dark = f64::from(1.0 - luma(straight(*p))).clamp(0.0, 1.0);
+        let light = 1.0 - dark;
+        let px_u = place.px.max(1e-9);
+        let grit = 0.5
+            + 0.28 * grain_at(SALT_CONTE, q, 2.8 * px_u)
+            + 0.17 * grain_at(SALT_CONTE + 1, q, 1.1 * px_u)
+            + 0.12 * grain_at(SALT_CONTE + 2, q, 0.45 * px_u);
+        let chalk = grit.clamp(0.0, 1.0);
+        let black = fg * dark * (0.45 + 0.55 * chalk);
+        let white = bg * light * (0.45 + 0.55 * (1.0 - chalk));
+        let ink = (black - 0.65 * white * (1.0 - black)).clamp(0.0, 1.0);
+        let paper = (1.0 - ink).clamp(0.0, 1.0);
+        *p = premultiply([paper as f32; 3], f32::from(p[3]) / 255.0);
     });
 }

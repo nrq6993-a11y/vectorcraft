@@ -2033,6 +2033,58 @@ fn halftone_pattern_params_take_defaults_and_stay_in_range() {
     assert_eq!(f.reach(), Some(0.0));
 }
 
+fn conte(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.conteCrayon", p).apply(&mut out, w, h, s);
+    out
+}
+
+#[test]
+fn conte_crayon_params_take_defaults_and_stay_in_range() {
+    assert_eq!(fx("sketch.conteCrayon", json!({})), PixelFx::ConteCrayon { foreground: 4.0, background: 4.0 });
+    assert_eq!(
+        fx("sketch.conteCrayon", json!({"foregroundLevel": 0, "backgroundLevel": 99})),
+        PixelFx::ConteCrayon { foreground: 1.0, background: 25.0 }
+    );
+    let f = fx("sketch.conteCrayon", json!({}));
+    assert_eq!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)), 0.0);
+    assert_eq!(f.reach(), Some(0.0));
+    let doc = crate::effect_info("sketch.conteCrayon").unwrap().params;
+    assert!(doc.contains("foregroundLevel") && doc.contains("backgroundLevel"), "{doc}");
+}
+
+#[test]
+fn conte_crayon_keeps_coverage_and_separates_tones() {
+    let (w, h) = (48, 48);
+    let src = image(w, h, |x, _| {
+        if x < 24 { grey(40) } else if x < 40 { grey(200) } else { [0, 0, 0, 0] }
+    });
+    let out = conte(json!({"foregroundLevel": 12, "backgroundLevel": 12}), &src, w, h, &space(w, h));
+    for (a, b) in out.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0) {
+        assert_eq!(a[3], b[3]);
+        if b[3] == 0 {
+            assert_eq!(*a, [0; 4]);
+        }
+    }
+    let mean_tone = |d: &[u8], x0: usize, x1: usize| {
+        let mut sum = 0.0;
+        let mut n = 0.0;
+        for x in x0..x1 {
+            for y in 8..40 {
+                sum += f64::from(at(d, w, x, y)[0]);
+                n += 1.0;
+            }
+        }
+        sum / n
+    };
+    let dark = mean_tone(&out, 8, 20);
+    let light = mean_tone(&out, 28, 38);
+    assert!(dark < light - 20.0, "dark {dark}, light {light}");
+    let strong = conte(json!({"foregroundLevel": 25, "backgroundLevel": 4}), &src, w, h, &space(w, h));
+    let weak = conte(json!({"foregroundLevel": 4, "backgroundLevel": 4}), &src, w, h, &space(w, h));
+    assert!(mean_tone(&strong, 8, 20) < mean_tone(&weak, 8, 20) - 5.0);
+}
+
 /// Line's rows repeat every Size points: Size pixels at 72 ppi, twice as many at 144 ppi.
 #[test]
 fn halftone_line_period_is_the_size_at_any_resolution() {
