@@ -31,8 +31,13 @@ const BRUSH_STROKES: [(&str, &str); 8] = [
 ];
 
 /// Effect › Artistic, at their defaults.
-const ARTISTIC: [(&str, &str); 4] =
-    [("artistic.cutout", "{}"), ("artistic.filmGrain", "{}"), ("artistic.neonGlow", "{}"), ("artistic.posterEdges", "{}")];
+const ARTISTIC: [(&str, &str); 5] = [
+    ("artistic.coloredPencil", "{}"),
+    ("artistic.cutout", "{}"),
+    ("artistic.filmGrain", "{}"),
+    ("artistic.neonGlow", "{}"),
+    ("artistic.posterEdges", "{}"),
+];
 
 /// Effect › Distort (Diffuse Glow with its highlights glowing from a low brightness up, as the
 /// striped art's reds are dark).
