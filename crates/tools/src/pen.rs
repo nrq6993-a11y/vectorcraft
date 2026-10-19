@@ -396,6 +396,12 @@ impl Tool for PenTool {
                 bp.line_to(h);
             }
             o.push(Overlay::Path { path: bp, color: cx.doc.layer_color(id), width: 1.0, dashed: false });
+            if cx.measurement_labels && last.distance(h) > 1e-9 {
+                o.push(Overlay::Measure {
+                    p: h + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: cx.segment_measure_label(last, h),
+                });
+            }
         }
         o.extend_from_slice(self.snap.guides());
         o
@@ -1215,6 +1221,21 @@ mod tests {
         let mut t = PenTool::default();
         let a = click(&mut t, &cx, 102.0, 99.0, Mods::default());
         assert_eq!(a[1], Action::Preview("path.create".into(), json!({"anchors": [{"x": 100.0, "y": 100.0}]})));
+    }
+
+    #[test]
+    fn rubber_band_shows_distance_and_angle_measurement_labels() {
+        let (d, _, s) = drawing(vectorcraft_geom::SubPath::polyline(&[Point::new(10.0, 300.0), Point::new(60.0, 300.0)], false));
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.pen_rubber_band = true;
+        let mut t = PenTool { drawing: true, ..PenTool::default() };
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Move, 160.0, 250.0));
+        let want = cx.segment_measure_label(Point::new(60.0, 300.0), Point::new(160.0, 250.0));
+        let o = t.overlays(&cx);
+        assert!(o.iter().any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)), "{o:?}");
+        cx.measurement_labels = false;
+        assert!(!t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
