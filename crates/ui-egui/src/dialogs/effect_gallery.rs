@@ -159,12 +159,11 @@ fn param_target(d: &Dialog, stack: &[StackEntry], stack_sel: usize, browse: &str
 }
 
 fn write_param_target(d: &mut Dialog, stack: &mut [StackEntry], stack_sel: usize, browse: &str, effect: &str, params: Map<String, Value>) {
-    if stack_focus(d) {
-        if let Some(e) = stack.get_mut(stack_sel) {
-            if e.effect == effect {
-                e.params = params;
-            }
-        }
+    if stack_focus(d)
+        && let Some(e) = stack.get_mut(stack_sel)
+        && e.effect == effect
+    {
+        e.params = params;
         return;
     }
     if browse == effect {
