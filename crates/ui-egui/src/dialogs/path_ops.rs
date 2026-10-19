@@ -23,6 +23,7 @@ const ORIGINAL_IDS: &str = "__ids";
 fn title(kind: &str) -> &'static str {
     match kind {
         "average" => tl!("Average"),
+        "averageJoin" => tl!("Average and Join"),
         "offsetPath" => tl!("Offset Path"),
         "simplify" => tl!("Simplify"),
         _ => tl!("Split Into Grid"),
@@ -33,6 +34,7 @@ fn title(kind: &str) -> &'static str {
 fn command(d: &Dialog) -> (&'static str, Value) {
     match d.kind.as_str() {
         "average" => ("path.average", json!({"axis": d.str("axis")})),
+        "averageJoin" => ("path.averageJoin", json!({"to": d.str("to"), "axis": d.str("axis")})),
         "offsetPath" => {
             ("object.path.offsetPath", json!({"offset": d.f64("offset", 10.0), "joins": d.str("joins"), "miterLimit": d.f64("miterLimit", 4.0)}))
         }

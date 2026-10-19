@@ -112,6 +112,8 @@ fn choices(kind: &str, key: &str) -> Vec<(&'static str, &'static str)> {
     match (kind, key) {
         ("offsetPath", "joins") => vec![("miter", tl!("Miter")), ("round", tl!("Round")), ("bevel", tl!("Bevel"))],
         ("average", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("both", "Both")],
+        ("averageJoin", "to") => vec![("smooth", tl!("Smooth")), ("corner", tl!("Corner"))],
+        ("averageJoin", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("both", "Both")],
         ("reflect", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("angle", "Angle")],
         ("shear", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical")],
         _ => vec![],

@@ -79,6 +79,15 @@ pub fn specs() -> Vec<CommandSpec> {
             average
         ),
         cmd!(
+            "path.averageJoin",
+            "Average and Join…",
+            ["Object", "Path"],
+            Some("Cmd+Shift+Alt+J"),
+            "{to: \"corner\"|\"smooth\", axis?: \"horizontal\"|\"vertical\"|\"both\" (default: both)} average two direct-selected anchor points, join them into one, and convert that anchor to a corner or smooth point, as one undo step",
+            has_selection,
+            average_join
+        ),
+        cmd!(
             "path.convertAnchors",
             "Convert Anchor Points",
             [],
@@ -467,6 +476,161 @@ pub(super) fn anchor_targets(s: &Session) -> Result<AnchorTargets> {
         out.push((*id, v));
     }
     Ok(out)
+}
+
+fn join_anchor_smooth(p: &Value, cmd: &str) -> Result<bool> {
+    match str_param(p, "to") {
+        Some("smooth") => Ok(true),
+        Some("corner") => Ok(false),
+        _ => Err(bad(cmd, "`to` must be \"corner\" or \"smooth\"")),
+    }
+}
+
+fn apply_joined_anchor(sp: &mut SubPath, ai: usize, smooth: bool) {
+    if smooth {
+        sp.smooth_anchor(ai);
+    } else if let Some(a) = sp.anchors.get_mut(ai) {
+        a.retract();
+        a.kind = AnchorKind::Corner;
+    }
+}
+
+/// Direct-selected anchors as `(path, subpath, anchor)` triples.
+fn picked_anchors(s: &Session) -> Vec<(NodeId, usize, usize)> {
+    let st = s.doc().ok();
+    st.map(|st| {
+        st.selection
+            .anchors
+            .iter()
+            .flat_map(|(id, set)| set.iter().map(|&(si, ai)| (*id, si, ai)))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+fn average_positions(d: &vectorcraft_doc::Document, picked: &[(NodeId, usize, usize)], axis: &str) -> Result<Point> {
+    let pts: Vec<Point> = picked
+        .iter()
+        .filter_map(|(id, si, ai)| d.node(*id)?.path_data()?.subpaths.get(*si)?.anchors.get(*ai).map(|a| a.p))
+        .collect();
+    if pts.len() != picked.len() {
+        return Err(EngineError::Other("select paths or anchor points".into()));
+    }
+    if pts.is_empty() {
+        return Err(EngineError::Other("select anchor points".into()));
+    }
+    let c = Point::new(pts.iter().map(|p| p.x).sum::<f64>() / pts.len() as f64, pts.iter().map(|p| p.y).sum::<f64>() / pts.len() as f64);
+    Ok(match axis {
+        "horizontal" => Point::new(pts[0].x, c.y),
+        "vertical" => Point::new(c.x, pts[0].y),
+        _ => c,
+    })
+}
+
+fn average_picked(d: &mut vectorcraft_doc::Document, picked: &[(NodeId, usize, usize)], axis: &str, center: Point) -> Result<()> {
+    for &(id, si, ai) in picked {
+        let path = path_mut(d, id)?;
+        if let Some(a) = path.anchor_mut(si, ai) {
+            let target = match axis {
+                "horizontal" => Point::new(a.p.x, center.y),
+                "vertical" => Point::new(center.x, a.p.y),
+                _ => center,
+            };
+            a.translate(target - a.p);
+        }
+    }
+    Ok(())
+}
+
+fn is_open_endpoint(sp: &SubPath, ai: usize) -> bool {
+    !sp.closed && sp.anchors.len() > 1 && (ai == 0 || ai == sp.anchors.len() - 1)
+}
+
+/// Join open subpaths `sa` of `a` and `sb` of `b` at the picked endpoints (already coincident).
+fn join_open_at(
+    d: &mut vectorcraft_doc::Document,
+    a: NodeId,
+    sa: usize,
+    ai_a: usize,
+    b: NodeId,
+    sb: usize,
+    ai_b: usize,
+) -> Result<()> {
+    let pb = d.node(b).and_then(|n| n.path_data()).cloned().ok_or(EngineError::NoNode(b))?;
+    let mut y = pb.subpaths.get(sb).cloned().ok_or_else(|| EngineError::Other("join needs open paths".into()))?;
+    if y.closed {
+        return Err(EngineError::Other("join needs open paths".into()));
+    }
+    let pa = path_mut(d, a)?;
+    let x = pa.subpaths.get_mut(sa).ok_or_else(|| EngineError::Other("join needs open paths".into()))?;
+    if x.closed {
+        return Err(EngineError::Other("join needs open paths".into()));
+    }
+    let rx = ai_a == 0;
+    let ry = ai_b + 1 == y.anchors.len();
+    if rx {
+        x.reverse();
+    }
+    if ry {
+        y.reverse();
+    }
+    if let (Some(xe), Some(ys)) = (x.anchors.last().map(|a| a.p), y.anchors.first().map(|a| a.p))
+        && xe.distance(ys) < 1e-6
+        && let Some(first) = y.anchors.first().copied()
+    {
+        if let Some(l) = x.anchors.last_mut() {
+            l.h_out = first.h_out;
+        }
+        y.anchors.remove(0);
+    }
+    x.anchors.extend(y.anchors);
+    d.remove(b)?;
+    Ok(())
+}
+
+fn average_join(s: &mut Session, p: &Value) -> Result<Value> {
+    const C: &str = "path.averageJoin";
+    let smooth = join_anchor_smooth(p, C)?;
+    let picked = picked_anchors(s);
+    if picked.len() != 2 {
+        return Err(bad(C, "select exactly two anchor points"));
+    }
+    let axis = str_param(p, "axis").unwrap_or("both");
+    let st = s.doc()?;
+    let (id1, si1, ai1) = picked[0];
+    let (id2, si2, ai2) = picked[1];
+    if id1 != id2 || si1 != si2 {
+        for &(id, si, ai) in &picked {
+            let Some(sp) = st.doc.node(id).and_then(|n| n.path_data()).and_then(|p| p.subpaths.get(si)) else {
+                return Err(bad(C, "select open path endpoints"));
+            };
+            if !is_open_endpoint(sp, ai) {
+                return Err(bad(C, "select open path endpoints"));
+            }
+        }
+    }
+    let center = average_positions(&st.doc, &picked, axis)?;
+    s.edit("Average and Join", |d, sel| {
+        average_picked(d, &picked, axis, center)?;
+        if id1 == id2 && si1 == si2 {
+            let path = path_mut(d, id1)?;
+            let sp = &mut path.subpaths[si1];
+            let set = BTreeSet::from([ai1, ai2]);
+            merge_coincident(sp, |ai| set.contains(&ai));
+            let ai = sp.anchors.iter().position(|a| a.p.distance(center) < 1e-6).ok_or_else(|| EngineError::Other("could not join anchors".into()))?;
+            apply_joined_anchor(sp, ai, smooth);
+            sel.set([id1]);
+        } else {
+            join_open_at(d, id1, si1, ai1, id2, si2, ai2)?;
+            let path = path_mut(d, id1)?;
+            let sp = &mut path.subpaths[si1];
+            let ai = sp.anchors.iter().position(|a| a.p.distance(center) < 1e-6).ok_or_else(|| EngineError::Other("could not join anchors".into()))?;
+            apply_joined_anchor(sp, ai, smooth);
+            sel.set([id1]);
+        }
+        Ok(())
+    })?;
+    ok()
 }
 
 fn average(s: &mut Session, p: &Value) -> Result<Value> {
