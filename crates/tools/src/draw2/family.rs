@@ -203,7 +203,12 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = match self.id {
+                "rectangularGrid" => grid_skew_measure(cx, w, h, "Row Skew", "Column Skew", self.skew),
+                "polarGrid" => grid_skew_measure(cx, w, h, "Concentric Skew", "Radial Skew", self.skew),
+                _ => cx.size_label(w, h),
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -240,6 +245,11 @@ impl Tool for FamilyTool {
     }
 }
 
+/// W/H plus the two divider skews (percent) shown while a grid is dragged out.
+fn grid_skew_measure(cx: &ToolContext, w: f64, h: f64, row: &str, col: &str, skew: [f64; 2]) -> String {
+    format!("{}\n{}: {:.1}%\n{}: {:.1}%", cx.size_label(w, h), row, skew[0], col, skew[1])
+}
+
 /// A grid divider skew from option value `v`: a finite number within the range, else `current`.
 fn grid_skew(v: &Value, current: f64) -> f64 {
     let max = vectorcraft_geom::shapes::GRID_SKEW_MAX;
@@ -272,6 +282,10 @@ mod tests {
         );
         let a = t.key(&cx, ToolKey::Right, Mods::default());
         assert!(matches!(&a[0], Action::Preview(_, v) if v["columns"] == 6));
+        t.set_option("rowSkew", &json!(12.5));
+        t.set_option("columnSkew", &json!(-3.0));
+        let want = format!("{}\nRow Skew: 12.5%\nColumn Skew: -3.0%", cx.size_label(50.0, 30.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
         // Space held moves the grid at its size; let go, it grows again from there.
         let space = Mods { space: true, ..Mods::default() };
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 80.0, 50.0).with_mods(space));
