@@ -1275,6 +1275,30 @@ fn an_object_with_a_darkness_shadow_comes_in_as_itself() {
     );
 }
 
+/// An object whose style chains Offset Path comes in as itself with that live effect.
+#[test]
+fn an_object_with_an_offset_path_style_comes_in_as_itself() {
+    let styles = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(Outset) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /CompoundFilter :\n(Stack Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Fill Style Filter) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n; /Dict ;\n /Part ,\n\
+        /BasicFilter :\n(Conduit Filter) 0 0 /Filter ,\n1 /Visible ,\n;\n /Part ,\n;\n /Part ,\n\
+        /BasicFilter :\n(Adobe Offset Path) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n6 /Real (ofst) ,\n0 /Int (jntp) ,\n8 /Real (mlim) ,\n; /Dict ;\n /Part ,\n;\n\
+        %AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!("0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (Outset) XW\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    let r = read_ok(&format!("{styles}{}", layer(&art_)));
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    assert!(matches!(a[0].kind, NodeKind::Path { .. }), "the object, not its look: {a:#?}");
+    let [off] = a[0].appearance.effects.as_slice() else { panic!("{:?}", a[0].appearance.effects) };
+    assert_eq!(
+        (off.id.as_str(), off.params["offset"].as_f64(), off.params["joins"].as_str(), off.params["miterLimit"].as_f64()),
+        ("path.offsetPath", Some(6.0), Some("round"), Some(8.0))
+    );
+}
+
 /// A styled object read in place of its drawn look keeps the transparency written on the look (the
 /// object's own, after the look's group ends): here 60 % in Multiply.
 #[test]
