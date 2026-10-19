@@ -259,7 +259,12 @@ impl Tool for ShapeTool {
                     (r.width(), r.height())
                 }
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = if self.id == "roundedRectangle" {
+                cx.size_radius_label(w, h, self.corner_radius)
+            } else {
+                cx.size_label(w, h)
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -390,6 +395,24 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 10.0));
         let a = t.key(&cx, ToolKey::Up, Mods::default());
         assert!(matches!(&a[0], Action::Preview(_, v) if v["sides"] == 7));
+    }
+
+    #[test]
+    fn rounded_rectangle_shows_corner_radius_in_the_measurement_label() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = ShapeTool::new("roundedRectangle");
+        t.corner_radius = 8.0;
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 60.0, 40.0));
+        let label = cx.size_radius_label(50.0, 30.0, 8.0);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &label)));
+        let a = t.key(&cx, ToolKey::Up, Mods::default());
+        assert!(matches!(&a[0], Action::Preview(_, v) if v["radius"] == 9.0));
+        let bumped = cx.size_radius_label(50.0, 30.0, 9.0);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &bumped)));
     }
 
     /// The start and the dragged corner land on another object's anchors (#506), hovering shows

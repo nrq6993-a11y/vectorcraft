@@ -375,6 +375,10 @@ impl ToolContext<'_> {
     pub fn size_label(&self, w: f64, h: f64) -> String {
         format!("W: {}\nH: {}", self.len(w), self.len(h))
     }
+    /// A size label with a rounded rectangle's corner radius (`R: …` after width and height).
+    pub fn size_radius_label(&self, w: f64, h: f64, radius: f64) -> String {
+        format!("{}\nR: {}", self.size_label(w, h), self.len(radius))
+    }
     /// A move label: `dX: …` over `dY: …`.
     pub fn offset_label(&self, dx: f64, dy: f64) -> String {
         format!("dX: {}\ndY: {}", self.len(dx), self.len(dy))
