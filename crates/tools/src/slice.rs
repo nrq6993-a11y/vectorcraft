@@ -63,6 +63,7 @@ pub struct SliceTool {
     start: Option<Point>,
     last: Point,
     began: bool,
+    mods: Mods,
     guides: Vec<Overlay>,
 }
 
@@ -85,7 +86,7 @@ impl Tool for SliceTool {
             PointerKind::Drag => {
                 let Some(start) = self.start else { return vec![] };
                 let (p, guides) = snap(cx, ev.pos);
-                (self.last, self.guides) = (p, guides);
+                (self.last, self.guides, self.mods) = (p, guides, ev.mods);
                 let mut out = vec![];
                 if !self.began {
                     if p.distance(start) < cx.tol(2.0) {
@@ -116,10 +117,13 @@ impl Tool for SliceTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         match self.start {
             Some(s) if self.began => {
-                let d = self.last - s;
                 let mut o = self.guides.clone();
                 if cx.measurement_labels {
-                    o.push(Overlay::Measure { p: self.last, text: cx.size_label(d.x.abs(), d.y.abs()) });
+                    let r = drag_rect(s, self.last, self.mods);
+                    o.push(Overlay::Measure {
+                        p: self.last,
+                        text: cx.size_label(r.width(), r.height()),
+                    });
                 }
                 o
             }
@@ -186,6 +190,8 @@ pub struct SliceSelectionTool {
     snap: Option<ResizeSnap>,
     /// The guides showing what the resize snapped to.
     guides: Vec<Overlay>,
+    /// Smart Guides › Measurement Labels while moving slices.
+    measure: Option<(Point, String)>,
 }
 
 /// Can the slices be picked (not hidden or locked)?
@@ -228,6 +234,7 @@ impl Tool for SliceSelectionTool {
                 self.drag = None;
                 self.snap = None;
                 self.guides.clear();
+                self.measure = None;
                 if !pickable(cx) {
                     return vec![];
                 }
@@ -260,6 +267,7 @@ impl Tool for SliceSelectionTool {
                     out.push(Action::Begin("Move Slice".into()));
                 }
                 let d = move_delta(start, p, m.shift);
+                self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(d.x, d.y)));
                 out.push(Action::Preview("object.slice.move".into(), json!({ "slices": json_ids(&ids), "dx": d.x, "dy": d.y })));
                 self.drag = Some(Drag::Move { start, ids, began: true });
                 out
@@ -286,6 +294,7 @@ impl Tool for SliceSelectionTool {
                 self.drag = None;
                 self.snap = None;
                 self.guides.clear();
+                self.measure = None;
                 if d.began() { vec![Action::Commit] } else { vec![] }
             }
             (PointerKind::DoubleClick, _) => {
@@ -336,15 +345,10 @@ impl Tool for SliceSelectionTool {
                     });
                 }
             }
-            Some(Drag::Move { ids, began: true, .. }) => {
-                if let Some(r) = ids.iter().filter_map(|id| cx.doc.slice_bounds(*id)).reduce(|a, b| a.union(b)) {
-                    o.push(Overlay::Measure {
-                        p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                        text: cx.size_label(r.width(), r.height()),
-                    });
-                }
-            }
             _ => {}
+        }
+        if let Some((p, text)) = &self.measure {
+            o.push(Overlay::Measure { p: *p, text: text.clone() });
         }
         o
     }
@@ -402,7 +406,8 @@ mod tests {
         let a = t.pointer(&c, &ev(PointerKind::Drag, 350.0, 320.0));
         assert_eq!(a[0], Action::Begin("Slice".into()));
         assert_eq!(create_preview(&a), Some(json!({"x": 300.0, "y": 300.0, "width": 50.0, "height": 20.0})));
-        assert!(matches!(t.overlays(&c).last(), Some(Overlay::Measure { .. })));
+        let want = c.size_label(50.0, 20.0);
+        assert!(matches!(t.overlays(&c).last(), Some(Overlay::Measure { text, .. }) if text == &want));
         // Shift: a square; Alt: from the centre.
         let sq = t.pointer(&c, &with(PointerKind::Drag, 350.0, 320.0, Mods { shift: true, ..Default::default() }));
         assert_eq!(create_preview(&sq), Some(json!({"x": 300.0, "y": 300.0, "width": 50.0, "height": 50.0})));
@@ -422,6 +427,20 @@ mod tests {
         t.pointer(&c, &ev(PointerKind::Drag, 40.0, 40.0));
         assert_eq!(t.key(&c, ToolKey::Escape, Mods::default()), vec![Action::Cancel]);
         assert_eq!(t.cursor(&c, Point::ZERO, Mods::default()), Cursor::Slice);
+    }
+
+    #[test]
+    fn slice_drag_measure_labels_match_the_drawn_rectangle() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let mut t = SliceTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, 400.0, 400.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 400.5, 400.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 350.0, 360.0));
+        let label = c.size_label(50.0, 40.0);
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &label)));
     }
 
     fn doc_with_slices() -> (Document, NodeId, NodeId) {
@@ -450,6 +469,8 @@ mod tests {
             m,
             vec![Action::Begin("Move Slice".into()), Action::Preview("object.slice.move".into(), json!({"slices": [a.0], "dx": 10.0, "dy": 5.0}))]
         );
+        let move_label = c.offset_label(10.0, 5.0);
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &move_label)));
         assert_eq!(t.pointer(&c, &ev(PointerKind::Up, 30.0, 25.0)), vec![Action::Commit]);
         // Shift-click toggles another slice.
         let shift = Mods { shift: true, ..Default::default() };
