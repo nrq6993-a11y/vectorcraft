@@ -444,5 +444,7 @@ mod tests {
             t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
             "want {want:?}"
         );
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert!(t.overlays(&quiet).is_empty());
     }
 }
