@@ -460,11 +460,23 @@ impl Tool for ArtboardTool {
         // (labels are drawn 8 px right of and 14 px above their point).
         let at = Point::new(r.x0 - cx.tol(8.0), r.y0 - cx.tol(4.0));
         o.push(Overlay::Label { p: at, text: format!("{:02} - {}", self.active + 1, ab.name), color: BLUE });
-        if let (Some(Drag::Resize { began: true, .. }), true) = (self.drag, cx.measurement_labels) {
-            o.push(Overlay::Measure {
-                p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                text: cx.size_label(r.width(), r.height()),
-            });
+        if cx.measurement_labels {
+            match &self.drag {
+                Some(Drag::Move { began: true, rect, .. }) => {
+                    let moved = self.preview.unwrap_or(*rect);
+                    o.push(Overlay::Measure {
+                        p: Point::new(moved.x1, moved.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                        text: cx.offset_label(moved.x0 - rect.x0, moved.y0 - rect.y0),
+                    });
+                }
+                Some(Drag::Resize { began: true, .. }) => {
+                    o.push(Overlay::Measure {
+                        p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                        text: cx.size_label(r.width(), r.height()),
+                    });
+                }
+                _ => {}
+            }
         }
         if self.drag.is_some() {
             o.extend(self.guides.iter().cloned());
@@ -576,6 +588,20 @@ mod tests {
             })
             .collect();
         assert_eq!(corners[0], Point::new(620.0, 0.0), "the handles sit on the moved artboard, not 10 pt past it");
+    }
+
+    #[test]
+    fn moving_shows_offset_measurement_labels() {
+        let d = two_boards();
+        let (s, p) = (Selection::default(), paint());
+        let mut t = ArtboardTool::default();
+        let mut c = cx(&d, &s, &p);
+        t.pointer(&c, &ev(PointerKind::Down, 700.0, 100.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 730.0, 120.0));
+        let want = c.offset_label(30.0, 20.0);
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        c.measurement_labels = false;
+        assert!(!t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
