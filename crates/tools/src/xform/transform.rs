@@ -215,7 +215,7 @@ impl Tool for TransformTool {
                 let (m, text) = self.matrix_for(d.origin, d.pick, p, ev.mods.shift, d.bounds);
                 d.last = m;
                 self.drag = Some(d);
-                self.measure = Some((p, text));
+                self.measure = cx.transform_tools_guides.then(|| (p, text));
                 out.push(preview(m, ev.mods.alt));
                 out
             }
@@ -517,5 +517,27 @@ mod tests {
         assert!(t.pointer(&cx, &ev(PointerKind::Down, 150.0, 150.0)).is_empty());
         assert!(t.pointer(&cx, &ev(PointerKind::Drag, 250.0, 150.0)).is_empty());
         assert_eq!(t.cursor(&cx, Point::ZERO, Mods::default()), Cursor::NotAllowed);
+    }
+
+    #[test]
+    fn drag_readouts_follow_transform_tools_preference() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let measures = |t: &TransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        for (kind, down, drag) in [
+            (TransformKind::Scale, (200.0, 200.0), (250.0, 240.0)),
+            (TransformKind::Rotate, (250.0, 150.0), (150.0, 250.0)),
+        ] {
+            for on in [true, false] {
+                let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+                let mut t = TransformTool::new(kind);
+                t.pointer(&c, &ev(PointerKind::Down, down.0, down.1));
+                t.pointer(&c, &ev(PointerKind::Drag, drag.0, drag.1));
+                assert_eq!(measures(&t, &c), usize::from(on), "{kind:?} transform tools {on}");
+                t.pointer(&c, &ev(PointerKind::Up, drag.0, drag.1));
+            }
+        }
     }
 }
