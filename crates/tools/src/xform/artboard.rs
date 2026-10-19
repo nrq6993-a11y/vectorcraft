@@ -78,6 +78,8 @@ pub struct ArtboardTool {
     /// The canvas sets this on the second click of a double-click, so that release does not fit
     /// a second artboard before [`PointerKind::DoubleClick`] arrives.
     suppress_fit: bool,
+    /// Move offset or resize size readout while dragging.
+    measure: Option<(Point, String)>,
 }
 
 impl Default for ArtboardTool {
@@ -95,6 +97,7 @@ impl Default for ArtboardTool {
             guides: vec![],
             draw: DrawSnap::default(),
             suppress_fit: false,
+            measure: None,
         }
     }
 }
@@ -195,6 +198,7 @@ impl ArtboardTool {
         self.copy_targets = None;
         self.guides.clear();
         self.draw.clear();
+        self.measure = None;
     }
 }
 
@@ -304,6 +308,7 @@ impl Tool for ArtboardTool {
                 }
                 self.drag = Some(Drag::Move { index, many, start, rect, began: true, copy: m.alt });
                 let d = self.snap_move(cx, rect, move_delta(start, p, m.shift), m.alt);
+                self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(d.x, d.y)));
                 self.preview = Some(rect + d);
                 let mut v = json!({ "index": index, "dx": d.x, "dy": d.y, "moveArt": self.move_art, "copy": m.alt });
                 if many {
@@ -326,6 +331,9 @@ impl Tool for ArtboardTool {
                     nr = keep_min_side(nr, if m.alt { rect.center() } else { handle.opposite().pos(rect) });
                 }
                 self.preview = Some(nr);
+                self.measure = cx.transform_tools_guides.then(|| {
+                    (p, cx.size_label(nr.width(), nr.height()))
+                });
                 let mut v = rect_json(index, nr);
                 if self.scale_art {
                     v["scaleArt"] = json!(true);
@@ -460,11 +468,8 @@ impl Tool for ArtboardTool {
         // (labels are drawn 8 px right of and 14 px above their point).
         let at = Point::new(r.x0 - cx.tol(8.0), r.y0 - cx.tol(4.0));
         o.push(Overlay::Label { p: at, text: format!("{:02} - {}", self.active + 1, ab.name), color: BLUE });
-        if let (Some(Drag::Resize { began: true, .. }), true) = (self.drag, cx.measurement_labels) {
-            o.push(Overlay::Measure {
-                p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                text: cx.size_label(r.width(), r.height()),
-            });
+        if let Some((p, t)) = &self.measure {
+            o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: t.clone() });
         }
         if self.drag.is_some() {
             o.extend(self.guides.iter().cloned());
@@ -629,6 +634,29 @@ mod tests {
         c.snap_to_pixel = true;
         let v = drag_board2(&c, &mut t, 10.4, 3.6);
         assert_eq!((v["dx"].as_f64(), v["dy"].as_f64()), (Some(10.0), Some(4.0)));
+    }
+
+    #[test]
+    fn artboard_move_measure_labels_follow_preferences() {
+        let d = two_boards();
+        let (s, p) = (Selection::default(), paint());
+        let measures = |t: &ArtboardTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        for on in [true, false] {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            let mut t = ArtboardTool::default();
+            t.pointer(&c, &ev(PointerKind::Down, 700.0, 100.0));
+            t.pointer(&c, &ev(PointerKind::Drag, 710.0, 110.0));
+            assert_eq!(measures(&t, &c), usize::from(on), "measurement labels {on}");
+            t.pointer(&c, &ev(PointerKind::Up, 710.0, 110.0));
+        }
+        for on in [true, false] {
+            let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+            let mut t = ArtboardTool { active: 1, ..Default::default() };
+            t.pointer(&c, &ev(PointerKind::Down, 600.0, 100.0));
+            t.pointer(&c, &ev(PointerKind::Drag, 550.0, 100.0));
+            assert_eq!(measures(&t, &c), usize::from(on), "transform tools {on}");
+            t.pointer(&c, &ev(PointerKind::Up, 550.0, 100.0));
+        }
     }
 
     #[test]
