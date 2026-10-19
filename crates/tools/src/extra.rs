@@ -202,14 +202,23 @@ impl Tool for FlareTool {
         self.drag = None;
         if self.placed.take().is_some() && std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![] }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        match (self.drag, self.placed) {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut o = match (self.drag, self.placed) {
             (Some((c, p)), _) => {
                 vec![Overlay::Path { path: ellipse_path(c, p.distance(c), p.distance(c), 0.0), color: BLUE, width: 1.0, dashed: false }]
             }
             (_, Some((c, _))) => vec![Overlay::Line { a: c, b: self.hover, color: BLUE, dashed: true }],
             _ => vec![],
+        };
+        if cx.measurement_labels && let Some((c, p)) = self.drag.filter(|_| self.began) {
+            let mut text = format!("D: {}", cx.len(2.0 * p.distance(c)));
+            if self.rays_on {
+                let r = self.rays.unwrap_or_else(|| self.options()["rays"].as_u64().unwrap_or(0));
+                text.push_str(&format!("\nRays: {r}"));
+            }
+            o.push(Overlay::Measure { p, text });
         }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -501,6 +510,22 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn flare_ray_count_appears_in_the_measurement_label() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = FlareTool::default();
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, 0.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text.contains("Rays: 15"))));
+        t.key(&cx, ToolKey::Up, Mods::default());
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text.contains("Rays: 16"))));
     }
 
     #[test]
