@@ -1255,6 +1255,30 @@ fn a_styled_object_inside_a_drawn_look_survives_it() {
     assert_eq!((shadow.id.as_str(), shadow.params["x"].as_f64(), shadow.params["y"].as_f64()), ("stylize.dropShadow", Some(3.0), Some(4.0)));
 }
 
+/// A plain style whose only live effect is Offset Path imports as the object with `path.offsetPath`.
+#[test]
+fn an_object_with_an_offset_path_style_comes_in_as_itself() {
+    let styles = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(Offset) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /CompoundFilter :\n(Stack Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Fill Style Filter) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n; /Dict ;\n /Part ,\n\
+        /BasicFilter :\n(Conduit Filter) 0 0 /Filter ,\n1 /Visible ,\n;\n /Part ,\n;\n /Part ,\n\
+        /BasicFilter :\n(Adobe Offset Path) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n0 /Int (jntp) ,\n5 /Real (ofst) ,\n; /Dict ;\n /Part ,\n;\n\
+        %AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!("0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (Offset) XW\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    let r = read_ok(&format!("{styles}{}", layer(&art_)));
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    assert!(matches!(a[0].kind, NodeKind::Path { .. }), "the object, not its look: {a:#?}");
+    let [off] = a[0].appearance.effects.as_slice() else { panic!("{:?}", a[0].appearance.effects) };
+    assert_eq!(
+        (off.id.as_str(), off.params["offset"].as_f64(), off.params["joins"].as_str()),
+        ("path.offsetPath", Some(5.0), Some("round"))
+    );
+}
+
 /// An object whose style's Drop Shadow has Darkness (`csrc` 1, `dark` 50) comes in as itself with
 /// that shadow, not as its drawn look.
 #[test]
