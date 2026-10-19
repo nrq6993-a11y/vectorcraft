@@ -399,7 +399,9 @@ impl Tool for DimensionTool {
                         for p in [a, b] {
                             out.push(Overlay::Anchor { p, color, filled: true, size: 6.0 });
                         }
-                        if let Ok(text) = self.style.label(a.distance(b), false) {
+                        if cx.measurement_labels
+                            && let Ok(text) = self.style.label(a.distance(b), false)
+                        {
                             out.push(Overlay::Measure { p: self.at + Vec2::new(12.0, 12.0), text });
                         }
                     }
@@ -441,5 +443,36 @@ impl Tool for DimensionTool {
             out.push(Overlay::Line { a: *p, b, color, dashed: true });
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testutil::*;
+    use vectorcraft_doc::{Appearance, Document, Node, Selection};
+    use vectorcraft_geom::{Rect, shapes};
+
+    #[test]
+    fn dimension_perspective_segment_hover_honors_measurement_labels() {
+        let mut d = Document::new(500.0, 500.0);
+        let l = d.layers[0].id;
+        let id = d.alloc_id();
+        d.insert(
+            Some(l),
+            0,
+            Node::path(id, shapes::rectangle(Rect::new(100.0, 100.0, 300.0, 100.0)), Appearance::default_art()),
+        )
+        .unwrap();
+        let s = Selection::default();
+        let p = paint();
+        let on = cx(&d, &s, &p);
+        let off = ToolContext { measurement_labels: false, ..on };
+        let mut t = DimensionTool::default();
+        let mid = Point::new(200.0, 100.0);
+        t.pointer(&on, &PointerEvent::new(PointerKind::Move, mid.x, mid.y));
+        let has_measure = |cx: &ToolContext| t.overlays(cx).iter().any(|o| matches!(o, Overlay::Measure { .. }));
+        assert!(has_measure(&on));
+        assert!(!has_measure(&off));
     }
 }

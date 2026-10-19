@@ -1111,15 +1111,17 @@ impl PerspectiveSelectionTool {
             v["plane"] = json!(g.plane.id());
         }
         let at = ids.first().and_then(|id| g.attachment_of(cx.doc, *id)).or((g.plane != Plane::None).then_some((g.plane, g.offset(g.plane))));
-        self.measure = at.and_then(|(pl, depth)| {
-            let text = if *perp {
-                format!("dZ: {}", cx.len(g.depth_at(pl, depth, *from, *last)? - depth))
-            } else {
-                let d = g.plane_delta(pl, depth, *from, *last)?;
-                cx.offset_label(d.x, d.y)
-            };
-            Some((*last, text))
-        });
+        self.measure = cx.measurement_labels.then(|| {
+            at.and_then(|(pl, depth)| {
+                let text = if *perp {
+                    format!("dZ: {}", cx.len(g.depth_at(pl, depth, *from, *last)? - depth))
+                } else {
+                    let d = g.plane_delta(pl, depth, *from, *last)?;
+                    cx.offset_label(d.x, d.y)
+                };
+                Some((*last, text))
+            })
+        }).flatten();
         Some(Action::Preview("perspective.move".into(), v))
     }
 }
@@ -1186,7 +1188,7 @@ impl Tool for PerspectiveSelectionTool {
                 let Some(q) = q else { return vec![] };
                 let a = scale_for_drag(rect, handle, q, m.shift, m.alt);
                 let nr = a.transform_rect_bbox(rect);
-                self.measure = Some((p, cx.size_label(nr.width(), nr.height())));
+                self.measure = cx.measurement_labels.then(|| (p, cx.size_label(nr.width(), nr.height())));
                 vec![Action::Preview("perspective.transform".into(), json!({"ids": crate::json_ids(&ids), "matrix": crate::select::matrix_json(a)}))]
             }
             (PointerKind::Up, SelDrag::Move { began, .. }) => {
@@ -1262,7 +1264,9 @@ impl Tool for PerspectiveSelectionTool {
                 }
             }
         }
-        if let Some((p, t)) = &self.measure {
+        if cx.measurement_labels
+            && let Some((p, t)) = &self.measure
+        {
             out.push(Overlay::Measure { p: *p, text: t.clone() });
         }
         out
@@ -1513,6 +1517,8 @@ mod tests {
         let Action::Preview(cmd, v) = &acts[0] else { panic!("{acts:?}") };
         assert_eq!((cmd.as_str(), &v["perpendicular"], &v["to"]), ("perspective.move", &json!(true), &json!([mid.x + 20.0, mid.y])));
         assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text.starts_with("dZ"))));
+        let quiet = ToolContext { measurement_labels: false, ..c };
+        assert!(!t.overlays(&quiet).iter().any(|o| matches!(o, Overlay::Measure { .. })));
         assert!(t.key(&c, ToolKey::Digit(3), Mods::default()).is_empty());
         assert_eq!(t.pointer(&c, &PointerEvent::new(PointerKind::Up, mid.x + 20.0, mid.y)), vec![Action::Commit]);
         assert!(!t.busy());
