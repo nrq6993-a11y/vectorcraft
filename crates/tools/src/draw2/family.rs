@@ -4,7 +4,8 @@
 //! moves the shape being drawn); a click without dragging asks the UI for the options dialog. The
 //! start point and the dragged corner snap to Smart Guides ([`DrawSnap`]), hovering too.
 //! While dragging, ↑/↓ change the spiral's segments, the grid rows or the concentric dividers; ←/→
-//! change grid columns / radial dividers.
+//! change grid columns / radial dividers. On a spiral, Cmd/Ctrl locks the radius and changes decay
+//! from the pointer angle around the start (Illustrator's Spiral tool).
 
 use serde_json::{Value, json};
 use vectorcraft_geom::Point;
@@ -35,6 +36,10 @@ pub struct FamilyTool {
     pub compound: bool,
     /// The grids take the current fill.
     pub fill: bool,
+    /// Spiral: outer radius held while Cmd/Ctrl adjusts decay.
+    spiral_radius_hold: Option<f64>,
+    /// Spiral: `(decay, pointer angle)` when Cmd/Ctrl went down for the current hold.
+    spiral_decay_hold: Option<(f64, f64)>,
     snap: DrawSnap,
 }
 
@@ -62,8 +67,40 @@ impl FamilyTool {
             frame: true,
             compound: false,
             fill: false,
+            spiral_radius_hold: None,
+            spiral_decay_hold: None,
             snap: DrawSnap::default(),
         }
+    }
+
+    fn clear_spiral_hold(&mut self) {
+        self.spiral_radius_hold = None;
+        self.spiral_decay_hold = None;
+    }
+
+    /// Cmd/Ctrl during a spiral drag locks the radius and maps angle around the start to decay (%).
+    fn spiral_radius_decay(&mut self, start: Point, p: Point, m: Mods) -> (f64, f64) {
+        let mut r = p.distance(start).max(0.01);
+        let v = p - start;
+        let angle = v.y.atan2(v.x);
+        match (m.cmd, self.spiral_radius_hold) {
+            (true, None) => {
+                self.spiral_radius_hold = Some(r);
+                self.spiral_decay_hold = Some((self.decay, angle));
+            }
+            (false, Some(_)) => self.clear_spiral_hold(),
+            _ => {}
+        }
+        if m.cmd {
+            if let Some(held) = self.spiral_radius_hold {
+                r = held;
+            }
+            if let Some((base, a0)) = self.spiral_decay_hold {
+                let da = (angle - a0).to_degrees();
+                self.decay = (base + da).clamp(5.0, 150.0);
+            }
+        }
+        (r, self.decay)
     }
 
     fn label(&self) -> &'static str {
@@ -85,7 +122,9 @@ impl FamilyTool {
     pub fn command(&self, start: Point, p: Point, m: Mods) -> (String, Value) {
         match self.id {
             "spiral" => {
-                let r = p.distance(start).max(0.01);
+                let r = self
+                    .spiral_radius_hold
+                    .unwrap_or_else(|| p.distance(start).max(0.01));
                 (
                     "shape.spiral".into(),
                     json!({"cx": start.x, "cy": start.y, "radius": r, "decay": self.decay, "segments": self.segments, "clockwise": self.clockwise}),
@@ -144,6 +183,9 @@ impl Tool for FamilyTool {
                     self.began = true;
                     out.push(Action::Begin(self.label().into()));
                 }
+                if self.id == "spiral" {
+                    self.spiral_radius_decay(s, ev.pos, ev.mods);
+                }
                 let (c, v) = self.command(s, ev.pos, ev.mods);
                 out.push(Action::Preview(c, v));
                 out
@@ -151,6 +193,7 @@ impl Tool for FamilyTool {
             PointerKind::Up => {
                 let Some(s) = self.start.take() else { return vec![] };
                 self.snap.clear();
+                self.clear_spiral_hold();
                 if std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![Action::Dialog(self.id.into(), json!({"x": s.x, "y": s.y}))] }
             }
             _ => vec![],
@@ -192,6 +235,7 @@ impl Tool for FamilyTool {
             self.start = None;
             self.began = false;
             self.snap.clear();
+            self.clear_spiral_hold();
             vec![Action::Cancel]
         } else {
             vec![]
@@ -309,6 +353,34 @@ mod tests {
         t.set_option("frame", &json!(false));
         t.set_option("rowSkew", &json!(12.5));
         assert_eq!(t.options(), json!({"rows": 5, "columns": 5, "rowSkew": 12.5, "columnSkew": 0.0, "frame": false, "fill": false}));
+    }
+
+    /// Cmd/Ctrl locks the outer radius and changes decay from the pointer angle (#812 family).
+    #[test]
+    fn spiral_drag_holds_radius_with_ctrl_and_changes_decay() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.smart_guides = false;
+        let ctrl = Mods { cmd: true, ..Default::default() };
+        let mut t = FamilyTool::new("spiral");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 50.0, 50.0));
+        let preview = |a: &[Action]| match a.last() {
+            Some(Action::Preview(_, v)) => (v["radius"].as_f64().unwrap(), v["decay"].as_f64().unwrap()),
+            other => panic!("{other:?}"),
+        };
+        let (r, decay) = preview(&t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 50.0)));
+        assert!((r - 100.0).abs() < 1e-9 && (decay - 80.0).abs() < 1e-9, "{r} {decay}");
+        // Ctrl: radius stays 100 while decay follows the angle (here +45°).
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 50.0).with_mods(ctrl));
+        let (r, decay) = preview(&t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0).with_mods(ctrl)));
+        assert!((r - 100.0).abs() < 1e-9, "{r}");
+        assert!((decay - 125.0).abs() < 1e-9, "{decay}");
+        // Let go: radius grows again, decay stays.
+        let (r, decay) = preview(&t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 200.0, 50.0)));
+        assert!((r - 150.0).abs() < 1e-9 && (decay - 125.0).abs() < 1e-9, "{r} {decay}");
+        assert_eq!(t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 200.0, 50.0)), vec![Action::Commit]);
     }
 
     #[test]
