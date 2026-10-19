@@ -165,10 +165,14 @@ impl Tool for SymbolismTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(p) = self.hover else { return vec![] };
         let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
-        vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }]
+        let mut o = vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }];
+        if self.active && cx.measurement_labels {
+            o.push(Overlay::Measure { p, text: format!("D: {}", cx.stroke_unit.readout(self.diameter)) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         match self.id {
@@ -306,6 +310,22 @@ mod tests {
         let fill = serde_json::to_value(p.fill.color().unwrap()).unwrap();
         let a = create("symbolStainer").unwrap().pointer(&cx, &PointerEvent::new(PointerKind::Down, 5.0, 5.0));
         assert!(matches!(&a[1], Action::Preview(_, v) if v["color"] == fill && v["keepModel"] == true), "{a:?}");
+    }
+
+    #[test]
+    fn sprayer_shows_diameter_in_measurement_labels_while_spraying() {
+        let (d, _) = doc_with_rect();
+        let (s, p) = (Selection::default(), paint());
+        let cx = cx(&d, &s, &p);
+        let mut t = SymbolismTool::new("symbolSprayer");
+        t.set_option("diameter", &json!(80.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Move, 10.0, 20.0));
+        assert!(t.overlays(&cx).iter().all(|o| !matches!(o, Overlay::Measure { .. })), "idle: no label");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 20.0));
+        let want = format!("D: {}", cx.stroke_unit.readout(80.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert!(t.overlays(&quiet).iter().all(|o| !matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
