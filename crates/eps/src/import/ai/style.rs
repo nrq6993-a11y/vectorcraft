@@ -21,7 +21,7 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Offset Path) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
@@ -36,10 +36,11 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 7] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW];
+const PLAIN: [&str; 8] =
+    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, OFFSET];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
+const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -307,7 +308,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == SHADOW || f.name == OFFSET;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -348,6 +349,21 @@ fn style(filters: &[Filter]) -> ArtStyle {
                     params["darkness"] = json!(param("dark").filter(|v| v.is_finite()).map_or(100.0, |v| v.clamp(0.0, 100.0)));
                 }
                 effects.push(Effect { id: "stylize.dropShadow".into(), params, visible: true });
+            }
+            OFFSET => {
+                let joins = match param("jntp").map(|v| v.round() as i64) {
+                    Some(0) => "round",
+                    Some(1) => "bevel",
+                    _ => "miter",
+                };
+                let mut params = json!({
+                    "offset": param("ofst").filter(|v| v.is_finite()).unwrap_or(10.0),
+                    "joins": joins,
+                });
+                if let Some(mlim) = param("mlim").filter(|v| v.is_finite()) {
+                    params["miterLimit"] = json!(mlim.clamp(1.0, 500.0));
+                }
+                effects.push(Effect { id: "path.offsetPath".into(), params, visible: true });
             }
             _ => {}
         }
@@ -438,6 +454,44 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    /// The style `Offset`: an Offset Path whose dictionary holds `keys`.
+    fn offset_style(keys: &str) -> ArtStyle {
+        let data = format!(
+            "/KnownStyle :\n(Offset) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Offset Path) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{keys}; /Dict ;\n /Part ,\n;\n"
+        );
+        art_styles(data.as_bytes()).remove("Offset").unwrap_or_default()
+    }
+
+    #[test]
+    fn an_offset_path_art_style_reads_as_path_offset_path() {
+        let style = offset_style("8 /Real (ofst) ,\n2 /Int (jntp) ,\n6 /Real (mlim) ,\n");
+        assert!(style.plain, "{style:?}");
+        let [off] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (off.id.as_str(), &off.params["offset"], &off.params["joins"], &off.params["miterLimit"]),
+            ("path.offsetPath", &json!(8.0), &json!("miter"), &json!(6.0))
+        );
+    }
+
+    #[test]
+    fn an_offset_path_join_type_reads_from_jntp() {
+        for (jntp, want) in [(0.0, "round"), (1.0, "bevel"), (2.0, "miter"), (9.0, "miter")] {
+            let style = offset_style(&format!("5 /Real (ofst) ,\n{jntp} /Int (jntp) ,\n"));
+            assert!(style.plain, "jntp={jntp}: {style:?}");
+            let [off] = style.effects.as_slice() else { panic!("jntp={jntp}: {style:?}") };
+            assert_eq!((&off.params["offset"], &off.params["joins"]), (&json!(5.0), &json!(want)), "jntp={jntp}");
+        }
+    }
+
+    #[test]
+    fn an_offset_path_without_mlim_omits_miter_limit() {
+        let style = offset_style("3 /Real (ofst) ,\n");
+        let [off] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(off.params.get("miterLimit"), None);
+        assert_eq!((&off.params["offset"], &off.params["joins"]), (&json!(3.0), &json!("miter")));
     }
 
     #[test]
