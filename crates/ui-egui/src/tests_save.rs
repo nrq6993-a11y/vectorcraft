@@ -207,6 +207,24 @@ fn replacing_a_file_that_opening_left_things_out_of_asks_first() {
 }
 
 #[test]
+fn save_puts_a_confirmation_in_the_status_bar_and_clears_the_unsaved_marker() {
+    let d = dir("status");
+    let path = d.join("a.vectorcraft").to_string_lossy().to_string();
+    let mut app = app();
+    app.session.prefs.background_save = false;
+    app.run("file.new", json!({"width": 100, "height": 100})).unwrap();
+    rect(&mut app);
+    assert!(app.session.active().unwrap().is_dirty());
+    assert_eq!(crate::chrome::window_title(&app), "*Untitled-1 \u{2014} VectorCraft");
+    app.run("file.save", json!({"path": path})).unwrap();
+    assert!(!app.session.active().unwrap().is_dirty());
+    assert_eq!(crate::chrome::window_title(&app), "a.vectorcraft \u{2014} VectorCraft");
+    assert!(io::is_saved_status(&app.ui.status), "{}", app.ui.status);
+    assert_eq!(app.ui.status, format!("Saved {path}"));
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
 fn native_saves_stream_into_the_file() {
     let d = dir("stream");
     let streamed = std::sync::Arc::new(std::sync::Mutex::new(vec![]));

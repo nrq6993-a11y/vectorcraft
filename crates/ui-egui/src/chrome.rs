@@ -757,6 +757,10 @@ pub fn status_bar(app: &mut VectorcraftApp, ui: &mut Ui) {
                     } else if !app.ui.status.is_empty() {
                         // The message stays English in `ui.status` (agents and tests read it).
                         let message = crate::i18n::msg(&app.ui.status);
+                        if crate::io::is_saved_status(&app.ui.status) {
+                            let (r, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                            icons::paint(ui, "save", r, t.accent);
+                        }
                         ui.add(egui::Label::new(egui::RichText::new(message).size(11.0).color(t.text)).truncate());
                     }
                 });

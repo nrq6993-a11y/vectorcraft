@@ -590,12 +590,22 @@ pub(crate) fn report_saved(app: &mut VectorcraftApp, path: &str, r: &Value) {
 }
 
 /// [`report_saved`]'s message.
-fn saved_status(path: &str, r: &Value) -> String {
+pub(crate) fn saved_status(path: &str, r: &Value) -> String {
     let warnings: Vec<&str> = r["warnings"].as_array().map(|w| w.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
     match warnings.first() {
         Some(first) => format!("Saved {path} with {} note(s): {first}", warnings.len()),
         None => format!("Saved {path}"),
     }
+}
+
+/// Whether `status` is a file-save confirmation from [`report_saved`] (the status bar shows a save
+/// icon for these). `ui.status` stays English; other messages that happen to start with "Saved "
+/// are excluded.
+pub(crate) fn is_saved_status(status: &str) -> bool {
+    status.starts_with("Saved ")
+        && !status.starts_with("Saved recovery")
+        && !status.starts_with("Saved to User")
+        && !status.contains(" files beside ")
 }
 
 /// Write a planned save through the services and report it in the status bar.
@@ -985,6 +995,15 @@ mod tests {
         // An agent's `file.open {path}` gets the error back and no dialog.
         assert!(app.run("file.open", json!({"path": "/docs/gone.ai"})).is_err());
         assert!(app.ui.dialog.is_none());
+    }
+
+    #[test]
+    fn saved_status_messages_are_recognised_for_the_status_bar_icon() {
+        assert!(is_saved_status("Saved /docs/a.vectorcraft"));
+        assert!(is_saved_status("Saved /x/o.png with 1 note(s): lossy"));
+        assert!(!is_saved_status("Saved recovery data for Untitled-1"));
+        assert!(!is_saved_status("Exported /out/a.svg"));
+        assert_eq!(saved_status("/p.svg", &json!({})), "Saved /p.svg");
     }
 
     /// #1685: a save or an export that can't write its file says so in a dialog that names the
