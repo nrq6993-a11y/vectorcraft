@@ -21,13 +21,13 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather, Roughen) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{json, Value};
 use vectorcraft_color::Paint;
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
 
@@ -36,10 +36,20 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 8] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, FEATHER];
+const PLAIN: [&str; 9] = [
+    "Chain Style Filter",
+    "Stack Style Filter",
+    "Stroke Style Filter",
+    "Fill Style Filter",
+    "Conduit Filter",
+    "Blend Style Filter",
+    GLOW,
+    FEATHER,
+    ROUGHEN,
+];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
+const ROUGHEN: &str = "Adobe Roughen"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -308,7 +318,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == FEATHER || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == FEATHER || f.name == ROUGHEN || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -337,6 +347,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
                 params: json!({"radius": param("rad").or_else(|| param("radius")).filter(|v| v.is_finite()).unwrap_or(5.0)}),
                 visible: true,
             }),
+            ROUGHEN => effects.push(Effect { id: "distort.roughen".into(), params: roughen_params(&param), visible: true }),
             SHADOW => {
                 let mut params = json!({
                     "mode": mode(1),
@@ -360,6 +371,15 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     ArtStyle { plain, items, effects }
+}
+
+/// LiveEffect XML for Roughen (`size`/`asiz`, `absoluteness`, `dtal`, `roundness`; public scripting notes).
+fn roughen_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let size = param("size").or_else(|| param("asiz")).filter(|v| v.is_finite()).unwrap_or(5.0);
+    let relative = param("absoluteness").unwrap_or(0.0) == 0.0;
+    let detail = param("dtal").filter(|v| v.is_finite()).map(|v| v.clamp(0.0, 100.0)).unwrap_or(10.0);
+    let points = if param("roundness").unwrap_or(0.0) <= 0.0 { "corner" } else { "smooth" };
+    json!({"size": size, "relative": relative, "detail": detail, "points": points})
 }
 
 #[cfg(test)]
@@ -469,6 +489,34 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_roughen_art_style_reads_its_live_effect() {
+        let data = b"/KnownStyle :\n(Rough) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Roughen) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n8 /Real (size) ,\n0 /Int (absoluteness) ,\n12 /Real (dtal) ,\n1 /Real (roundness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Rough"];
+        assert!(style.plain);
+        let [roughen] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (roughen.id.as_str(), &roughen.params),
+            (
+                "distort.roughen",
+                &json!({"size": 8.0, "relative": true, "detail": 12.0, "points": "smooth"})
+            )
+        );
+    }
+
+    #[test]
+    fn a_roughen_art_style_reads_absolute_corner_defaults() {
+        let data = b"/KnownStyle :\n(Rough) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Roughen) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n6 /Real (asiz) ,\n1 /Int (absoluteness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Rough").unwrap_or_default();
+        let [roughen] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            &roughen.params,
+            &json!({"size": 6.0, "relative": false, "detail": 10.0, "points": "corner"})
+        );
     }
 
     #[test]
