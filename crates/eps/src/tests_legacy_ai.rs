@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use vectorcraft_color::{Color, Gradient, GradientKind, GradientPaint, GradientStop, Paint};
-use vectorcraft_doc::{Appearance, AppearanceItem, Document, ImageBlob, ImageObject, Node, NodeKind};
+use vectorcraft_doc::{Appearance, AppearanceItem, Document, ImageBlob, ImageObject, Node, NodeKind, Unit};
 use vectorcraft_geom::{Affine, AnchorKind, FillRule, PathData, Rect, shapes};
 
 use super::*;
@@ -180,6 +180,17 @@ fn prints_as(bytes: &[u8], doc: &Document, o: &LegacyAiOptions) {
 
 fn children(n: &Node) -> &[Arc<Node>] {
     n.children().map_or(&[][..], Vec::as_slice)
+}
+
+#[test]
+fn ruler_units_follow_the_document_general_unit() {
+    let mut doc = sample();
+    doc.units = Unit::Millimeters;
+    let text = String::from_utf8(write(&doc).bytes).unwrap();
+    assert!(text.contains("%AI5_RulerUnits: 1\n"), "{text}");
+    doc.units = Unit::Inches;
+    let text = String::from_utf8(write(&doc).bytes).unwrap();
+    assert!(text.contains("%AI5_RulerUnits: 0\n"), "{text}");
 }
 
 #[test]

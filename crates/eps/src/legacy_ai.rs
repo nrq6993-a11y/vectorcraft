@@ -65,7 +65,7 @@ use vectorcraft_color::cms::Cms;
 use vectorcraft_color::{BlendMode, Color, Gradient, GradientKind, GradientPaint, Paint};
 use vectorcraft_doc::{
     AppearanceItem, AreaOptions, CharPosition, CharStyle, Document, FillLayer, ImageObject, Justify, LAYER_COLORS, LayerColor, LineCap, LineJoin,
-    Node, NodeKind, ParaDirection, ParaStyle, PathEffect, StrokeLayer, TextKind, TextObject,
+    Node, NodeKind, ParaDirection, ParaStyle, PathEffect, StrokeLayer, TextKind, TextObject, Unit,
 };
 use vectorcraft_effects::stroke;
 use vectorcraft_geom::{Affine, AnchorKind, BezPath, FillRule, PathData, Point, Rect, Shape, SubPath, Vec2};
@@ -112,6 +112,19 @@ pub struct LegacyAiOptions {
     pub hidden: HiddenObjects,
     /// Type as its glyphs' outlines, not text objects.
     pub outline_text: bool,
+}
+
+/// Illustrator 7 §2.1 Table 3: the ruler unit code in `%AI5_RulerUnits`.
+fn ai5_ruler_units(unit: Unit) -> u8 {
+    match unit {
+        Unit::Inches => 0,
+        Unit::Millimeters => 1,
+        Unit::Points | Unit::Pixels => 2,
+        Unit::Picas => 3,
+        Unit::Centimeters => 4,
+        // The published format has no codes for these; points is what readers expect.
+        Unit::Meters | Unit::Yards | Unit::Feet | Unit::FeetInches => 2,
+    }
 }
 
 /// What a legacy `.ai` does with hidden objects, which the format can't mark hidden (only layers).
@@ -201,7 +214,7 @@ pub fn export_legacy_ai(doc: &Document, o: &LegacyAiOptions) -> Result<LegacyAiO
     let _ = writeln!(s, "%AI3_TileBox: 0 {} {} {}", ps::num(below), ps::num(width), ps::num(top));
     s.push_str("%AI3_DocumentPreview: None\n");
     let _ = writeln!(s, "%AI5_ArtSize: {} {}", ps::num(width), ps::num(height));
-    s.push_str("%AI5_RulerUnits: 2\n");
+    let _ = writeln!(s, "%AI5_RulerUnits: {}", ai5_ruler_units(doc.units));
     let _ = writeln!(s, "%AI5_NumLayers: {layers}");
     let _ = writeln!(s, "%%DocumentSuppliedResources: procset {PROCSET}");
     s.push_str("%%EndComments\n%%BeginProlog\n");
