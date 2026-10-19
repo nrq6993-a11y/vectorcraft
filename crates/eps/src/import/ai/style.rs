@@ -21,7 +21,7 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Inner Glow, Drop Shadow) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
