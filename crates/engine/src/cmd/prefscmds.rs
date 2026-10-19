@@ -88,9 +88,9 @@ const LINE_STYLE: &[(&str, &str)] = &[("lines", "Lines"), ("dots", "Dots")];
 pub const GPU_PREFERENCES: &[(&str, &str)] =
     &[("automatic", "Automatic"), ("lowPower", "Power Saving (integrated)"), ("highPerformance", "High Performance (discrete)")];
 /// Performance › Linux Display Server (`linuxDisplayServer`), read by the desktop app at startup:
-/// `x11` opens the window through XWayland on a Wayland session, where dropped files arrive
-/// (winit 0.30 has no Wayland drag and drop, #1151); `x11WithPen` does the same only when a pen is
-/// attached as the app starts: under XWayland a drawing tablet's pen draws as a mouse (#2028).
+/// `automatic` opens on Wayland, or through XWayland when a pen is attached at startup (#3117);
+/// `x11` opens through XWayland on a Wayland session, where dropped files arrive (winit 0.30 has no
+/// Wayland drag and drop, #1151); `x11WithPen` does the same only when a pen is attached (#2028).
 const LINUX_DISPLAY_SERVERS: &[(&str, &str)] =
     &[("automatic", "Automatic"), ("x11", "X11 (XWayland)"), ("x11WithPen", "X11 (XWayland) When a Pen Is Attached")];
 const BLACK: &[(&str, &str)] = &[("accurate", "Display All Blacks Accurately"), ("rich", "Display All Blacks as Rich Black")];

@@ -20,16 +20,16 @@ use std::path::{Path, PathBuf};
 const X11_LIBS: &[&str] =
     &["libX11.so.6", "libX11-xcb.so.1", "libxcb.so.1", "libXcursor.so.1", "libXi.so.6", "libxkbcommon.so.0", "libxkbcommon-x11.so.0"];
 
-/// Whether the saved `linuxDisplayServer` and the environment ask for XWayland: `x11` chosen, or
-/// `x11WithPen` chosen and `pen` finding a pen; a Wayland session (winit picks Wayland whenever
-/// `WAYLAND_DISPLAY` or `WAYLAND_SOCKET` is set); and an X display to open. `pen` runs only for
-/// `x11WithPen`, after the session checks.
+/// Whether the saved `linuxDisplayServer` and the environment ask for XWayland: `x11` chosen; or
+/// `automatic` / `x11WithPen` on a Wayland session when `pen` finds a tablet pen at startup
+/// (#3117, #2028); a Wayland session (winit picks Wayland whenever `WAYLAND_DISPLAY` or
+/// `WAYLAND_SOCKET` is set); and an X display to open. `pen` runs only after the session checks.
 pub fn wanted(pref: Option<&str>, var: impl Fn(&str) -> Option<OsString>, pen: impl FnOnce() -> bool) -> bool {
     let set = |name: &str| var(name).is_some_and(|v| !v.is_empty());
     let session = (set("WAYLAND_DISPLAY") || set("WAYLAND_SOCKET")) && set("DISPLAY");
     match pref {
         Some("x11") => session,
-        Some("x11WithPen") => session && pen(),
+        Some("x11WithPen") | Some("automatic") | None => session && pen(),
         _ => false,
     }
 }
@@ -149,8 +149,8 @@ mod tests {
         let wayland = env(&[("WAYLAND_DISPLAY", "wayland-0"), ("DISPLAY", ":0")]);
         assert!(wanted(Some("x11"), &wayland, no_probe));
         assert!(wanted(Some("x11"), env(&[("WAYLAND_SOCKET", "3"), ("DISPLAY", ":0")]), no_probe));
-        assert!(!wanted(Some("automatic"), &wayland, no_probe));
-        assert!(!wanted(None, &wayland, no_probe));
+        assert!(!wanted(Some("automatic"), &wayland, || false));
+        assert!(!wanted(None, &wayland, || false));
         assert!(!wanted(Some("wayland"), &wayland, no_probe));
         // An X11 session already opens on X11; without an X display there is no XWayland to use.
         assert!(!wanted(Some("x11"), env(&[("DISPLAY", ":0")]), no_probe));
@@ -158,18 +158,20 @@ mod tests {
         assert!(!wanted(Some("x11"), env(&[("WAYLAND_DISPLAY", "wayland-0")]), no_probe));
     }
 
-    /// X11 (XWayland) When a Pen Is Attached (#2028): XWayland on a Wayland session with an X
-    /// display when a pen is found, the session's own display server otherwise. The pen check
-    /// runs only on such a session.
+    /// Automatic and X11 (XWayland) When a Pen Is Attached (#2028, #3117): XWayland on a Wayland
+    /// session with an X display when a pen is found, the session's own display server otherwise.
+    /// The pen check runs only on such a session.
     #[test]
     fn the_pen_choice_opens_xwayland_only_with_a_pen() {
         let wayland = env(&[("WAYLAND_DISPLAY", "wayland-0"), ("DISPLAY", ":0")]);
-        assert!(wanted(Some("x11WithPen"), &wayland, || true));
-        assert!(wanted(Some("x11WithPen"), env(&[("WAYLAND_SOCKET", "3"), ("DISPLAY", ":0")]), || true));
-        assert!(!wanted(Some("x11WithPen"), &wayland, || false));
-        assert!(!wanted(Some("x11WithPen"), env(&[("DISPLAY", ":0")]), no_probe));
-        assert!(!wanted(Some("x11WithPen"), env(&[("WAYLAND_DISPLAY", "wayland-0")]), no_probe));
-        assert!(!wanted(Some("x11WithPen"), env(&[("WAYLAND_DISPLAY", "wayland-0"), ("DISPLAY", "")]), no_probe));
+        for pref in [Some("x11WithPen"), Some("automatic"), None] {
+            assert!(wanted(pref, &wayland, || true), "{pref:?}");
+            assert!(wanted(pref, env(&[("WAYLAND_SOCKET", "3"), ("DISPLAY", ":0")]), || true), "{pref:?}");
+            assert!(!wanted(pref, &wayland, || false), "{pref:?}");
+            assert!(!wanted(pref, env(&[("DISPLAY", ":0")]), no_probe), "{pref:?}");
+            assert!(!wanted(pref, env(&[("WAYLAND_DISPLAY", "wayland-0")]), no_probe), "{pref:?}");
+            assert!(!wanted(pref, env(&[("WAYLAND_DISPLAY", "wayland-0"), ("DISPLAY", "")]), no_probe), "{pref:?}");
+        }
     }
 
     /// `/proc/bus/input/devices` of a laptop with a Wacom Intuos Pro attached (64-bit longs: the
