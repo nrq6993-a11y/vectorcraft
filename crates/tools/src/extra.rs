@@ -386,11 +386,21 @@ impl Tool for ShaperTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         if self.points.len() < 2 {
             return vec![];
         }
-        vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }]
+        let mut o = vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }];
+        if cx.measurement_labels {
+            let len = self.points.windows(2).map(|w| w[0].distance(w[1])).sum::<f64>();
+            if let Some(p) = self.points.last() {
+                o.push(Overlay::Measure {
+                    p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: format!("L: {}", cx.len(len)),
+                });
+            }
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Shaper
@@ -501,6 +511,24 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn shaper_stroke_measure_labels() {
+        use crate::testutil::{cx, doc_with_rect, paint};
+        use vectorcraft_doc::Selection;
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut c = cx(&d, &s, &p);
+        let mut t = ShaperTool::default();
+        c.measurement_labels = false;
+        t.points = vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)];
+        assert!(!t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        c.measurement_labels = true;
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "L: 100.00 pt")));
+        t.points.push(Point::new(100.0, 50.0));
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "L: 150.00 pt")));
     }
 
     #[test]
