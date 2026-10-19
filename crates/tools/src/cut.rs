@@ -170,7 +170,14 @@ impl Tool for CutTool {
         let Some(a) = self.start else { return vec![] };
         let b = self.end;
         if self.id == "rectCut" {
-            return vec![Overlay::Marquee(drag_rect(a, b, self.mods))];
+            let mut o = vec![Overlay::Marquee(drag_rect(a, b, self.mods))];
+            if self.began && cx.measurement_labels {
+                let r = drag_rect(a, b, self.mods);
+                if r.width() > 0.0 && r.height() > 0.0 {
+                    o.push(Overlay::Measure { p: b, text: cx.size_label(r.width(), r.height()) });
+                }
+            }
+            return o;
         }
         // The axis and the cut line run across the art: draw them across the view.
         let d = match (self.id, self.axis) {
@@ -181,7 +188,17 @@ impl Tool for CutTool {
         };
         let far = d * cx.tol(10_000.0);
         let mid = if self.constrained() { b } else { a };
-        vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }]
+        let mut o = vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }];
+        if self.began && cx.measurement_labels && !(self.id == "mirrorCut" && self.constrained()) && a.distance(b) >= cx.tol(MIN_DRAG_PX) {
+            let seg = b - a;
+            let dist = seg.hypot();
+            let ang = (-seg.y).atan2(seg.x).to_degrees();
+            o.push(Overlay::Measure {
+                p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: format!("L: {}\nAngle: {ang:.1}°", cx.len(dist)),
+            });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         Cursor::Crosshair
@@ -283,6 +300,34 @@ mod tests {
         assert!(matches!(&a[1], Action::Preview(_, v) if v["axis"] == "vertical" && v["from"] == json!([140.0, 150.0]) && v["keep"] == "right"));
         t.set_option("axis", &json!("diagonal"));
         assert_eq!(t.axis, "vertical");
+    }
+
+    #[test]
+    fn line_cut_measurement_labels_follow_the_preference() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let mut tool_cx = cx(&d, &s, &p);
+        tool_cx.smart_guides = false;
+        let mut t = CutTool::new("lineCut");
+        t.pointer(&tool_cx, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+        t.pointer(&tool_cx, &PointerEvent::new(PointerKind::Drag, 400.0, 100.0));
+        let measures = |on: bool| {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            t.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        assert_eq!(measures(true), 1);
+        assert_eq!(measures(false), 0);
+        let label = t
+            .overlays(&ToolContext { measurement_labels: true, ..cx(&d, &s, &p) })
+            .iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert!(label.starts_with("L: 300.00 pt") && label.contains("Angle:") && label.contains("0.0°"), "{label}");
     }
 
     #[test]
