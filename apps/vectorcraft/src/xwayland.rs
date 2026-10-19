@@ -20,16 +20,16 @@ use std::path::{Path, PathBuf};
 const X11_LIBS: &[&str] =
     &["libX11.so.6", "libX11-xcb.so.1", "libxcb.so.1", "libXcursor.so.1", "libXi.so.6", "libxkbcommon.so.0", "libxkbcommon-x11.so.0"];
 
-/// Whether the saved `linuxDisplayServer` and the environment ask for XWayland: `x11` chosen, or
-/// `x11WithPen` chosen and `pen` finding a pen; a Wayland session (winit picks Wayland whenever
-/// `WAYLAND_DISPLAY` or `WAYLAND_SOCKET` is set); and an X display to open. `pen` runs only for
-/// `x11WithPen`, after the session checks.
+/// Whether the saved `linuxDisplayServer` and the environment ask for XWayland: `x11` chosen; or
+/// `automatic` or `x11WithPen` chosen and `pen` finding a pen on a Wayland session (winit picks
+/// Wayland whenever `WAYLAND_DISPLAY` or `WAYLAND_SOCKET` is set); and an X display to open.
+/// `pen` runs only for those two choices, after the session checks.
 pub fn wanted(pref: Option<&str>, var: impl Fn(&str) -> Option<OsString>, pen: impl FnOnce() -> bool) -> bool {
     let set = |name: &str| var(name).is_some_and(|v| !v.is_empty());
     let session = (set("WAYLAND_DISPLAY") || set("WAYLAND_SOCKET")) && set("DISPLAY");
     match pref {
         Some("x11") => session,
-        Some("x11WithPen") => session && pen(),
+        Some("automatic") | Some("x11WithPen") => session && pen(),
         _ => false,
     }
 }
@@ -149,7 +149,9 @@ mod tests {
         let wayland = env(&[("WAYLAND_DISPLAY", "wayland-0"), ("DISPLAY", ":0")]);
         assert!(wanted(Some("x11"), &wayland, no_probe));
         assert!(wanted(Some("x11"), env(&[("WAYLAND_SOCKET", "3"), ("DISPLAY", ":0")]), no_probe));
-        assert!(!wanted(Some("automatic"), &wayland, no_probe));
+        assert!(!wanted(Some("automatic"), &wayland, || false));
+        assert!(wanted(Some("automatic"), &wayland, || true));
+        assert!(!wanted(Some("automatic"), env(&[("DISPLAY", ":0")]), no_probe));
         assert!(!wanted(None, &wayland, no_probe));
         assert!(!wanted(Some("wayland"), &wayland, no_probe));
         // An X11 session already opens on X11; without an X display there is no XWayland to use.

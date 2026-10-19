@@ -945,9 +945,10 @@ pub struct Prefs {
     pub real_time_drawing: bool,
     /// Rasterizer worker threads; -1 = automatic.
     pub render_threads: i32,
-    /// Linux: `automatic` opens the window on the session's display server; `x11` opens it through
-    /// XWayland on a Wayland session, where dropped files arrive (#1151); `x11WithPen` opens it
-    /// through XWayland only when a pen is attached (#2028). Read when the app starts.
+    /// Linux: `automatic` opens on the session's display server, and through XWayland on Wayland
+    /// when a pen is attached at startup (#2028); `x11` opens through XWayland on Wayland, where
+    /// dropped files arrive (#1151); `x11WithPen` is the same pen gate as `automatic`. Read when
+    /// the app starts.
     pub linux_display_server: String,
     // File Handling
     pub background_save: bool,
