@@ -374,7 +374,10 @@ impl CornerDrag {
         if !self.began {
             return vec![];
         }
-        let mut out = vec![Overlay::Measure { p: self.at, text: format!("Radius: {}", cx.len(self.radius)) }];
+        let mut out = vec![];
+        if cx.measurement_labels {
+            out.push(Overlay::Measure { p: self.at, text: format!("Radius: {}", cx.len(self.radius)) });
+        }
         if self.at_limit {
             out.push(Overlay::Path { path: self.corners_at_limit(), color: crate::builder::HIGHLIGHT_RED, width: 2.0, dashed: false });
         }
@@ -470,6 +473,19 @@ mod tests {
             assert_eq!(radius(&t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 260.0, 260.0))[0]), 0.0);
             assert_eq!(t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 260.0, 260.0)), vec![Action::Commit]);
         }
+    }
+
+    #[test]
+    fn measurement_labels_off_hides_the_radius_readout() {
+        let (d, id) = live_rect(0.0, Affine::translate((100.0, 100.0)));
+        let s = selected(id);
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.measurement_labels = false;
+        let mut t = crate::create("selection");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 190.0, 191.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 175.0, 176.0));
+        assert!(t.overlays(&cx).iter().all(|o| !matches!(o, Overlay::Measure { .. })));
     }
 
     /// #938: with two rectangles selected, both show their widgets, and a drag on either rounds
