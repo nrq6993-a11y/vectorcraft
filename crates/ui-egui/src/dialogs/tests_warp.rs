@@ -215,6 +215,21 @@ fn warp_options_preview_toggle_and_ok_use_latest_values() {
     assert_eq!(app.session.doc().unwrap().doc, before);
 }
 
+#[test]
+fn warp_options_remembers_its_last_values() {
+    let (mut app, _) = app();
+    app.run("effect.dialog", json!({"effect": "warp.arc", "item": null})).unwrap();
+    set(&mut app, json!({"bend": 77.0, "horizontal": -12.0, "vertical": 8.0, "orientation": "vertical"}));
+    confirm(&mut app).unwrap();
+    app.run("effect.dialog", json!({"effect": "warp.bulge", "item": null})).unwrap();
+    let d = app.ui.dialog.as_ref().unwrap();
+    assert_eq!(d.str("__effect"), "warp.bulge");
+    assert_eq!(
+        (d.f64("bend", 0.0), d.f64("horizontal", 0.0), d.f64("vertical", 0.0), d.str("orientation")),
+        (77.0, -12.0, 8.0, "vertical".to_string()),
+    );
+}
+
 /// Locate the actual painted number beside its row label, without requesting widget focus.
 fn click_number(app: &mut VectorcraftApp, ctx: &egui::Context, label: &str) {
     let texts = frame(app, ctx, vec![]);

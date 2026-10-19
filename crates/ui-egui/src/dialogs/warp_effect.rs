@@ -1,6 +1,6 @@
 //! Effect > Warp controls. The style remains an effect ID; Envelope Warp has a different schema.
 use egui::{Pos2, Rect, Stroke, vec2};
-use serde_json::json;
+use serde_json::{Map, Value, json};
 use vectorcraft_effects::{WARP_STYLES, WarpStyle, warp_point};
 
 use super::form;
@@ -10,6 +10,22 @@ use crate::widgets;
 
 pub(super) fn is_warp(id: &str) -> bool {
     id.strip_prefix("warp.").and_then(WarpStyle::from_id).is_some()
+}
+
+/// Warp Options fields remembered across openings (not the style id).
+const REMEMBERED: [&str; 4] = ["orientation", "bend", "horizontal", "vertical"];
+
+pub(super) fn merge_remembered(fields: &mut Map<String, Value>, remembered: &Value) {
+    let Some(o) = remembered.as_object() else { return };
+    for k in REMEMBERED {
+        if let Some(v) = o.get(k) {
+            fields.insert(k.to_string(), v.clone());
+        }
+    }
+}
+
+pub(super) fn remembered_from(d: &Dialog) -> Value {
+    Value::Object(REMEMBERED.iter().filter_map(|k| d.fields.get(*k).map(|v| ((*k).to_string(), v.clone()))).collect())
 }
 
 fn shown(label: &str) -> String {

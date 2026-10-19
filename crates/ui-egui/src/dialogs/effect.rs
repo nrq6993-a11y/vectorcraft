@@ -90,6 +90,9 @@ pub fn open(app: &mut VectorcraftApp, p: &Value) -> Result<Value, String> {
                 return Ok(json!({ "pending": EXISTS }));
             }
             fields.extend(info.defaults.as_object().cloned().unwrap_or_default());
+            if super::warp_effect::is_warp(id) {
+                super::warp_effect::merge_remembered(&mut fields, &app.ui.warp_effect);
+            }
         }
     }
     fields.insert("preview".into(), json!(true));
@@ -120,7 +123,11 @@ fn confirm_exists(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String>
     if d.bool("discard") {
         fields.remove("__index");
         let defaults = vectorcraft_effects::default_params(&d.str("__effect"));
-        fields.extend(defaults.and_then(|v| v.as_object().cloned()).unwrap_or_default());
+        let mut fresh = defaults.and_then(|v| v.as_object().cloned()).unwrap_or_default();
+        if super::warp_effect::is_warp(&d.str("__effect")) {
+            super::warp_effect::merge_remembered(&mut fresh, &app.ui.warp_effect);
+        }
+        fields.extend(fresh);
     } else {
         let k = fields.get("__index").and_then(Value::as_u64).unwrap_or(0) as usize;
         fields.extend(target_effects(app, &target).get(k).map(params_of).unwrap_or_default());
@@ -674,6 +681,9 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
     // Last Effect repeats applied effects, not edits.
     if cmd == "effect.apply" {
         app.last_effect = Some((d.str("__effect"), p["params"].clone()));
+    }
+    if super::warp_effect::is_warp(&d.str("__effect")) {
+        app.ui.warp_effect = super::warp_effect::remembered_from(d);
     }
     Ok(r)
 }
