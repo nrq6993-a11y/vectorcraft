@@ -259,7 +259,12 @@ impl Tool for ShapeTool {
                     (r.width(), r.height())
                 }
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            if self.id == "roundedRectangle" {
+                let r = self.corner_radius.min(w.min(h) / 2.0);
+                text.push_str(&format!("\nRadius: {}", cx.len(r)));
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -377,6 +382,36 @@ mod tests {
             t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 10.0, 10.0)),
             vec![Action::Dialog("star".into(), json!({"x": 10.0, "y": 10.0}))]
         );
+    }
+
+    #[test]
+    fn a_rounded_rectangle_drag_shows_its_corner_radius() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let measure = |t: &ShapeTool, ctx: &ToolContext| {
+            t.overlays(ctx)
+                .into_iter()
+                .find_map(|o| match o {
+                    Overlay::Measure { text, .. } => Some(text),
+                    _ => None,
+                })
+        };
+        let mut t = ShapeTool::new("roundedRectangle");
+        t.corner_radius = 15.0;
+        t.pointer(&c, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 110.0, 60.0));
+        assert!(measure(&t, &off).is_none());
+        assert_eq!(measure(&t, &on), Some(format!("{}\nRadius: {}", c.size_label(100.0, 50.0), c.len(15.0))));
+        let a = t.key(&c, ToolKey::Up, Mods::default());
+        assert!(matches!(&a[0], Action::Preview(_, v) if v["radius"] == 16.0));
+        assert_eq!(measure(&t, &on), Some(format!("{}\nRadius: {}", c.size_label(100.0, 50.0), c.len(16.0))));
+        // A radius larger than half the shorter side reads as that cap.
+        t.corner_radius = 40.0;
+        assert_eq!(measure(&t, &on), Some(format!("{}\nRadius: {}", c.size_label(100.0, 50.0), c.len(25.0))));
     }
 
     #[test]
