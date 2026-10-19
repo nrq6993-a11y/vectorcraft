@@ -2005,6 +2005,12 @@ fn halftone(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace
     out
 }
 
+fn water_paper(p: serde_json::Value, src: &[u8], w: usize, h: usize, s: &PixelSpace) -> Vec<u8> {
+    let mut out = src.to_vec();
+    fx("sketch.waterPaper", p).apply(&mut out, w, h, s);
+    out
+}
+
 /// The smallest period of `values` (their length when they don't repeat).
 fn period(values: &[u8]) -> usize {
     (1..values.len()).find(|p| values.iter().zip(&values[*p..]).all(|(a, b)| a == b)).unwrap_or(values.len())
@@ -2112,6 +2118,42 @@ fn halftone_draws_in_black_and_white_only() {
             assert!(out.as_chunks::<4>().0.iter().all(|p| p[0] == expect), "{kind}: {tone} stays {expect}");
         }
     }
+}
+
+#[test]
+fn water_paper_params_take_defaults_and_stay_in_range() {
+    assert_eq!(
+        fx("sketch.waterPaper", json!({})),
+        PixelFx::WaterPaper { fiber: 15.0, brightness: 25.0, contrast: 25.0 }
+    );
+    assert_eq!(
+        fx("sketch.waterPaper", json!({"fiberLength": 0, "brightness": -1, "contrast": 99})),
+        PixelFx::WaterPaper { fiber: 1.0, brightness: 0.0, contrast: 50.0 }
+    );
+    let f = fx("sketch.waterPaper", json!({"fiberLength": 30}));
+    assert!(f.outset(Rect::new(0.0, 0.0, 100.0, 50.0)) > 0.0);
+    assert_eq!(f.reach(), Some(super::sketch::water_paper_shift(30.0)));
+}
+
+#[test]
+fn water_paper_bleeds_colours_and_responds_to_sliders() {
+    let (w, h) = (48, 32);
+    let src = image(w, h, |x, y| {
+        let c = if x < w / 2 { [200, 40, 40] } else { [40, 40, 200] };
+        [c[0], c[1], c[2], if y < h / 2 { 255 } else { 128 }]
+    });
+    let flat = water_paper(json!({"fiberLength": 1, "brightness": 25, "contrast": 25}), &src, w, h, &space(w, h));
+    let long = water_paper(json!({"fiberLength": 40, "brightness": 25, "contrast": 25}), &src, w, h, &space(w, h));
+    assert_ne!(flat, long, "longer fibres bleed more");
+    assert!(flat.as_chunks::<4>().0.iter().zip(src.as_chunks::<4>().0).all(|(p, q)| q[3] == 0 || p[3] > 0), "transparent stays empty");
+    assert!(share(&flat, |p| p[3] > 127) > 0.4, "most of the art stays visible");
+    let bright = water_paper(json!({"fiberLength": 15, "brightness": 45, "contrast": 25}), &src, w, h, &space(w, h));
+    let dim = water_paper(json!({"fiberLength": 15, "brightness": 5, "contrast": 25}), &src, w, h, &space(w, h));
+    let mean = |d: &[u8]| {
+        let n = d.as_chunks::<4>().0.iter().filter(|p| p[3] > 0).count().max(1);
+        d.as_chunks::<4>().0.iter().filter(|p| p[3] > 0).map(|p| u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2])).sum::<u32>() as f64 / (3.0 * n as f64)
+    };
+    assert!(mean(&bright) > mean(&dim) + 2.0, "{} vs {}", mean(&bright), mean(&dim));
 }
 
 /// The distinct colours of the covered pixels.

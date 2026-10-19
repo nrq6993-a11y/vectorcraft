@@ -4,8 +4,11 @@
 //! and <https://helpx.adobe.com/illustrator/using/effects.html> (only Size depends on the raster
 //! resolution). A visual approximation, not a reproduction of a proprietary algorithm.
 
+use vectorcraft_geom::{Point, Vec2};
+
+use super::distort;
 use super::pixelate::Place;
-use super::texture::{luma, premultiply, straight};
+use super::texture::{cell_noise, luma, premultiply, smooth_noise, straight};
 use super::{PixelSpace, pick};
 
 /// Halftone Pattern's screens, in its Pattern Type menu's order: (label, parameter value).
@@ -67,5 +70,44 @@ pub(super) fn halftone_pattern(px: &mut [[u8; 4]], w: usize, h: usize, space: &P
             0.0
         };
         *p = premultiply([(1.0 - ink) as f32; 3], f32::from(p[3]) / 255.0);
+    });
+}
+
+const SALT_WATER: u64 = 202;
+
+/// How far (points) Water Paper bleeds colours at Fiber Length `fiber` (1..50).
+pub(super) fn water_paper_shift(fiber: f64) -> f64 {
+    0.06 * fiber.clamp(1.0, 50.0)
+}
+
+/// Water Paper: the object as if painted on damp paper — colours shift along a fibrous flow field
+/// (`fiber` 1..50 controls the fibres' length and how far paint bleeds), then brighten by
+/// `brightness` (0..50, 25 unchanged) and push tones apart or together with `contrast` (0..50,
+/// 25 unchanged). Original visual approximation from public Sketch-effect documentation.
+pub(super) fn water_paper(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, fiber: f64, brightness: f64, contrast: f64) {
+    if !(fiber.is_finite() && brightness.is_finite() && contrast.is_finite()) {
+        return;
+    }
+    let Some(place) = Place::new(space, w, h) else { return };
+    let fiber = fiber.clamp(1.0, 50.0);
+    let bright = brightness.clamp(0.0, 50.0);
+    let cont = contrast.clamp(0.0, 50.0);
+    let wave = 0.2 * fiber + 3.0;
+    let most = water_paper_shift(fiber);
+    distort::displace(px, w, h, &place, most, |q: Point| {
+        let n = |salt: u64| 0.65 * smooth_noise(salt, q, wave) + 0.35 * smooth_noise(salt + 3, q, 0.35 * wave);
+        Vec2::new(n(SALT_WATER), n(SALT_WATER + 1)) * most
+    });
+    let lift = ((bright - 25.0) / 100.0) as f32;
+    let scale = (0.35 + cont / 80.0) as f32;
+    let paper = (fiber / 50.0 * 0.12) as f32;
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let q = place.at(x, y);
+        let fibre = cell_noise(SALT_WATER + 5, q, 1.5 + 0.08 * fiber, 0) as f32 * paper;
+        let c = straight(*p).map(|v| ((v - 0.5) * scale + 0.5 + lift + fibre).clamp(0.0, 1.0));
+        *p = premultiply(c, f32::from(p[3]) / 255.0);
     });
 }
