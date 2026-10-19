@@ -103,6 +103,7 @@ fn every_dialog_draws() {
     for (kind, fields) in [
         ("move", json!({"dx": "0 pt", "dy": "0 pt"})),
         ("average", json!({"axis": "both"})),
+        ("averageJoin", json!({"to": "smooth", "axis": "both"})),
         (crate::unsaved::KIND, json!({"index": 0, "name": "Untitled-1", "then": "close"})),
         ("newWorkspace", json!({"name": "Mine"})),
         ("shortcuts", json!({})),
