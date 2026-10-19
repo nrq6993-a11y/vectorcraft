@@ -79,6 +79,15 @@ pub fn specs() -> Vec<CommandSpec> {
             average
         ),
         cmd!(
+            "path.averageJoin",
+            "Average and Join…",
+            ["Object", "Path"],
+            Some("Cmd+Alt+Shift+J"),
+            "{axis?: \"horizontal\"|\"vertical\"|\"both\" (default: both), kind?: \"corner\"|\"smooth\" (the merged anchor; default: corner)} average two direct-selected open endpoints to one position and join them, as one undo step",
+            can_average_join,
+            average_join
+        ),
+        cmd!(
             "path.convertAnchors",
             "Convert Anchor Points",
             [],
@@ -309,6 +318,176 @@ fn reverse(s: &mut Session, p: &Value) -> Result<Value> {
 /// First and last anchor points of a subpath.
 fn end_points(sp: &SubPath) -> Option<(Point, Point)> {
     Some((sp.anchors.first()?.p, sp.anchors.last()?.p))
+}
+
+/// A direct-selected anchor on an open subpath's first or last point.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Endpoint {
+    id: NodeId,
+    subpath: usize,
+    anchor: usize,
+}
+
+fn is_open_endpoint(sp: &SubPath, ai: usize) -> bool {
+    !sp.closed && sp.anchors.len() >= 2 && (ai == 0 || ai + 1 == sp.anchors.len())
+}
+
+fn endpoints_for_average_join(s: &Session) -> Result<[Endpoint; 2]> {
+    const C: &str = "path.averageJoin";
+    let st = s.doc()?;
+    let mut eps = Vec::new();
+    for (id, set) in &st.selection.anchors {
+        let pd = st.doc.node(*id).and_then(|n| n.path_data()).ok_or_else(|| bad(C, format!("{} isn't a path", id.0)))?;
+        for &(si, ai) in set {
+            let sp = pd.subpaths.get(si).ok_or_else(|| bad(C, "invalid subpath"))?;
+            if !is_open_endpoint(sp, ai) {
+                return Err(bad(C, "select two open endpoints"));
+            }
+            eps.push(Endpoint { id: *id, subpath: si, anchor: ai });
+        }
+    }
+    if eps.len() != 2 {
+        return Err(bad(C, "select exactly two open endpoints"));
+    }
+    Ok([eps[0], eps[1]])
+}
+
+fn can_average_join(s: &Session) -> std::result::Result<(), String> {
+    endpoints_for_average_join(s).map(|_| ()).map_err(|e| e.to_string())
+}
+
+fn endpoint_is_last(sp: &SubPath, ai: usize) -> bool {
+    ai + 1 == sp.anchors.len()
+}
+
+fn append_open_subpaths(mut x: SubPath, mut y: SubPath, rx: bool, ry: bool) -> (SubPath, usize) {
+    if rx {
+        x.reverse();
+    }
+    if ry {
+        y.reverse();
+    }
+    if let (Some(xe), Some(ys)) = (x.anchors.last().map(|a| a.p), y.anchors.first().map(|a| a.p))
+        && xe.distance(ys) < 1e-6
+    {
+        let first = y.anchors.remove(0);
+        if let Some(l) = x.anchors.last_mut() {
+            l.h_out = first.h_out;
+        }
+    }
+    let join_at = x.anchors.len() - 1;
+    x.anchors.extend(y.anchors);
+    (x, join_at)
+}
+
+fn apply_joined_kind(sp: &mut SubPath, ai: usize, smooth: bool) {
+    if smooth {
+        sp.smooth_anchor(ai);
+    } else if let Some(a) = sp.anchors.get_mut(ai) {
+        a.retract();
+    }
+}
+
+fn average_join(s: &mut Session, p: &Value) -> Result<Value> {
+    const C: &str = "path.averageJoin";
+    let [e0, e1] = endpoints_for_average_join(s)?;
+    let smooth = match str_param(p, "kind") {
+        Some("smooth") => true,
+        Some("corner") | None => false,
+        _ => return Err(bad(C, "`kind` must be \"corner\" or \"smooth\"")),
+    };
+    let axis = str_param(p, "axis").unwrap_or("both");
+    if !matches!(axis, "horizontal" | "vertical" | "both") {
+        return Err(bad(C, "`axis` must be \"horizontal\", \"vertical\" or \"both\""));
+    }
+    let st = s.doc()?;
+    let p0 = st
+        .doc
+        .node(e0.id)
+        .and_then(|n| n.path_data())
+        .and_then(|pd| pd.subpaths.get(e0.subpath))
+        .and_then(|sp| sp.anchors.get(e0.anchor))
+        .map(|a| a.p)
+        .ok_or_else(|| bad(C, "missing anchor"))?;
+    let p1 = st
+        .doc
+        .node(e1.id)
+        .and_then(|n| n.path_data())
+        .and_then(|pd| pd.subpaths.get(e1.subpath))
+        .and_then(|sp| sp.anchors.get(e1.anchor))
+        .map(|a| a.p)
+        .ok_or_else(|| bad(C, "missing anchor"))?;
+    let c = Point::new((p0.x + p1.x) * 0.5, (p0.y + p1.y) * 0.5);
+    let target = |p: Point| match axis {
+        "horizontal" => Point::new(p.x, c.y),
+        "vertical" => Point::new(c.x, p.y),
+        _ => c,
+    };
+    s.edit("Average and Join", |d, sel| {
+        for e in [e0, e1] {
+            let path = path_mut(d, e.id)?;
+            if let Some(a) = path.anchor_mut(e.subpath, e.anchor) {
+                a.translate(target(a.p) - a.p);
+            }
+        }
+        let joined_at = if e0.id == e1.id && e0.subpath == e1.subpath {
+            let path = path_mut(d, e0.id)?;
+            let sp = &mut path.subpaths[e0.subpath];
+            let n = sp.anchors.len();
+            let (a0, a1) = (e0.anchor, e1.anchor);
+            let merged = if a0 + 1 == a1 || a1 + 1 == a0 {
+                merge_coincident(sp, |ai| ai == a0 || ai == a1);
+                a0.min(a1)
+            } else if (a0 == 0 && a1 + 1 == n) || (a1 == 0 && a0 + 1 == n) {
+                if a0 != 0 {
+                    sp.reverse();
+                }
+                let last = sp.anchors.pop().ok_or_else(|| EngineError::Other("join needs open paths".into()))?;
+                if let Some(f) = sp.anchors.first_mut() {
+                    f.h_in = last.h_in;
+                }
+                sp.closed = true;
+                0
+            } else {
+                return Err(EngineError::Other("select two endpoints on the same open path".into()));
+            };
+            apply_joined_kind(sp, merged, smooth);
+            e0.id
+        } else if e0.id == e1.id {
+            let path = path_mut(d, e0.id)?;
+            let (sa, sb) = (e0.subpath, e1.subpath);
+            let x = path.subpaths.get(sa).cloned().ok_or_else(|| EngineError::Other("invalid subpath".into()))?;
+            let y = path.subpaths.get(sb).cloned().ok_or_else(|| EngineError::Other("invalid subpath".into()))?;
+            let rx = !endpoint_is_last(&x, e0.anchor);
+            let ry = endpoint_is_last(&y, e1.anchor);
+            let (mut merged, at) = append_open_subpaths(x, y, rx, ry);
+            apply_joined_kind(&mut merged, at, smooth);
+            path.subpaths[sa] = merged;
+            if sb != sa {
+                path.subpaths.remove(sb);
+            }
+            e0.id
+        } else {
+            let (a, b) = (e0.id, e1.id);
+            let pb = d.node(b).and_then(|n| n.path_data()).cloned().ok_or(EngineError::NoNode(b))?;
+            let pa = path_mut(d, a)?;
+            let sa = e0.subpath;
+            let sb = e1.subpath;
+            let x = pa.subpaths.get(sa).cloned().ok_or_else(|| EngineError::Other("invalid subpath".into()))?;
+            let y = pb.subpaths.get(sb).cloned().ok_or_else(|| EngineError::Other("invalid subpath".into()))?;
+            let rx = !endpoint_is_last(&x, e0.anchor);
+            let ry = endpoint_is_last(&y, e1.anchor);
+            let (mut merged, at) = append_open_subpaths(x, y, rx, ry);
+            apply_joined_kind(&mut merged, at, smooth);
+            pa.subpaths[sa] = merged;
+            d.remove(b)?;
+            a
+        };
+        sel.set([joined_at]);
+        sel.anchors.clear();
+        Ok(())
+    })?;
+    ok()
 }
 
 /// Merge each run of `picked` neighbours of `sp` that lie on one another into one anchor, which

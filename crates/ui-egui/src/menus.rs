@@ -2538,6 +2538,7 @@ pub fn menu_tree_named(english_names: bool) -> Vec<(&'static str, Vec<Item>)> {
                     vec![
                         c("Join", "path.join"),
                         c("Average…", "path.average"),
+                        c("Average and Join…", "path.averageJoin"),
                         Sep,
                         c("Outline Stroke", "object.path.outlineStroke"),
                         c("Offset Path…", "object.path.offsetPath"),
@@ -3081,7 +3082,7 @@ pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
         }
         let paths = any(|k| matches!(k, NodeKind::Path { .. }));
         if paths {
-            v.extend([c("Join", "path.join"), c("Average…", "path.average")]);
+            v.extend([c("Join", "path.join"), c("Average…", "path.average"), c("Average and Join…", "path.averageJoin")]);
         }
         if !st.selection.anchors.is_empty() {
             v.extend([c("Remove Anchor Points", "path.removeAnchors"), c("Cut Path at Selected Anchor Points", "path.cutAtAnchors")]);
@@ -3361,6 +3362,7 @@ fn menu_dialog(app: &VectorcraftApp, id: &str) -> Option<(&'static str, Value)> 
         "object.reflect" => ("reflect", json!({"axis": "vertical", "angle": 90})),
         "object.shear" => ("shear", json!({"angle": 0, "axis": "horizontal"})),
         "path.average" => ("average", json!({"axis": "both"})),
+        "path.averageJoin" => ("averageJoin", json!({"axis": "both", "kind": "corner"})),
         // Offset Path opens on the values it was last confirmed with.
         "object.path.offsetPath" if app.ui.offset_path.is_object() => ("offsetPath", app.ui.offset_path.clone()),
         "object.path.offsetPath" => ("offsetPath", json!({"offset": "10 pt", "joins": "miter", "miterLimit": 4})),

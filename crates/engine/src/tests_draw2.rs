@@ -1812,6 +1812,50 @@ fn join_merges_the_selected_anchors_average_brought_together() {
     assert_eq!(pts(&s), before[..3]);
 }
 
+/// G1: `path.averageJoin` averages two open endpoints and joins them in one step, with a corner or
+/// smooth merged anchor.
+#[test]
+fn average_join_averages_two_open_paths_and_joins_them() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    let b = line(&mut s, 200.0, 50.0, 300.0, 50.0);
+    s.execute("select.anchors", &json!({"id": a.0, "anchors": [[0, 1]], "mode": "set"})).unwrap();
+    s.execute("select.anchors", &json!({"id": b.0, "anchors": [[0, 0]], "mode": "add"})).unwrap();
+    s.execute("path.averageJoin", &json!({"kind": "corner"})).unwrap();
+    let pts: Vec<(f64, f64)> = path(&s, a).subpaths[0].anchors.iter().map(|x| (x.p.x, x.p.y)).collect();
+    assert_eq!(pts.len(), 3);
+    assert!((pts[1].0 - 150.0).abs() < 1e-6 && (pts[1].1 - 25.0).abs() < 1e-6, "{pts:?}");
+    assert!(s.doc().unwrap().doc.node(b).is_none());
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert!(s.doc().unwrap().doc.node(b).is_some());
+}
+
+#[test]
+fn average_join_smooth_makes_the_merged_anchor_smooth() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    let b = line(&mut s, 200.0, 0.0, 300.0, 0.0);
+    s.execute("select.anchors", &json!({"id": a.0, "anchors": [[0, 1]], "mode": "set"})).unwrap();
+    s.execute("select.anchors", &json!({"id": b.0, "anchors": [[0, 0]], "mode": "add"})).unwrap();
+    s.execute("path.averageJoin", &json!({"kind": "smooth"})).unwrap();
+    let sp = &path(&s, a).subpaths[0];
+    let mid = sp.anchors[1];
+    assert_eq!(mid.kind, vectorcraft_geom::AnchorKind::Smooth);
+    assert!(mid.has_in() && mid.has_out());
+}
+
+#[test]
+fn average_join_needs_exactly_two_open_endpoints() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    assert!(s.execute("path.averageJoin", &json!({})).is_err());
+    s.execute("select.anchors", &json!({"id": a.0, "anchors": [[0, 0]], "mode": "set"})).unwrap();
+    assert!(s.execute("path.averageJoin", &json!({})).is_err());
+    let r = rect(&mut s, 0.0, 0.0, 50.0, 50.0);
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    assert!(s.execute("path.averageJoin", &json!({})).is_err(), "closed path endpoints aren't open");
+}
+
 /// `path.join {ids, ends}` joins the ends asked for, not the nearest pair; bad requests are errors.
 #[test]
 fn join_takes_the_paths_and_the_ends_to_join() {
