@@ -2884,3 +2884,23 @@ fn crop_image_trim_leaves_a_cmyk_image_alone() {
     let r = s.execute("object.cropImage", &json!({"trim": true})).unwrap();
     assert_eq!((r["trimmed"].as_bool(), r["width"].as_u64(), r["height"].as_u64()), (Some(false), Some(4), Some(2)), "{r}");
 }
+
+/// The Measure tool: Copy puts the on-canvas readout on the clipboard as plain text.
+#[test]
+fn measure_tool_copy_returns_the_readout_as_text() {
+    use vectorcraft_tools::{PointerEvent, PointerKind};
+
+    let mut s = session();
+    s.select_tool("measure", ViewInfo::default()).unwrap();
+    let v = ViewInfo::default();
+    s.pointer(&PointerEvent::new(PointerKind::Down, 10.0, 10.0), v).unwrap();
+    s.pointer(&PointerEvent::new(PointerKind::Drag, 40.0, -30.0), v).unwrap();
+    s.pointer(&PointerEvent::new(PointerKind::Up, 40.0, -30.0), v).unwrap();
+    assert!((crate::find_command("edit.copy").unwrap().enabled)(&s).is_ok());
+    let r = s.execute("edit.copy", &json!({})).unwrap();
+    let text = r["text"].as_str().unwrap();
+    assert!(text.starts_with("D: 50.00 pt\nAngle: 53.1°\ndX: 30.00 pt\ndY: -40.00 pt"), "{text}");
+    s.select_tool("selection", ViewInfo::default()).unwrap();
+    s.select_tool("measure", ViewInfo::default()).unwrap();
+    assert!(s.execute("edit.copy", &json!({})).is_err());
+}

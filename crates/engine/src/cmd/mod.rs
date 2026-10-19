@@ -162,6 +162,25 @@ pub fn has_selection(s: &Session) -> std::result::Result<(), String> {
 pub fn has_selection_or_artboard_tool(s: &Session) -> std::result::Result<(), String> {
     if s.tool_id() == "artboard" { has_doc(s) } else { has_selection(s) }
 }
+
+/// Like [`has_selection_or_artboard_tool`], and the Measure tool with a finished measurement.
+pub fn has_selection_or_artboard_or_measure(s: &Session) -> std::result::Result<(), String> {
+    if s.tool_id() == "measure" {
+        return measure_copy_text(s).map(|_| ());
+    }
+    has_selection_or_artboard_tool(s)
+}
+
+/// The Measure tool's readout as plain text, when it has a non-zero distance.
+pub(crate) fn measure_copy_text(s: &Session) -> std::result::Result<String, String> {
+    let o = s.tool_options();
+    let dist = o.get("distance").and_then(Value::as_f64).filter(|d| d.is_finite() && *d > 1e-9).ok_or("no measurement")?;
+    let ang = o.get("angle").and_then(Value::as_f64).filter(|a| a.is_finite()).ok_or("no measurement")?;
+    let dx = o.get("dx").and_then(Value::as_f64).filter(|v| v.is_finite()).ok_or("no measurement")?;
+    let dy = o.get("dy").and_then(Value::as_f64).filter(|v| v.is_finite()).ok_or("no measurement")?;
+    let unit = s.general_unit();
+    Ok(vectorcraft_tools::xform::info_text(dist, ang, dx, dy, |v| unit.readout(v)))
+}
 /// Objects or ruler guides are selected (what Delete and the arrow keys act on).
 pub fn has_selection_or_guides(s: &Session) -> std::result::Result<(), String> {
     let st = s.active().ok_or("no document open")?;

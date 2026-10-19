@@ -20,6 +20,11 @@ pub fn measure(a: Point, b: Point) -> (f64, f64, f64, f64) {
     (d.hypot(), (-d.y).atan2(d.x).to_degrees(), d.x, d.y)
 }
 
+/// Plain text for the clipboard (same lines as the on-canvas label).
+pub fn info_text(dist: f64, ang: f64, dx: f64, dy: f64, len: impl Fn(f64) -> String) -> String {
+    format!("D: {}\nAngle: {ang:.1}°\ndX: {}\ndY: {}", len(dist), len(dx), len(dy))
+}
+
 impl Tool for MeasureTool {
     fn id(&self) -> &'static str {
         "measure"
@@ -62,7 +67,7 @@ impl Tool for MeasureTool {
             Overlay::Line { a, b, color: CYAN, dashed: false },
             Overlay::Measure {
                 p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                text: format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy)),
+                text: info_text(dist, ang, dx, dy, |v| cx.len(v)),
             },
         ]
     }
