@@ -1211,6 +1211,32 @@ const ART_STYLES: &str = "%AI9_BeginArtStyles\n\
     %AI9_EndArtStyles\n";
 
 #[test]
+fn an_object_with_a_roughen_style_comes_in_as_itself() {
+    let roughen_style = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(Wavy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /CompoundFilter :\n(Stack Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Fill Style Filter) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n; /Dict ;\n /Part ,\n\
+        /BasicFilter :\n(Conduit Filter) 0 0 /Filter ,\n1 /Visible ,\n;\n /Part ,\n;\n /Part ,\n\
+        /BasicFilter :\n(Adobe Roughen) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n5 /Real (size) ,\n0 /Int (absoluteness) ,\n10 /Real (dtal) ,\n0 /Real (roundness) ,\n; /Dict ;\n /Part ,\n;\n\
+        %AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!(
+        "0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (Wavy) XW\n",
+        rect_path(0.0, 0.0, 10.0, 10.0)
+    );
+    let r = read_ok(&format!("{roughen_style}{}", layer(&art_)));
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    assert!(matches!(a[0].kind, NodeKind::Path { .. }), "the object, not its look");
+    let [roughen] = a[0].appearance.effects.as_slice() else { panic!("{:#?}", a[0].appearance.effects) };
+    assert_eq!(
+        (roughen.id.as_str(), &roughen.params),
+        ("distort.roughen", &serde_json::json!({"size": 5.0, "relative": true, "detail": 10.0, "points": "corner"}))
+    );
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+}
+
+#[test]
 fn an_object_with_a_style_this_reads_comes_in_as_itself() {
     let defs =
         "%AI5_BeginGradient: (G)\n(G) 0 2 Bd\n[\n<00FF>\n0\n%_0 0 0 0 1 0 0 2 1 6 50 0 Bs\n%_0 0 0 0 0 0 1 2 1 6 50 100 Bs\nBD\n%AI5_EndGradient\n";
