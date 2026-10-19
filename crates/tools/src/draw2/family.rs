@@ -203,7 +203,13 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            match self.id {
+                "rectangularGrid" => text.push_str(&format!("\nRows: {}\nColumns: {}", self.rows, self.columns)),
+                "polarGrid" => text.push_str(&format!("\nConcentric: {}\nRadial: {}", self.rows, self.columns)),
+                _ => {}
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -333,6 +339,28 @@ mod tests {
     /// The start and the dragged corner snap to Smart Guides (#506), Shift sliding the corner of
     /// a square grid along its diagonal into line.
     #[test]
+    fn grid_drag_measure_label_includes_divider_counts() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = ToolContext { measurement_labels: true, smart_guides: false, ..cx(&d, &s, &p) };
+        let mut t = FamilyTool::new("rectangularGrid");
+        t.rows = 4;
+        t.columns = 7;
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 200.0, 150.0));
+        let label = t
+            .overlays(&cx)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert!(label.contains("Rows: 4"), "{label}");
+        assert!(label.contains("Columns: 7"), "{label}");
+    }
+
     fn corners_snap_to_smart_guides() {
         let (d, _) = doc_with_rect();
         let s = Selection::default();
