@@ -750,14 +750,19 @@ impl Tool for LiquifyTool {
             _ => vec![],
         }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        let Some(c) = self.hover.filter(|_| self.show_brush || self.sizing.is_some()) else { return vec![] };
-        vec![Overlay::Path {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let show = self.show_brush || self.sizing.is_some() || self.active;
+        let Some(c) = self.hover.filter(|_| show) else { return vec![] };
+        let mut o = vec![Overlay::Path {
             path: ellipse_path(c, self.params.width / 2.0, self.params.height / 2.0, self.params.angle),
             color: [0x80, 0x80, 0x80],
             width: 1.0,
             dashed: false,
-        }]
+        }];
+        if cx.measurement_labels {
+            o.push(Overlay::Measure { p: c, text: cx.size_label(self.params.width, self.params.height) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -820,7 +825,10 @@ impl Tool for LiquifyTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vectorcraft_doc::Selection;
     use vectorcraft_geom::shapes;
+
+    use crate::testutil::{cx, doc_with_rect, paint};
 
     fn square() -> PathData {
         shapes::rectangle(Rect::new(0.0, 0.0, 200.0, 200.0))
@@ -849,6 +857,25 @@ mod tests {
         assert!(d.len() <= MAX_DABS + 1, "{} dabs", d.len());
         let d = dabs(&[Point::new(0.0, 0.0), Point::new(f64::MAX, f64::MAX)], 1.0);
         assert!(d.len() <= MAX_DABS + 1, "{} dabs", d.len());
+    }
+
+    #[test]
+    fn liquify_brush_measure_honors_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let mut t = LiquifyTool::new("warp");
+        t.params.width = 40.0;
+        t.params.height = 30.0;
+        t.pointer(&c, &PointerEvent::new(PointerKind::Move, 50.0, 60.0));
+        let label = c.size_label(40.0, 30.0);
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &label)));
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        t.pointer(&c, &PointerEvent::new(PointerKind::Down, 50.0, 60.0));
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
