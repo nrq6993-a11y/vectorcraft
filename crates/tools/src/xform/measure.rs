@@ -58,13 +58,14 @@ impl Tool for MeasureTool {
             return vec![];
         }
         let (dist, ang, dx, dy) = measure(a, b);
-        vec![
-            Overlay::Line { a, b, color: CYAN, dashed: false },
-            Overlay::Measure {
+        let mut out = vec![Overlay::Line { a, b, color: CYAN, dashed: false }];
+        if cx.measurement_labels {
+            out.push(Overlay::Measure {
                 p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
                 text: format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy)),
-            },
-        ]
+            });
+        }
+        out
     }
 
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
@@ -104,5 +105,9 @@ mod tests {
         assert!((o["angle"].as_f64().unwrap() - 53.130102).abs() < 1e-4);
         let ov = t.overlays(&cx);
         assert!(matches!(&ov[1], Overlay::Measure { text, .. } if text.starts_with("D: 50.00 pt")));
+        cx.measurement_labels = false;
+        let ov = t.overlays(&cx);
+        assert_eq!(ov.len(), 1);
+        assert!(matches!(&ov[0], Overlay::Line { .. }));
     }
 }
