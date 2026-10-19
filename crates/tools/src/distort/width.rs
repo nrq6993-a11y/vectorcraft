@@ -24,6 +24,7 @@ use vectorcraft_geom::{Point, Vec2};
 
 use super::pathutil::{eval_fraction, left_normal, nearest_fraction};
 use super::{BLUE, diamond};
+use crate::guides::{PointSnap, Targets};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
 
 /// Width points closer than this (in t) are at the same place (the two sides of a discontinuous
@@ -94,6 +95,8 @@ struct Drag {
     group: Option<Group>,
     /// The other width points of the subpath when the drag began, which a slid point snaps onto.
     others: Vec<WPoint>,
+    /// Smart Guides while sliding along the path (#1658).
+    guides: Vec<Overlay>,
     moved: bool,
 }
 
@@ -328,13 +331,13 @@ impl Tool for WidthTool {
                         let others = Self::points_of(cx, spot.owner, spot.id, spot.sub).into_iter().filter(|o| o.index != w.index).collect();
                         let group = self.group(cx, spot.owner, mode);
                         let spot = Spot { t: w.t, p: w.p, n: w.n, left: w.left, right: w.right, ..spot };
-                        Drag { spot, index: Some(w.index), mode, left: w.left, right: w.right, t: w.t, group, others, moved: false }
+                        Drag { spot, index: Some(w.index), mode, left: w.left, right: w.right, t: w.t, group, others, guides: vec![], moved: false }
                     }
                     None => {
                         let side = (p - spot.p).dot(spot.n) >= 0.0;
                         self.selected = Some((spot.owner, vec![spot.t]));
                         let mode = Mode::Width(ev.mods.alt.then_some(side));
-                        Drag { spot, index: None, mode, left: spot.left, right: spot.right, t: spot.t, group: None, others: vec![], moved: false }
+                        Drag { spot, index: None, mode, left: spot.left, right: spot.right, t: spot.t, group: None, others: vec![], guides: vec![], moved: false }
                     }
                 };
                 let label = if drag.mode == Mode::Copy { "Copy Width Point" } else { "Width Point" };
@@ -357,9 +360,12 @@ impl Tool for WidthTool {
                         }
                     }
                     Mode::Move | Mode::Copy => {
+                        let exclude = paths_of(cx.doc, d.spot.owner);
+                        let (snap_p, guides) = PointSnap::new(cx, || Targets::for_drawing(cx.doc, &exclude, None)).snap(cx, p);
+                        d.guides = guides;
                         let Some(NodeKind::Path { path, .. }) = cx.doc.node(d.spot.id).map(|n| &n.kind) else { return vec![] };
                         let Some(sp) = path.subpaths.get(d.spot.sub) else { return vec![] };
-                        let Some((_, t, q, tan, _)) = nearest_fraction(&vectorcraft_geom::PathData::single(sp.clone()), p) else { return vec![] };
+                        let Some((_, t, q, tan, _)) = nearest_fraction(&vectorcraft_geom::PathData::single(sp.clone()), snap_p) else { return vec![] };
                         (d.t, d.spot.p, d.spot.n) = (t, q, left_normal(tan));
                         // Dropped onto another width point (a single point only): it lands exactly
                         // there, making a discontinuous point.
@@ -432,6 +438,7 @@ impl Tool for WidthTool {
             show(*owner, &mut out);
         }
         if let Some(d) = &self.drag {
+            out.extend(d.guides.iter().cloned());
             let q = d.spot.p;
             out.push(Overlay::Line { a: q + d.spot.n * d.left, b: q - d.spot.n * d.right, color: BLUE, dashed: false });
             out.push(Overlay::Path { path: diamond(q, r), color: BLUE, width: 2.0, dashed: false });
@@ -708,5 +715,33 @@ mod tests {
             assert_eq!(p.get("adjustAdjoining").and_then(serde_json::Value::as_bool).unwrap_or(false), shift);
             assert!(t.pointer(&c, &ev(PointerKind::DoubleClick, 120.0, 250.0, mods)).is_empty(), "not on a stroked path");
         }
+    }
+
+    /// #1658: sliding a width point snaps to where another path crosses the stroke.
+    #[test]
+    fn width_tool_snaps_to_intersections() {
+        let (mut d, id) = doc_line();
+        let l = d.layers[0].id;
+        let cross = d.alloc_id();
+        let path = PathData::single(SubPath::polyline(&[Point::new(180.0, 100.0), Point::new(180.0, 250.0)], false));
+        d.insert(Some(l), 1, Node::path(cross, path, Appearance::default_art())).unwrap();
+        let n = d.node_mut(id).unwrap();
+        n.appearance.stroke_mut().unwrap().profile = Some(WidthProfile { points: vec![(0.0, 1.0, 1.0), (0.5, 1.0, 1.0), (1.0, 1.0, 1.0)] });
+        let (s, p) = (Selection::default(), paint());
+        let c = ToolContext { smart_guides: true, ..cx(&d, &s, &p) };
+        let mut t = WidthTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, 200.0, 200.0, Mods::default()));
+        let acts = t.pointer(&c, &ev(PointerKind::Drag, 182.0, 198.0, Mods::default()));
+        let (_, v) = preview(&acts);
+        assert!((v["t"].as_f64().unwrap() - 0.4).abs() < 1e-3, "lands at the crossing x = 180");
+        let ov = t.overlays(&c);
+        let labels: Vec<&str> = ov.iter().filter_map(|o| if let Overlay::Label { text, .. } = o { Some(text.as_str()) } else { None }).collect();
+        assert!(labels.iter().any(|t| *t == "intersect"), "{labels:?}");
+        let off = ToolContext { smart_guides: false, snap_to_point: false, ..c };
+        let mut t2 = WidthTool::default();
+        t2.pointer(&off, &ev(PointerKind::Down, 200.0, 200.0, Mods::default()));
+        let acts = t2.pointer(&off, &ev(PointerKind::Drag, 182.0, 198.0, Mods::default()));
+        let (_, v) = preview(&acts);
+        assert!((v["t"].as_f64().unwrap() - 0.41).abs() < 0.02, "without Smart Guides the width point follows the drag");
     }
 }
