@@ -30,6 +30,7 @@ use vectorcraft_doc::hit::hit_test;
 use vectorcraft_geom::{Affine, Point, Shape, Vec2, constrain_angle_from};
 
 use super::freeform::{self, Annotator as FreeformAnnotator};
+use super::measure;
 use super::paint_owner;
 use crate::guides::snap_draw;
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -236,6 +237,12 @@ pub struct GradientTool {
     lines: freeform::Lines,
     /// Smart-guide feedback of the handle being dragged.
     guides: Vec<Overlay>,
+}
+
+/// Distance, angle and offset readout for a gradient vector (Measurement Labels preference).
+fn gradient_measure_label(cx: &ToolContext, start: Point, end: Point) -> String {
+    let (dist, ang, dx, dy) = measure::measure(start, end);
+    format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy))
 }
 
 /// Overlays of an annotator: the bar, the handles, the midpoint diamonds and a chip per stop; a
@@ -555,6 +562,21 @@ impl Tool for GradientTool {
             _ => vec![],
         };
         o.extend(self.guides.iter().cloned());
+        if cx.measurement_labels
+            && let Some(g) = self.gesture.as_ref().filter(|g| g.began)
+        {
+            let seg = match &g.grab {
+                Grab::Art => g.vector,
+                Grab::End(_) => Annotator::of(cx).map(|a| (a.geom.start, a.geom.end)),
+                _ => None,
+            };
+            if let Some((a, b)) = seg.filter(|(a, b)| a.distance(*b) > 1e-9) {
+                o.push(Overlay::Measure {
+                    p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: gradient_measure_label(cx, a, b),
+                });
+            }
+        }
         o
     }
 
@@ -658,6 +680,27 @@ mod tests {
         // While dragging a solid-filled object the annotator follows the drag.
         assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Handle { p, .. } if p.x == 110.0)));
         assert_eq!(t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 190.0, 150.0)), vec![Action::Commit]);
+    }
+
+    #[test]
+    fn art_drag_measurement_labels_follow_the_preference() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let label = |on: bool| {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            let mut t = GradientTool::default();
+            t.pointer(&c, &PointerEvent::new(PointerKind::Down, 110.0, 150.0));
+            t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 210.0, 150.0));
+            t.overlays(&c)
+                .into_iter()
+                .find_map(|o| if let Overlay::Measure { text, .. } = o { Some(text) } else { None })
+        };
+        let text = label(true).expect("measurement label");
+        assert!(text.starts_with("D: 100.00 pt"), "{text}");
+        assert!(text.contains("Angle:") && text.contains("0.0°"), "{text}");
+        assert!(label(false).is_none());
     }
 
     #[test]
