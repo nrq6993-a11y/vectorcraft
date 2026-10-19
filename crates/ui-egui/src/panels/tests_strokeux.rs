@@ -194,3 +194,30 @@ fn stroke_weight_stepper_uses_ten_point_shift_steps() {
     click_step(&mut app, r.center().y + 5.0, egui::Modifiers::COMMAND);
     assert!((app.session.shown_stroke().unwrap().width - 12.9).abs() < 1e-6);
 }
+
+/// #991: Shift+↑/↓ in the focused Stroke Weight field step ten points, as in other numeric fields.
+#[test]
+fn stroke_weight_field_steps_ten_with_shift_arrows() {
+    use super::tests_appearance::frame_raw;
+    use egui::{Event, Key};
+
+    let ctx = egui::Context::default();
+    crate::theme::install_fonts(&ctx);
+    let mut app = app_with_rect();
+    run(&mut app, "stroke.set", json!({"weight": 14}));
+    let t = texts(&ctx, &mut app, stroke::show);
+    let at = text_rect(&t, "14 pt").center();
+    let key = |k, mods| Event::Key { key: k, physical_key: None, pressed: true, repeat: false, modifiers: mods };
+    let click = |pressed| Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() };
+    let mut time = 0.0;
+    let mut raw = |events: Vec<Event>| {
+        time += 0.05;
+        egui::RawInput { events, time: Some(time), screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(400.0, 300.0))), focused: true, ..Default::default() }
+    };
+    frame_raw(&ctx, &mut app, raw(vec![Event::PointerMoved(at), click(true), click(false)]), stroke::show);
+    frame_raw(&ctx, &mut app, raw(vec![key(Key::ArrowUp, egui::Modifiers::SHIFT)]), stroke::show);
+    assert_eq!(app.session.shown_stroke().unwrap().width, 24.0);
+    frame_raw(&ctx, &mut app, raw(vec![key(Key::ArrowDown, egui::Modifiers::NONE)]), stroke::show);
+    frame_raw(&ctx, &mut app, raw(vec![key(Key::ArrowDown, egui::Modifiers::SHIFT)]), stroke::show);
+    assert_eq!(app.session.shown_stroke().unwrap().width, 13.0, "24 → 23 → 13 with Shift−10");
+}
