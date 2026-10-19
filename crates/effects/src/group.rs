@@ -13,12 +13,14 @@
 
 use std::sync::Arc;
 
+use serde_json::Value;
+use vectorcraft_doc::color::{Color, Paint};
 use vectorcraft_doc::{Appearance, AppearanceItem, Node, NodeId, NodeKind, StrokeLayer};
 use vectorcraft_geom::{FillRule, PathData, Rect};
-use vectorcraft_pathops::{self as po, PathfinderOp};
+use vectorcraft_pathops::{self as po, Join, PathfinderOp};
 
 /// Effect ids of the Pathfinder submenu with their operation, in Illustrator's menu order.
-pub const PATHFINDER_EFFECTS: [(&str, &str, PathfinderOp); 10] = [
+pub const PATHFINDER_EFFECTS: [(&str, &str, PathfinderOp); 11] = [
     ("pathfinder.add", "Add", PathfinderOp::Unite),
     ("pathfinder.intersect", "Intersect", PathfinderOp::Intersect),
     ("pathfinder.exclude", "Exclude", PathfinderOp::Exclude),
@@ -29,6 +31,7 @@ pub const PATHFINDER_EFFECTS: [(&str, &str, PathfinderOp); 10] = [
     ("pathfinder.merge", "Merge", PathfinderOp::Merge),
     ("pathfinder.crop", "Crop", PathfinderOp::Crop),
     ("pathfinder.outline", "Outline", PathfinderOp::Outline),
+    ("pathfinder.trap", "Trap", PathfinderOp::Trap),
 ];
 
 /// Is `id` an Effect → Pathfinder effect?
@@ -138,13 +141,110 @@ pub fn pathfinder_children(group: &Node, hook: Option<OutlineHook>) -> Option<Ve
         if shapes.is_empty() {
             return Some(vec![]);
         }
-        stack = po::pathfinder(op, &shapes)
-            .into_iter()
-            .filter(|r| !r.path.is_empty())
-            .map(|r| Arc::new(styled(&sources[r.key as usize], r.path, op == PathfinderOp::Outline)))
-            .collect();
+        if op == PathfinderOp::Trap {
+            let originals = stack;
+            let traps = trap_overlays(&shapes, &sources, &e.params);
+            stack = originals;
+            stack.extend(traps.into_iter().map(Arc::new));
+        } else {
+            stack = po::pathfinder(op, &shapes)
+                .into_iter()
+                .filter(|r| !r.path.is_empty())
+                .map(|r| Arc::new(styled(&sources[r.key as usize], r.path, op == PathfinderOp::Outline)))
+                .collect();
+        }
     }
     Some(stack)
+}
+
+/// Trap thickness (pt), tint reduction (0..1), and whether darker spreads into lighter.
+fn trap_settings(params: &Value) -> (f64, f64, bool) {
+    let thickness = params
+        .get("thickness")
+        .and_then(|v| v.as_f64())
+        .filter(|v| v.is_finite())
+        .map(|v| v.clamp(0.01, 5000.0))
+        .unwrap_or(0.25);
+    let tint_reduction = params
+        .get("tintReduction")
+        .and_then(|v| v.as_f64())
+        .filter(|v| v.is_finite())
+        .map(|v| v.clamp(0.0, 1.0))
+        .unwrap_or(0.4);
+    let reverse = params.get("reverse").and_then(|v| v.as_bool()).unwrap_or(false);
+    (thickness, tint_reduction, reverse)
+}
+
+fn trap_ink(paint: &Paint) -> Option<f64> {
+    paint.color().map(|c| {
+        let [c, m, y, k] = c.to_cmyk();
+        (c + m + y + k) as f64
+    })
+}
+
+fn trap_paint(paint: &Paint, tint_reduction: f64) -> Paint {
+    let Some(color) = paint.color() else { return Paint::None };
+    let scale = (1.0 - tint_reduction).clamp(0.0, 1.0) as f32;
+    let [c, m, y, k] = color.to_cmyk();
+    Paint::solid(Color::cmyk(c * scale, m * scale, y * scale, k * scale))
+}
+
+/// Spread paths between stack pairs whose fills differ, per the public Trap description.
+fn trap_overlays(shapes: &[po::Shape], sources: &[Node], params: &Value) -> Vec<Node> {
+    let (thickness, tint_reduction, reverse) = trap_settings(params);
+    let half = thickness * 0.5;
+    if half <= 0.0 {
+        return vec![];
+    }
+    let mut out = vec![];
+    for i in 0..shapes.len() {
+        for j in (i + 1)..shapes.len() {
+            let a = &sources[shapes[i].key as usize];
+            let b = &sources[shapes[j].key as usize];
+            let fill_a = a.appearance.fill_paint();
+            let fill_b = b.appearance.fill_paint();
+            let ink_a = trap_ink(&fill_a);
+            let ink_b = trap_ink(&fill_b);
+            let (Some(ink_a), Some(ink_b)) = (ink_a, ink_b) else { continue };
+            if (ink_a - ink_b).abs() < 1e-6 {
+                continue;
+            }
+            let lighter_is_a = ink_a < ink_b;
+            let (lighter, lighter_fill, lighter_rule, darker_geom, darker_rule) = if lighter_is_a ^ reverse {
+                (&shapes[i], fill_a, shapes[i].rule, shapes[j].path.clone(), shapes[j].rule)
+            } else {
+                (&shapes[j], fill_b, shapes[j].rule, shapes[i].path.clone(), shapes[i].rule)
+            };
+            let spread = po::offset_path(&lighter.path, half, Join::Miter, 4.0);
+            if spread.is_empty() {
+                continue;
+            }
+            let overlap = po::pathfinder(
+                PathfinderOp::Intersect,
+                &[po::Shape::new(darker_geom, darker_rule, 0), po::Shape::new(spread, lighter_rule, 1)],
+            );
+            let paint = trap_paint(&lighter_fill, tint_reduction);
+            if paint.is_none() {
+                continue;
+            }
+            for face in overlap {
+                let bands = po::pathfinder(
+                    PathfinderOp::MinusFront,
+                    &[po::Shape::new(face.path, lighter_rule, 0), po::Shape::new(lighter.path.clone(), lighter_rule, 1)],
+                );
+                for band in bands {
+                    if band.path.is_empty() {
+                        continue;
+                    }
+                    let mut n = Node::path(NodeId(0), band.path, Appearance::basic(paint.clone(), Paint::None, 0.0));
+                    n.opacity = sources[lighter.key as usize].opacity;
+                    n.blend = sources[lighter.key as usize].blend;
+                    out.push(n);
+                }
+            }
+        }
+    }
+    out
 }
 
 fn is_container(n: &Node) -> bool {
@@ -318,6 +418,26 @@ mod tests {
 
     fn area(n: &Node) -> f64 {
         po::area(n.path_data().unwrap(), FillRule::NonZero).abs()
+    }
+
+    #[test]
+    fn trap_spreads_the_lighter_fill_into_the_overlap_without_removing_members() {
+        let yellow = Paint::solid(Color::cmyk(0.0, 0.0, 1.0, 0.0));
+        let blue = Paint::solid(Color::cmyk(1.0, 0.8, 0.0, 0.2));
+        let a = Arc::new(Node::path(NodeId(1), shapes::rectangle(Rect::new(0.0, 0.0, 100.0, 100.0)), Appearance::basic(yellow.clone(), Paint::None, 0.0)));
+        let b = Arc::new(Node::path(NodeId(2), shapes::rectangle(Rect::new(50.0, 0.0, 150.0, 100.0)), Appearance::basic(blue, Paint::None, 0.0)));
+        let mut g = Node::group(NodeId(10), vec![a, b]);
+        g.appearance.effects.push(Effect {
+            id: "pathfinder.trap".into(),
+            params: serde_json::json!({"thickness": 4.0, "tintReduction": 0.0}),
+            visible: true,
+        });
+        let out = pathfinder_children(&g, None).unwrap();
+        assert_eq!(out.len(), 3, "{:?}", out.iter().map(|n| area(n)).collect::<Vec<_>>());
+        let trap_area = out.iter().map(|n| area(n)).sum::<f64>() - area(&out[0]) - area(&out[1]);
+        assert!(trap_area > 1.0 && trap_area < 800.0, "trap band area {trap_area}");
+        let trap = out.iter().find(|n| n.id == NodeId(0)).expect("trap overlay");
+        assert_eq!(trap.appearance.fill_paint(), yellow);
     }
 
     #[test]

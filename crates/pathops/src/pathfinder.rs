@@ -50,6 +50,8 @@ pub enum PathfinderOp {
     Outline,
     /// Front-most minus everything behind; keeps the front-most key.
     MinusBack,
+    /// Print trapping between abutting fills (live effect only; see `vectorcraft_effects::group`).
+    Trap,
 }
 
 /// One face of the planar arrangement of a set of shapes (Shape Builder / Live Paint face).
@@ -172,6 +174,7 @@ pub fn pathfinder(op: PathfinderOp, shapes: &[Shape]) -> Vec<Shape> {
                 .collect()
         }
         PathfinderOp::Outline => outline_edges(&arr, shapes),
+        PathfinderOp::Trap => Vec::new(),
     }
 }
 

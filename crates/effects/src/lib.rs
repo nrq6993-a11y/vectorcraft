@@ -630,8 +630,18 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
         };
         v.push(g(id, label, WARP, WARP_DOC, json!({"bend": 50.0, "horizontal": 0.0, "vertical": 0.0, "orientation": "horizontal"})));
     }
-    for (id, label, _) in PATHFINDER_EFFECTS {
-        v.push(g(id, label, PATHFINDER, "{} (groups and layers: live Pathfinder over the members)", json!({})));
+    for (id, label, op) in PATHFINDER_EFFECTS {
+        if op == vectorcraft_pathops::PathfinderOp::Trap {
+            v.push(g(
+                id,
+                label,
+                PATHFINDER,
+                "{thickness: pt 0.01..5000 (0.25), tintReduction: 0..1 (0.4), reverse: bool (false: lighter spreads into darker)} spreads the lighter fill into darker neighbours along their overlap",
+                json!({"thickness": 0.25, "tintReduction": 0.4, "reverse": false}),
+            ));
+        } else {
+            v.push(g(id, label, PATHFINDER, "{} (groups and layers: live Pathfinder over the members)", json!({})));
+        }
     }
     v.push(g(
         CROP_MARKS,
