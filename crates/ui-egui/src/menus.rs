@@ -3025,9 +3025,42 @@ fn arrange_items() -> Vec<Item> {
     ]
 }
 
+/// Document point under a screen position on the canvas, if any.
+fn doc_at_pointer(app: &VectorcraftApp, pos: Option<egui::Pos2>) -> Option<vectorcraft_geom::Point> {
+    let rect = app.canvas_rect?;
+    let view = app.view()?;
+    let pos = pos.filter(|p| rect.contains(*p))?;
+    Some(crate::canvas::Xf::new(rect, view).to_doc(pos))
+}
+
+/// Bring Forward / Send Backward for an Intertwine overlap where three or more members meet
+/// (#1763, G13).
+fn intertwine_overlap_items(app: &VectorcraftApp, at: vectorcraft_geom::Point) -> Vec<Item> {
+    let Some(st) = app.session.active() else { return vec![] };
+    let Some(group) = vectorcraft_tools::intertwine::selected_group(&st.doc, &st.selection.objects) else { return vec![] };
+    let Some(children) = st.doc.node(group).and_then(|n| n.children()).cloned() else { return vec![] };
+    let face = vectorcraft_tools::intertwine::face_at(&vectorcraft_tools::intertwine::faces(&children), at);
+    if face.filter(|f| f.members.len() >= 3).is_none() {
+        return vec![];
+    }
+    let at = json!([at.x, at.y]);
+    vec![
+        cp("Bring Forward", "object.intertwine.arrange", json!({ "at": at, "order": "front" })),
+        cp("Send Backward", "object.intertwine.arrange", json!({ "at": at, "order": "back" })),
+        Sep,
+    ]
+}
+
 /// The canvas context menu (right-click): what applies to the selection, or to the view when
 /// nothing is selected. Commands that can't run now are left out rather than greyed out.
+///
+/// `doc_at` is the right-click position in document space when the menu is open on the canvas;
+/// headless tests and [`context_entries`] pass `None`.
 pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
+    context_items_at(app, None)
+}
+
+pub fn context_items_at(app: &VectorcraftApp, doc_at: Option<vectorcraft_geom::Point>) -> Vec<Item> {
     use vectorcraft_doc::NodeKind;
     let Some(st) = app.session.active() else { return vec![] };
     let roots: Vec<&vectorcraft_doc::Node> = st.selection.objects.iter().filter_map(|id| st.doc.node(*id)).collect();
@@ -3102,6 +3135,11 @@ pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
             c("Make Guides", "view.guides.make"),
             Sep,
             sub("Transform", transform_items()),
+        ]);
+        if let Some(at) = doc_at {
+            v.extend(intertwine_overlap_items(app, at));
+        }
+        v.extend([
             sub("Arrange", arrange_items()),
             sub(
                 "Select",
@@ -3141,10 +3179,11 @@ fn prune(app: &VectorcraftApp, items: Vec<Item>) -> Vec<Item> {
 
 /// The canvas context menu's popup; the item clicked goes in `clicked`, for [`invoke`].
 pub fn context_menu_body(app: &VectorcraftApp, ui: &mut egui::Ui, clicked: &mut Option<(String, Value)>) {
+    let doc_at = doc_at_pointer(app, ui.input(|i| i.pointer.interact_pos()));
     widgets::menu_scroll(ui, |ui| {
         ui.set_min_width(200.0);
         // Its toggles already say what they do (Show Rulers, Hide Guides): no check-mark gutter.
-        render_items(app, ui, &context_items(app), false, clicked);
+        render_items(app, ui, &context_items_at(app, doc_at), false, clicked);
     });
 }
 

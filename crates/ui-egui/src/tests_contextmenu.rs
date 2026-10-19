@@ -242,3 +242,25 @@ fn every_context_label_is_a_menu_string() {
         assert!(shown.contains(label), "`{label}` is listed but the context menu never shows it");
     }
 }
+
+/// G13: three members meeting in one overlap offer Bring Forward and Send Backward on the canvas
+/// context menu; they run `object.intertwine.arrange` at the click.
+#[test]
+fn intertwine_triple_overlap_lists_bring_forward_and_send_backward() {
+    let mut app = app();
+    let mut mk = |x: f64| {
+        let id = NodeId(app.run("shape.rectangle", json!({"x": x, "y": x, "width": 80, "height": 80})).unwrap()["id"].as_u64().unwrap());
+        app.run("paint.setFill", json!({"ids": [id.0], "color": "#336699"})).unwrap();
+        id
+    };
+    let (a, b, c) = (mk(40.0), mk(50.0), mk(60.0));
+    app.run("select.set", json!({"ids": [a.0, b.0, c.0]})).unwrap();
+    app.run("object.intertwine.make", json!({})).unwrap();
+    let overlap = Point::new(100.0, 100.0);
+    let items = menus::context_items_at(&app, Some(overlap));
+    let l = labels(&items);
+    assert!(l.contains(&"Bring Forward") && l.contains(&"Send Backward"), "{l:?}");
+    let before = app.session.active().unwrap().history.undo.len();
+    menus::invoke(&mut app, "object.intertwine.arrange", json!({"at": [overlap.x, overlap.y], "order": "front"}));
+    assert_eq!(app.session.active().unwrap().history.undo.len(), before + 1);
+}
