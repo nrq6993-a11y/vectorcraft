@@ -83,7 +83,7 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
   isolation mode and small behaviours, against the public tool and shortcut documentation. Itemized in
   [ui-parity.md](ui-parity.md). The Shaper's construction-mode widget and gesture refinements remain.
 - **Evidence:** no side-by-side session has ever happened (the clean-room rule forbids running Illustrator, so
-  the pass works from the documentation); users keep reporting small differences: #991, #975, #973, #955, #908.
+  the pass works from the documentation); users keep reporting small differences: #991, #975, #973, #955.
 - **Impact:** a power user notices this in the first minutes and stops trusting the tool.
 - **Estimate:** 60–90 h; splits well by tool across agents.
 
