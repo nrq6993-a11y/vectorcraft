@@ -598,6 +598,12 @@ impl Tool for CurvatureTool {
                 curvature_extend(&mut tail, false, h, self.how(&e), false);
                 tail.to_bezpath_into(&mut bp);
                 o.push(Overlay::Path { path: bp, color: FEEDBACK, width: 1.0, dashed: false });
+                if cx.measurement_labels {
+                    let from = if e.start { sp.anchors.first().map(|a| a.p) } else { sp.anchors.last().map(|a| a.p) };
+                    if let Some(from) = from.filter(|from| from.distance(h) > 1e-9) {
+                        o.push(Overlay::Measure { p: h, text: cx.segment_measure_label(from, h) });
+                    }
+                }
             }
             return o;
         }
@@ -609,6 +615,11 @@ impl Tool for CurvatureTool {
             pts.push((h, false));
             curvature_spline(&pts, false).to_bezpath_into(&mut bp);
             o.push(Overlay::Path { path: bp, color: FEEDBACK, width: 1.0, dashed: false });
+            if cx.measurement_labels
+                && let Some((from, _)) = self.pts.last().filter(|(from, _)| from.distance(h) > 1e-9)
+            {
+                o.push(Overlay::Measure { p: h, text: cx.segment_measure_label(*from, h) });
+            }
         }
         for (i, (p, _)) in self.pts.iter().enumerate() {
             o.push(Overlay::CurvePoint { p: *p, color: FEEDBACK, filled: Some(i) == self.current, size: 6.0 });
@@ -1034,6 +1045,8 @@ mod tests {
         let cx = quiet(&d, &s, &p);
         t.pointer(&cx, &PointerEvent::new(PointerKind::Move, 650.0, 60.0));
         assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Path { .. })), "the rubber band shows");
+        let want = cx.segment_measure_label(pt(550.0, 120.0), pt(650.0, 60.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)), "distance and angle while extending");
         let a = press(&mut t, &cx, 650.0, 60.0, true);
         assert!(matches!(edit_op(&a[0]), Some(("extend", v)) if v["from"] == "smooth"), "{a:?}");
         curvature_extend(&mut sp, false, pt(650.0, 60.0), EndCurve::Smooth, false);

@@ -379,6 +379,14 @@ impl ToolContext<'_> {
     pub fn offset_label(&self, dx: f64, dy: f64) -> String {
         format!("dX: {}\ndY: {}", self.len(dx), self.len(dy))
     }
+    /// A straight segment: distance, angle (degrees counter-clockwise from +x) and offset, as the
+    /// Measure tool and Smart Guides measurement labels show while drawing.
+    pub fn segment_measure_label(&self, from: Point, to: Point) -> String {
+        let d = to - from;
+        let dist = d.hypot();
+        let ang = (-d.y).atan2(d.x).to_degrees();
+        format!("D: {}\nAngle: {ang:.1}°\n{}", self.len(dist), self.offset_label(d.x, d.y))
+    }
     /// What Snap to Grid snaps to: the grid's subdivisions (or its lines without any).
     pub fn grid_step(&self) -> f64 {
         self.doc.grid.spacing / self.doc.grid.subdivisions.max(1) as f64
