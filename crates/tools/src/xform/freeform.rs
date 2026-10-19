@@ -116,10 +116,10 @@ impl Annotator {
             color: pt.color.to_rgba8(pt.opacity),
             selected: cx.freeform_point == Some(i),
         }));
-        if cx.measurement_labels {
-            if let Some((p, text)) = gesture.and_then(|g| g.measure.as_ref()) {
-                o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: text.clone() });
-            }
+        if cx.measurement_labels
+            && let Some((p, text)) = gesture.and_then(|g| g.measure.as_ref())
+        {
+            o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: text.clone() });
         }
         o
     }
