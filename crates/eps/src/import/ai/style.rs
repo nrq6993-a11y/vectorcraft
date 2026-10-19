@@ -21,13 +21,13 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Transform) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::Paint;
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
 
@@ -36,9 +36,10 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 7] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW];
+const PLAIN: [&str; 8] =
+    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, TRANSFORM];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
+const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -307,7 +308,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == TRANSFORM || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -349,10 +350,32 @@ fn style(filters: &[Filter]) -> ArtStyle {
                 }
                 effects.push(Effect { id: "stylize.dropShadow".into(), params, visible: true });
             }
+            TRANSFORM => effects.push(Effect { id: "distort.transform".into(), params: transform_params(&param), visible: true }),
             _ => {}
         }
     }
     ArtStyle { plain, items, effects }
+}
+
+/// LiveEffect keys for Transform (public forum posts on `applyEffect` XML); art-style dictionaries use the same names.
+fn transform_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let flag = |k| param(k).is_some_and(|v| v != 0.0);
+    let pct = |k, default| param(k).filter(|v| v.is_finite()).unwrap_or(default).clamp(-100_000.0, 100_000.0);
+    let pt = |k| param(k).filter(|v| v.is_finite()).unwrap_or(0.0).clamp(-1.0e7, 1.0e7);
+    let copies = param("numCopies").filter(|v| v.is_finite()).map(|v| v.clamp(0.0, 1000.0)).unwrap_or(0.0);
+    let reference = param("pinPoint").filter(|v| v.is_finite()).map(|v| v.clamp(0.0, 8.0)).unwrap_or(4.0);
+    json!({
+        "scaleH": pct("scaleH_Percent", 100.0),
+        "scaleV": pct("scaleV_Percent", 100.0),
+        "moveH": pt("moveH_Pts"),
+        "moveV": pt("moveV_Pts"),
+        "rotate": param("rotate_Degrees").filter(|v| v.is_finite()).unwrap_or(0.0),
+        "copies": copies,
+        "reference": reference,
+        "reflectX": flag("reflectX"),
+        "reflectY": flag("reflectY"),
+        "random": flag("randomize"),
+    })
 }
 
 #[cfg(test)]
@@ -438,6 +461,34 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_transform_reads_move_scale_copies_and_reference() {
+        let data = b"/KnownStyle :\n(Shifted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Transform) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            50 /Real (scaleH_Percent) ,\n80 /Real (scaleV_Percent) ,\n20 /Real (moveH_Pts) ,\n-5 /Real (moveV_Pts) ,\n\
+            30 /Real (rotate_Degrees) ,\n2 /Int (numCopies) ,\n0 /Int (pinPoint) ,\n1 /Bool (reflectX) ,\n0 /Bool (reflectY) ,\n0 /Bool (randomize) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Shifted"];
+        assert!(style.plain, "{style:?}");
+        let [fx] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(fx.id, "distort.transform");
+        assert_eq!(
+            fx.params,
+            json!({
+                "scaleH": 50.0,
+                "scaleV": 80.0,
+                "moveH": 20.0,
+                "moveV": -5.0,
+                "rotate": 30.0,
+                "copies": 2.0,
+                "reference": 0.0,
+                "reflectX": true,
+                "reflectY": false,
+                "random": false,
+            })
+        );
     }
 
     #[test]

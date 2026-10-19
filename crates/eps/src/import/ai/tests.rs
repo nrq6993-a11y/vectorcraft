@@ -1255,6 +1255,26 @@ fn a_styled_object_inside_a_drawn_look_survives_it() {
     assert_eq!((shadow.id.as_str(), shadow.params["x"].as_f64(), shadow.params["y"].as_f64()), ("stylize.dropShadow", Some(3.0), Some(4.0)));
 }
 
+/// A Transform art style becomes a `distort.transform` live effect on the object, not a drawn look.
+#[test]
+fn an_object_with_a_transform_style_comes_in_as_itself() {
+    let styles = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(Grid) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Adobe Transform) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+        100 /Real (scaleH_Percent) ,\n100 /Real (scaleV_Percent) ,\n40 /Real (moveH_Pts) ,\n0 /Real (moveV_Pts) ,\n\
+        0 /Real (rotate_Degrees) ,\n2 /Int (numCopies) ,\n4 /Int (pinPoint) ,\n0 /Bool (reflectX) ,\n0 /Bool (reflectY) ,\n0 /Bool (randomize) ,\n\
+        ; /Dict ;\n /Part ,\n;\n%AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!("0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (Grid) XW\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    let r = read_ok(&format!("{styles}{}", layer(&art_)));
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    let [fx] = a[0].appearance.effects.as_slice() else { panic!("{:?}", a[0].appearance.effects) };
+    assert_eq!(fx.id, "distort.transform");
+    assert_eq!((fx.params["moveH"].as_f64(), fx.params["copies"].as_f64(), fx.params["reference"].as_f64()), (Some(40.0), Some(2.0), Some(4.0)));
+}
+
 /// An object whose style's Drop Shadow has Darkness (`csrc` 1, `dark` 50) comes in as itself with
 /// that shadow, not as its drawn look.
 #[test]
