@@ -386,11 +386,17 @@ impl Tool for ShaperTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         if self.points.len() < 2 {
             return vec![];
         }
-        vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }]
+        let mut o = vec![Overlay::Path { path: crate::draw2::polyline(&self.points), color: BLUE, width: 1.5, dashed: false }];
+        if cx.measurement_labels {
+            let len = self.points.windows(2).map(|w| w[1].distance(w[0])).sum();
+            let p = self.points[self.points.len() - 1];
+            o.push(Overlay::Measure { p, text: format!("D: {}", cx.len(len)) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Shaper
@@ -480,6 +486,24 @@ impl Tool for GraphTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::{cx, doc_with_rect, paint};
+    use vectorcraft_doc::Selection;
+
+    /// While drawing, the Shaper shows path length when measurement labels are on.
+    #[test]
+    fn shaper_shows_path_length_while_drawing() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let mut t = ShaperTool::default();
+        t.pointer(&c, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "D: 100.00 pt")));
+        let mut off = c;
+        off.measurement_labels = false;
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+    }
 
     /// The Flare Tool Options: kept within their ranges, and what the next drag draws with.
     #[test]
