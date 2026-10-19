@@ -10,9 +10,11 @@
   Per-machine install with a setup wizard that names the version: Welcome, install folder (Program Files\VectorCraft by
   default, remembered for upgrades), Ready, a progress page, and a Finish page with a ticked
   "Launch VectorCraft" box. Installs a Start Menu shortcut and an App Paths entry (so `vectorcraft`
-  starts from the Run dialog), plus vectorcraft-cli. A Shortcuts page after the install folder offers
-  a desktop shortcut (ticked). `msiexec /qn` still installs silently, with the desktop shortcut
-  unless INSTALLDESKTOPSHORTCUT="" is passed.
+  starts from the Run dialog), plus vectorcraft-cli. Registers VectorCraft's own extensions
+  (`.vectorcraft`, `.drawcraft`, `.vctemplate`) so Explorer shows the app icon on saved files and
+  double-click opens them. A Shortcuts page after the install folder offers a desktop shortcut
+  (ticked). `msiexec /qn` still installs silently, with the desktop shortcut unless
+  INSTALLDESKTOPSHORTCUT="" is passed.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
@@ -118,6 +120,21 @@
           <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="VectorCraft"
               Description="VectorCraft vector illustration app" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
               Icon="VectorcraftIcon.ico" IconIndex="0" />
+          <!-- Owned formats only (as on macOS): icon from VectorcraftIcon.ico; other readable
+               extensions stay unregistered so Explorer doesn't offer VectorCraft by default. -->
+          <ProgId Id="Vectorcraft.Document" Description="VectorCraft Document" Icon="VectorcraftIcon.ico" IconIndex="0">
+            <Extension Id="vectorcraft" ContentType="application/x-vectorcraft">
+              <Verb Id="open" Command="Open" TargetFile="VectorcraftExe" Argument="&quot;%1&quot;" />
+            </Extension>
+            <Extension Id="drawcraft" ContentType="application/x-drawcraft">
+              <Verb Id="open" Command="Open" TargetFile="VectorcraftExe" Argument="&quot;%1&quot;" />
+            </Extension>
+          </ProgId>
+          <ProgId Id="Vectorcraft.Template" Description="VectorCraft Template" Icon="VectorcraftIcon.ico" IconIndex="0">
+            <Extension Id="vctemplate" ContentType="application/x-vectorcraft-template">
+              <Verb Id="open" Command="Open" TargetFile="VectorcraftExe" Argument="&quot;%1&quot;" />
+            </Extension>
+          </ProgId>
         </File>
 
         <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\vectorcraft.exe" Value="[#VectorcraftExe]" Type="string" />

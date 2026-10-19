@@ -72,6 +72,17 @@ mod tests {
         assert!(read("packaging/linux/ai.storyteller.vectorcraft.metainfo.xml.in").contains("<category>VectorGraphics</category>"));
     }
 
+    /// The Windows MSI registers owned native extensions so Explorer shows the app icon (#3082).
+    #[test]
+    fn windows_installer_registers_owned_document_extensions() {
+        let wxs = std::fs::read_to_string(crate::root().join("packaging/windows/vectorcraft.wxs")).unwrap();
+        for ext in ["vectorcraft", "drawcraft", "vctemplate"] {
+            assert!(wxs.contains(&format!(r#"<Extension Id="{ext}""#)), ".{ext} association");
+        }
+        assert!(wxs.contains("Vectorcraft.Document") && wxs.contains("Vectorcraft.Template"));
+        assert!(wxs.contains("TargetFile=\"VectorcraftExe\"") && wxs.contains("VectorcraftIcon.ico"));
+    }
+
     #[test]
     fn dev_bundle_plist_is_the_release_one() {
         let p = info_plist("1.2.3-rc.1", "abc123");
