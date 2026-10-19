@@ -320,6 +320,15 @@ impl Tool for GestureTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
+        if self.id == "knife"
+            && self.active
+            && self.points.len() >= 2
+            && cx.measurement_labels
+            && let Some(p) = self.points.last()
+        {
+            let len = self.points.windows(2).fold(0.0, |sum, w| sum + w[0].distance(w[1]));
+            o.push(Overlay::Measure { p: *p, text: format!("L: {}", cx.len(len)) });
+        }
         if !self.active || self.points.len() < 2 || self.began {
             return o;
         }
@@ -522,9 +531,23 @@ mod tests {
         let mut k = GestureTool::new("knife");
         k.pointer(&cx, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
         k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
-        assert_eq!(k.overlays(&cx).len(), 1);
+        assert!(k.overlays(&cx).iter().any(|o| matches!(o, Overlay::Path { .. })));
         let a = k.pointer(&cx, &PointerEvent::new(PointerKind::Up, 250.0, 150.0));
         assert!(matches!(&a[0], Action::Exec(c, v) if c == "path.knife" && v["points"].as_array().unwrap().len() == 3));
+    }
+
+    #[test]
+    fn knife_path_length_measure_while_dragging() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut k = GestureTool::new("knife");
+        k.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+        assert!(k.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "L: 100.00 pt")));
+        let quiet = ToolContext { measurement_labels: false, ..crate::testutil::cx(&d, &s, &p) };
+        assert!(!k.overlays(&quiet).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
