@@ -36,9 +36,10 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 7] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW];
+const PLAIN: [&str; 8] =
+    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, INNER];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
+const INNER: &str = "Adobe Inner Glow"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -307,7 +308,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == INNER || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -328,6 +329,18 @@ fn style(filters: &[Filter]) -> ArtStyle {
             GLOW => effects.push(Effect {
                 id: "stylize.outerGlow".into(),
                 params: json!({"mode": mode(2), "opacity": param("opac").unwrap_or(0.75) * 100.0, "blur": 2.0 * param("blur").unwrap_or(5.0), "color": color}),
+                visible: true,
+            }),
+            // `gtyp` 0 is Edge, 1 is Center (public forum posts on LiveEffect XML for Inner Glow).
+            INNER => effects.push(Effect {
+                id: "stylize.innerGlow".into(),
+                params: json!({
+                    "mode": mode(2),
+                    "opacity": param("opac").unwrap_or(0.75) * 100.0,
+                    "blur": 2.0 * param("blur").unwrap_or(5.0),
+                    "color": color,
+                    "source": if param("gtyp").unwrap_or(0.0).round() as i64 == 1 { "center" } else { "edge" },
+                }),
                 visible: true,
             }),
             SHADOW => {
@@ -426,6 +439,27 @@ mod tests {
             let [shadow] = style.effects.as_slice() else { panic!("{dark:?}: {style:?}") };
             assert_eq!((&shadow.params["shade"], &shadow.params["darkness"]), (&json!("darkness"), &json!(want)), "{dark:?}");
         }
+    }
+
+    #[test]
+    fn an_inner_glow_reads_opacity_blur_mode_and_edge_source() {
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n0 /Int (gtyp) ,\n0.5 /Real (opac) ,\n4 /Real (blur) ,\n2 /Int (blnd) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
+        assert_eq!(
+            (inner.id.as_str(), inner.params["opacity"].as_f64(), inner.params["blur"].as_f64(), inner.params["source"].as_str(), inner.params["mode"].as_str()),
+            ("stylize.innerGlow", Some(50.0), Some(8.0), Some("edge"), Some("Screen"))
+        );
+    }
+
+    #[test]
+    fn an_inner_glow_center_source_reads_from_gtyp() {
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n1 /Int (gtyp) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
+        assert_eq!(inner.params["source"].as_str(), Some("center"));
     }
 
     #[test]
