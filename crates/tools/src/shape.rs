@@ -251,15 +251,18 @@ impl Tool for ShapeTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // A box's size as drawn (from its centre with Alt, square with Shift).
-            let (w, h) = match self.id {
-                "polygon" | "star" | "lineSegment" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
+            let text = match self.id {
+                "polygon" => cx.polygon_draw_label(s, self.last, self.sides),
+                "star" | "lineSegment" => {
+                    let (w, h) = ((self.last - s).x.abs(), (self.last - s).y.abs());
+                    cx.size_label(w, h)
+                }
                 _ => {
                     let r = drag_rect(s, self.last, self.mods);
-                    (r.width(), r.height())
+                    cx.size_label(r.width(), r.height())
                 }
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -390,6 +393,23 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 10.0));
         let a = t.key(&cx, ToolKey::Up, Mods::default());
         assert!(matches!(&a[0], Action::Preview(_, v) if v["sides"] == 7));
+    }
+
+    #[test]
+    fn polygon_drag_shows_radius_and_sides() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = ShapeTool::new("polygon");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, 30.0));
+        let want = cx.polygon_draw_label(Point::new(0.0, 0.0), Point::new(40.0, 30.0), 6);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)), "{:?}", t.overlays(&cx));
+        let a = t.key(&cx, ToolKey::Up, Mods::default());
+        assert!(matches!(&a[0], Action::Preview(_, v) if v["sides"] == 7));
+        let want7 = cx.polygon_draw_label(Point::new(0.0, 0.0), Point::new(40.0, 30.0), 7);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want7)));
     }
 
     /// The start and the dragged corner land on another object's anchors (#506), hovering shows

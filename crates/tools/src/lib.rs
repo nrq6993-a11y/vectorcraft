@@ -375,6 +375,10 @@ impl ToolContext<'_> {
     pub fn size_label(&self, w: f64, h: f64) -> String {
         format!("W: {}\nH: {}", self.len(w), self.len(h))
     }
+    /// Polygon tool measurement: circumradius and side count while dragging.
+    pub fn polygon_draw_label(&self, center: vectorcraft_geom::Point, p: vectorcraft_geom::Point, sides: u32) -> String {
+        format!("R: {}\nSides: {}", self.len((p - center).hypot()), sides)
+    }
     /// A move label: `dX: …` over `dY: …`.
     pub fn offset_label(&self, dx: f64, dy: f64) -> String {
         format!("dX: {}\ndY: {}", self.len(dx), self.len(dy))
