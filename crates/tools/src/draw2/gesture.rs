@@ -320,6 +320,17 @@ impl Tool for GestureTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
+        if self.id == "knife"
+            && self.active
+            && self.points.len() >= 2
+            && cx.measurement_labels
+            && let Some(p) = self.points.last()
+        {
+            let len = self.points.windows(2).map(|w| w[0].distance(w[1])).sum::<f64>();
+            if len > 0.0 {
+                o.push(Overlay::Measure { p: *p, text: format!("L: {}", cx.len(len)) });
+            }
+        }
         if !self.active || self.points.len() < 2 || self.began {
             return o;
         }
@@ -510,6 +521,26 @@ mod tests {
     }
 
     #[test]
+    fn knife_shows_path_length_when_measurement_labels_on() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut k = GestureTool::new("knife");
+        k.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        k.pointer(&on, &PointerEvent::new(PointerKind::Drag, 30.0, 40.0));
+        let label = |c: &ToolContext| {
+            k.overlays(c).into_iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+        };
+        assert_eq!(label(&on).as_deref(), Some("L: 50.00 pt"));
+        assert!(label(&off).is_none());
+    }
+
+    #[test]
     fn eraser_and_knife_exec_on_release() {
         let (d, _) = doc_with_rect();
         let s = Selection::default();
@@ -522,7 +553,7 @@ mod tests {
         let mut k = GestureTool::new("knife");
         k.pointer(&cx, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
         k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
-        assert_eq!(k.overlays(&cx).len(), 1);
+        assert!(k.overlays(&cx).iter().any(|o| matches!(o, Overlay::Path { .. })));
         let a = k.pointer(&cx, &PointerEvent::new(PointerKind::Up, 250.0, 150.0));
         assert!(matches!(&a[0], Action::Exec(c, v) if c == "path.knife" && v["points"].as_array().unwrap().len() == 3));
     }
