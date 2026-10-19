@@ -65,7 +65,7 @@ use vectorcraft_color::cms::Cms;
 use vectorcraft_color::{BlendMode, Color, Gradient, GradientKind, GradientPaint, Paint};
 use vectorcraft_doc::{
     AppearanceItem, AreaOptions, CharPosition, CharStyle, Document, FillLayer, ImageObject, Justify, LAYER_COLORS, LayerColor, LineCap, LineJoin,
-    Node, NodeKind, ParaDirection, ParaStyle, PathEffect, StrokeLayer, TextKind, TextObject,
+    Node, NodeKind, ParaDirection, ParaStyle, PathEffect, StrokeLayer, TextKind, TextObject, Unit,
 };
 use vectorcraft_effects::stroke;
 use vectorcraft_geom::{Affine, AnchorKind, BezPath, FillRule, PathData, Point, Rect, Shape, SubPath, Vec2};
@@ -132,6 +132,17 @@ pub enum HiddenObjects {
 pub struct LegacyAiOutput {
     pub bytes: Vec<u8>,
     pub warnings: Vec<String>,
+}
+
+/// The `%AI5_RulerUnits` value for `unit` (Illustrator 7 file format specification, Table 3).
+fn ai5_ruler_units(unit: Unit) -> u8 {
+    match unit {
+        Unit::Inches | Unit::FeetInches | Unit::Feet | Unit::Yards => 0,
+        Unit::Millimeters | Unit::Meters => 1,
+        Unit::Points | Unit::Pixels => 2,
+        Unit::Picas => 3,
+        Unit::Centimeters => 4,
+    }
 }
 
 /// Write `doc`'s first artboard and every layer (all its art, on the artboard or not) as a
@@ -201,7 +212,7 @@ pub fn export_legacy_ai(doc: &Document, o: &LegacyAiOptions) -> Result<LegacyAiO
     let _ = writeln!(s, "%AI3_TileBox: 0 {} {} {}", ps::num(below), ps::num(width), ps::num(top));
     s.push_str("%AI3_DocumentPreview: None\n");
     let _ = writeln!(s, "%AI5_ArtSize: {} {}", ps::num(width), ps::num(height));
-    s.push_str("%AI5_RulerUnits: 2\n");
+    let _ = writeln!(s, "%AI5_RulerUnits: {}", ai5_ruler_units(doc.units));
     let _ = writeln!(s, "%AI5_NumLayers: {layers}");
     let _ = writeln!(s, "%%DocumentSuppliedResources: procset {PROCSET}");
     s.push_str("%%EndComments\n%%BeginProlog\n");

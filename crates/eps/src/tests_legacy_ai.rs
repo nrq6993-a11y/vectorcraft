@@ -183,6 +183,17 @@ fn children(n: &Node) -> &[Arc<Node>] {
 }
 
 #[test]
+fn writes_ruler_units_from_the_document() {
+    let mut doc = sample();
+    doc.units = vectorcraft_doc::Unit::Millimeters;
+    let text = String::from_utf8(write(&doc).bytes).unwrap();
+    assert!(text.contains("%AI5_RulerUnits: 1\n"), "{text}");
+    doc.units = vectorcraft_doc::Unit::Inches;
+    let text = String::from_utf8(write(&doc).bytes).unwrap();
+    assert!(text.contains("%AI5_RulerUnits: 0\n"), "{text}");
+}
+
+#[test]
 fn writes_the_documented_operators() {
     let out = write(&sample());
     let text = String::from_utf8(out.bytes).unwrap();
@@ -192,6 +203,7 @@ fn writes_the_documented_operators() {
         "%%CreationDate: (1/1/1970) (00:00)\n",
         "%AI5_ArtSize: 200 100",
         "%AI3_TemplateBox: 100 50 100 50",
+        "%AI5_RulerUnits: 2\n",
         "%AI5_NumLayers: 2",
         "(Back) Ln",
         "(Front) Ln",
