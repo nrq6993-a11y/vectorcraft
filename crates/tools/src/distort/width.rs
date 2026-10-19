@@ -439,6 +439,10 @@ impl Tool for WidthTool {
         } else if let Some(h) = &self.hover {
             out.push(Overlay::Line { a: h.p + h.n * h.left, b: h.p - h.n * h.right, color: BLUE, dashed: true });
             out.push(Overlay::Path { path: diamond(h.p, r), color: BLUE, width: 1.0, dashed: false });
+            if cx.measurement_labels {
+                let w = h.left + h.right;
+                out.push(Overlay::Measure { p: h.p + h.n * (h.left + r * 3.0), text: format!("W: {}", cx.stroke_unit.readout(w)) });
+            }
         }
         out
     }
@@ -677,6 +681,24 @@ mod tests {
         t.pointer(&cx2, &ev(PointerKind::Move, 450.0, 450.0, Mods::default()));
         let ends: Vec<Point> = t.overlays(&cx2).iter().filter_map(|o| if let Overlay::Handle { p, .. } = o { Some(*p) } else { None }).collect();
         assert!(ends.iter().any(|q| q.y < 230.0) && ends.iter().any(|q| q.y > 230.0), "both subpaths: {ends:?}");
+    }
+
+    #[test]
+    fn hover_shows_stroke_width_in_the_measurement_label() {
+        let (d, _) = doc_three_points();
+        let (s, p) = (Selection::default(), paint());
+        let cx = cx(&d, &s, &p);
+        let mut t = WidthTool::default();
+        t.pointer(&cx, &ev(PointerKind::Move, 150.0, 200.0, Mods::default()));
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert!(!t.overlays(&quiet).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        let on = ToolContext { measurement_labels: true, ..cx };
+        let want = format!("W: {}", on.stroke_unit.readout(10.0));
+        assert!(
+            t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+            "{:?}",
+            t.overlays(&on)
+        );
     }
 
     #[test]
