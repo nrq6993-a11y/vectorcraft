@@ -484,6 +484,36 @@ fn glyphs_spaced_each_their_own_way_keep_their_place() {
     });
 }
 
+/// PDF text-show operators in an uncompressed export (`compressText: false`).
+fn text_show_count(bytes: &[u8]) -> usize {
+    let lossy = String::from_utf8_lossy(bytes);
+    lossy.matches(" Tj").count() + lossy.matches("] TJ").count()
+}
+
+/// Real text on one baseline is grouped into few show operators; Illustrator opens that as one
+/// text object instead of one per character (#3088).
+#[test]
+fn plain_sentences_are_not_one_show_operator_per_character() {
+    let sample = "Hello World";
+    let d = doc(vec![TextObject::point(Point::new(20.0, 60.0), sample, style(24.0))]);
+    let shows = text_show_count(&pdf(&d, false).bytes);
+    assert!(shows < sample.len(), "each letter its own show: {shows}");
+    assert!(shows <= 2, "expected one grouped show, got {shows}");
+}
+
+#[test]
+fn cjk_sentences_are_not_one_show_operator_per_character() {
+    let Some(noto) = vectorcraft_text::CRAFT_FONTS.iter().find(|f| f.family == "Noto Sans CJK SC") else {
+        return;
+    };
+    let sample = "涵养浩然气";
+    let st = CharStyle { font_family: noto.family.into(), ..style(24.0) };
+    let d = doc(vec![TextObject::point(Point::new(20.0, 60.0), sample, st)]);
+    let shows = text_show_count(&pdf(&d, false).bytes);
+    let chars = sample.chars().count();
+    assert!(shows < chars, "CJK split per character: {shows} shows for {chars} glyphs");
+}
+
 /// Evenly tracked type on a path comes back with its tracking: each glyph where it was along the
 /// curve, not closed up to the font's advances.
 #[test]

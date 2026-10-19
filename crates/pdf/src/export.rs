@@ -20,7 +20,7 @@ use kurbo::{PathEl, Shape, Vec2};
 use vectorcraft_color::{BlendMode, Color, GradientKind, Paint};
 use vectorcraft_doc::{AppearanceItem, Document, LineCap, LineJoin, Node, NodeKind, StrokeAlign, StrokeLayer, SymbolBoxes, TextObject};
 use vectorcraft_effects::stroke::{self, WrittenShape};
-use vectorcraft_geom::{Affine, BezPath, FillRule, Rect};
+use vectorcraft_geom::{Affine, BezPath, FillRule, Point, Rect};
 use vectorcraft_text::TextLayout;
 use vectorcraft_text::embed::Embedding;
 
@@ -658,9 +658,20 @@ struct GlyphLine {
     size: f64,
     /// The glyph space (krilla's, y down, at `size`) → text space, at the line's start.
     frame: Affine,
+    /// Layout line and baseline direction (see [`vectorcraft_text::PositionedGlyph`]).
+    line: usize,
+    angle: f64,
+    /// Pen position of the line's first glyph (text space).
+    start_origin: Point,
     /// Glyph id, pen position and advance along the line (in glyph space), and the characters it
     /// stands for (bytes of the plain text).
     glyphs: Vec<(u32, f64, f64, std::ops::Range<usize>)>,
+}
+
+/// Perpendicular distance from `g`'s pen to the baseline through `start` at `g`'s angle.
+fn off_baseline(start: Point, g: &vectorcraft_text::PositionedGlyph) -> f64 {
+    let d = g.origin - start;
+    -d.x * g.angle.sin() + d.y * g.angle.cos()
 }
 
 /// Most pixels along a side of a freeform gradient's image (its colour field is smooth).
@@ -1651,9 +1662,18 @@ impl Exporter<'_> {
             let size = upem * sy;
             let frame = g.xf * Affine::scale(1.0 / sy);
             // Its pen position along the frame's baseline, when it continues the line.
-            let x = line.as_ref().filter(|l| l.face == g.font_id && (l.size - size).abs() < 1e-6).and_then(|l| {
+            let x = line.as_ref().filter(|l| {
+                l.face == g.font_id
+                    && (l.size - size).abs() < 1e-6
+                    && l.line == g.line
+                    && (l.angle - g.angle).abs() < 1e-9
+            }).and_then(|l| {
                 let [a, b, c, d, e, f] = (l.frame.inverse() * frame).as_coeffs();
-                let same = (a - 1.0).abs() < 1e-6 && b.abs() < 1e-6 && c.abs() < 1e-6 && (d - 1.0).abs() < 1e-6 && f.abs() < 1e-4;
+                let same_linear = (a - 1.0).abs() < 1e-6 && b.abs() < 1e-6 && c.abs() < 1e-6 && (d - 1.0).abs() < 1e-6;
+                // CJK faces can leave a tiny relative y shift in the frame product that used to
+                // break grouping (`f` ≈ 1e-4); compare layout origins instead.
+                let y_ok = off_baseline(l.start_origin, g).abs() < 0.01 * size.max(1.0);
+                let same = same_linear && y_ok && f.abs() < 0.05 * size.max(1.0);
                 same.then_some(e)
             });
             let x = match x {
@@ -1662,7 +1682,16 @@ impl Exporter<'_> {
                     if let Some(l) = line.take() {
                         self.draw_glyph_line(s, l, text, fill, layout.bounds);
                     }
-                    line = Some(GlyphLine { face: g.font_id, font, size, frame, glyphs: vec![] });
+                    line = Some(GlyphLine {
+                        face: g.font_id,
+                        font,
+                        size,
+                        frame,
+                        line: g.line,
+                        angle: g.angle,
+                        start_origin: g.origin,
+                        glyphs: vec![],
+                    });
                     0.0
                 }
             };
