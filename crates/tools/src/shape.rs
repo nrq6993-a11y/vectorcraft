@@ -259,7 +259,8 @@ impl Tool for ShapeTool {
                     (r.width(), r.height())
                 }
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = if self.id == "ellipse" { cx.ellipse_size_label(w, h) } else { cx.size_label(w, h) };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -416,6 +417,12 @@ mod tests {
         assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &cx.size_label(200.0, 200.0))));
         t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 198.0, 202.0));
         assert!(t.overlays(&cx).is_empty());
+        // Ellipse drags include axis radii in the measurement label.
+        let mut t = ShapeTool::new("ellipse");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 110.0, 60.0));
+        let want = cx.ellipse_size_label(100.0, 50.0);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)), "{:?}", t.overlays(&cx));
         // A line with Shift keeps to 45° steps, sliding into line with the rect's right side.
         let mut t = ShapeTool::new("lineSegment");
         t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 300.0, 300.0));
