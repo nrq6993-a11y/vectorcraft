@@ -87,6 +87,7 @@ M3 follow-up (#1968): native saves retain the per-document transparency grid set
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | M4: PDF Place and clipboard paste preserve live text by default; explicit outlines on Place remain available. Synthetic regressions; estimates unchanged. |
 | 2026-10-18 | minor | Mirror Repeat shows its axis when selected (#2877): drag the line or center handle to move it, drag an end handle to rotate it (Shift: 45°), Escape cancels and each drag is one undo step. Engine and headless canvas gesture regressions passed; native move, rotation and Escape screenshots reviewed. Formatting, Clippy, WASM and repository checks passed; the undo label reuses translated Repeat Options. (#2877) Scores and hours unchanged. |
 | 2026-10-18 | minor | Selected Mirror Repeat bounding-box handles take priority over the axis line; a Top-handle regression confirms the default repeat scales vertically, while center and end handles retain their move and rotation behavior. Headline scores and estimates unchanged. |
 | 2026-10-17 | minor | Blend spine Anchor Point conversions, selection/stacking priority and Shift regression coverage (#2544); scores and hours unchanged. Windows native canvas checks and screenshots reviewed in PR #2643. |

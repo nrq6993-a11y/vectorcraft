@@ -118,6 +118,10 @@ the app's own editing copy of a file (an EPS after its `%%EOF`, a `.ai`'s `AIPri
 | Affinity `.af`, `.afdesign`, `.afpub` | no | yes (beyond Illustrator) | no (#665) | 51 pinned files, [affinity-validation.md](affinity-validation.md) |
 | Clipboard: PDF, SVG, PNG, EMF, text | yes | yes | yes | copied files paste as art |
 
+## PDF editable imports
+
+- [x] Place from bytes or unlinked paths, and PDF clipboard paste, keep the selected page's live text. Synthetic two-page regressions in `crates/engine/src/cmd/fileio/tests_pdffidelity.rs` cover both sources, page selection and explicit outlines. The single-page importer honors the same text choice as Open; existing PDF fallback rules are unchanged.
+
 ## Corpus download integrity
 
 - [x] PngSuite opt-in downloads are pinned, SHA-256 verified and bounded before publication (#1729); no archive extraction. This secures fixture acquisition and does not raise format-fidelity scores.
@@ -126,6 +130,7 @@ the app's own editing copy of a file (an EPS after its `%%EOF`, a `.ai`'s `AIPri
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | PDF Place and clipboard paste preserve live text; explicit outlines remain supported on Place. Synthetic regressions; scores and hours unchanged. |
 | 2026-10-16 | minor | An Illustrator 3 file without prolog or layers (an image editor's exported paths) opens with its art on one layer instead of being refused (storytold/photocraft#6036); scores unchanged |
 | 2026-10-16 | minor | EPS editing data: legacy mesh corners, vector opacity masks and compound member paint retained; raster page comparison filters minification without relaxing limits; scores and hours unchanged. Synthetic EPS/parser/minification regressions; user EPS/SVG/JPG kept local. |
 | 2026-10-16 | minor | Batch exporting in Export for Screens (#1935): a file name pattern (document and item names, a counter, the date), folders per format, item or both, Layers and Selection tabs with thumbnails, EPS, AI and VectorCraft rows, a PDF row with printer's marks, and export presets (built-in Logo Package and Print-Ready PDF, saved ones); scores and hours unchanged (estimated) |
