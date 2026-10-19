@@ -84,6 +84,7 @@ fn order(kind: &str) -> &'static [&'static str] {
     match kind {
         "move" => &["dx", "dy", "distance", "angle"],
         "offsetPath" => &["offset", "joins", "miterLimit"],
+        "averageJoin" => &["axis", "anchor"],
         "rectangularGrid" => &["width", "height", "rows", "rowSkew", "columns", "columnSkew"],
         "polarGrid" => &["width", "height", "concentric", "concentricSkew", "radial", "radialSkew"],
         "artboardOptions" => &["name", "width", "height"],
@@ -111,7 +112,8 @@ fn choices(kind: &str, key: &str) -> Vec<(&'static str, &'static str)> {
     let axis = |value, label| (value, crate::i18n::tr_ctx(crate::i18n::current(), "axis", label));
     match (kind, key) {
         ("offsetPath", "joins") => vec![("miter", tl!("Miter")), ("round", tl!("Round")), ("bevel", tl!("Bevel"))],
-        ("average", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("both", "Both")],
+        ("average" | "averageJoin", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("both", "Both")],
+        ("averageJoin", "anchor") => vec![("corner", tl!("Corner")), ("smooth", tl!("Smooth"))],
         ("reflect", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical"), axis("angle", "Angle")],
         ("shear", "axis") => vec![axis("horizontal", "Horizontal"), axis("vertical", "Vertical")],
         _ => vec![],

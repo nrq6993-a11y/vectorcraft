@@ -1787,6 +1787,24 @@ fn the_pen_continues_any_open_path_and_joins_another() {
     assert_eq!(pts(&s, a), [(400.0, 200.0), (300.0, 200.0), (200.0, 100.0), (100.0, 100.0), (50.0, 50.0)]);
 }
 
+/// Average and Join in one step: coincident anchors merge and the survivor is corner or smooth.
+#[test]
+fn average_join_merges_and_makes_the_joined_anchor_smooth_or_corner() {
+    let mut s = session();
+    let r = rect(&mut s, 100.0, 100.0, 100.0, 80.0);
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("path.averageJoin", &json!({"axis": "both", "anchor": "smooth"})).unwrap();
+    let sp = &path(&s, r).subpaths[0];
+    assert_eq!(sp.anchors.len(), 3);
+    assert_eq!(sp.anchors[0].kind, vectorcraft_geom::AnchorKind::Smooth);
+    s.execute("edit.undo", &json!({})).unwrap();
+    s.execute("path.average", &json!({"axis": "both"})).unwrap();
+    s.execute("path.averageJoin", &json!({"axis": "both", "anchor": "corner"})).unwrap();
+    let a = &path(&s, r).subpaths[0].anchors[0];
+    assert_eq!(a.kind, vectorcraft_geom::AnchorKind::Corner);
+    assert!(!a.has_in() && !a.has_out());
+}
+
 /// #1533: two corners of a rectangle brought together by Average become one anchor on Join, in
 /// one undo step; anchors that aren't on one another leave Join as it was.
 #[test]
