@@ -200,10 +200,15 @@ impl Tool for FamilyTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // The size as drawn (from the centre with Alt, square with Shift).
-            let r = drag_rect(s, self.last, self.mods);
-            let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = if self.id == "spiral" {
+                let r = self.last.distance(s).max(0.01);
+                format!("Radius: {}\nSegments: {}", cx.len(r), self.segments)
+            } else {
+                // The size as drawn (from the centre with Alt, square with Shift).
+                let r = drag_rect(s, self.last, self.mods);
+                cx.size_label(r.width(), r.height())
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -309,6 +314,24 @@ mod tests {
         t.set_option("frame", &json!(false));
         t.set_option("rowSkew", &json!(12.5));
         assert_eq!(t.options(), json!({"rows": 5, "columns": 5, "rowSkew": 12.5, "columnSkew": 0.0, "frame": false, "fill": false}));
+    }
+
+    #[test]
+    fn spiral_drag_shows_radius_and_segments() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.smart_guides = false;
+        let mut t = FamilyTool::new("spiral");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, 0.0));
+        let want = format!("Radius: {}\nSegments: 10", cx.len(40.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        let a = t.key(&cx, ToolKey::Up, Mods::default());
+        assert!(matches!(&a[0], Action::Preview(_, v) if v["segments"] == 11));
+        let want = format!("Radius: {}\nSegments: 11", cx.len(40.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
     }
 
     #[test]
