@@ -186,12 +186,16 @@ impl PieDrag {
         if self.began { vec![Action::Commit] } else { vec![] }
     }
 
-    /// The angle readout next to the pointer.
-    pub fn overlays(&self) -> Vec<Overlay> {
-        if !self.began {
+    /// The angle readout next to the pointer (Start or End, which widget is dragged).
+    pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels {
             return vec![];
         }
-        vec![Overlay::Measure { p: self.at, text: format!("{:.1}°", self.angle) }]
+        let which = match self.widget.end {
+            PieEnd::Start => "Start",
+            PieEnd::End => "End",
+        };
+        vec![Overlay::Measure { p: self.at, text: format!("{which}: {:.1}°", self.angle) }]
     }
 }
 
@@ -274,7 +278,7 @@ mod tests {
         assert!((v["pieEnd"].as_f64().unwrap() - 90.0).abs() < 1e-9, "{v}");
         assert!(v.get("pieStart").is_none(), "{v}");
         assert!(t.transforming());
-        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "90.0°")));
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "End: 90.0°")));
         // Below the center and to the left: 225°, on the ellipse's own angles (not the page's).
         let a = t.pointer(&c, &ev(PointerKind::Drag, Point::new(100.0, 200.0)));
         assert!(matches!(&a[0], Action::Preview(_, v) if (v["pieEnd"].as_f64().unwrap() - 225.0).abs() < 1e-9), "{a:?}");
@@ -318,6 +322,19 @@ mod tests {
         let Action::Preview(_, v) = &a[1] else { panic!("{a:?}") };
         assert!((v["pieStart"].as_f64().unwrap() - 180.0).abs() < 1e-9, "{v}");
         assert!(v.get("pieEnd").is_none(), "{v}");
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "Start: 180.0°")));
+    }
+
+    #[test]
+    fn pie_angle_readout_honors_measurement_labels() {
+        let (d, _, s) = doc_with_ellipse((0.0, 360.0));
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.measurement_labels = false;
+        let mut t = SelectionTool::default();
+        t.pointer(&cx, &ev(PointerKind::Down, Point::new(312.0, 150.0)));
+        t.pointer(&cx, &ev(PointerKind::Drag, Point::new(200.0, 20.0)));
+        assert!(t.overlays(&cx).iter().all(|o| !matches!(o, Overlay::Measure { .. })));
     }
 
     /// A double-click on either widget makes the ellipse whole again.
