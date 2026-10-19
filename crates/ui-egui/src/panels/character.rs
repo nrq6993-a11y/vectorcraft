@@ -94,8 +94,8 @@ fn text_in_scope(app: &VectorcraftApp) -> String {
             let start = end;
             end += r.text.len();
             if start < b && end > a {
-                let from = (a - start).max(0) as usize;
-                let to = (b - start).min(r.text.len()) as usize;
+                let from = a.saturating_sub(start);
+                let to = (b - start).min(r.text.len());
                 out.push_str(&r.text[from..to]);
             }
         }
