@@ -204,13 +204,15 @@ impl FreeTransformTool {
                     (a, self.guides) = t.snap_scale(cx, &vectorcraft_doc::OrientedBox::aligned(d.rect), h, a, shift, m.alt);
                 }
                 let nr = a.transform_rect_bbox(d.rect);
-                self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, cx.size_label(nr.width(), nr.height())));
                 a
             }
             Op::Shear(h) => shear_for_side(d.rect, h, delta, m.alt),
             Op::Rotate => {
                 let (a, deg) = rotate_for_drag(d.rect.center(), d.start, p, shift);
-                self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", -deg)));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, format!("{:.1}°", -deg)));
                 a
             }
         };

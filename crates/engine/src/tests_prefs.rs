@@ -646,6 +646,7 @@ fn smart_guide_display_preferences_filter_the_overlays() {
     set_pref(&mut s, "snappingTolerance", json!(8));
     assert_eq!(drag_to(&mut s, 6.0), 150.0);
     release(&mut s);
+    set_pref(&mut s, "measurementLabels", json!(true));
     // Transform Tools: the size readout while a bounding-box handle is dragged.
     let scale = |s: &mut Session| {
         gesture(s, v, &[(Down, 225.0, 150.0), (Drag, 225.0, 170.0)]);
@@ -657,6 +658,10 @@ fn smart_guide_display_preferences_filter_the_overlays() {
     assert_eq!(scale(&mut s), 1);
     set_pref(&mut s, "transformToolsGuides", json!(false));
     assert_eq!(scale(&mut s), 0);
+    set_pref(&mut s, "transformToolsGuides", json!(true));
+    set_pref(&mut s, "measurementLabels", json!(false));
+    assert_eq!(scale(&mut s), 0, "measurement labels off hides scale readout");
+    set_pref(&mut s, "measurementLabels", json!(true));
     // Anchor/Path Labels: a drawn corner pulled onto an anchor says "anchor" (and still lands there).
     s.select_tool("rectangle", v).unwrap();
     let draw = |s: &mut Session| {
