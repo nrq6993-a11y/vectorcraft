@@ -1111,15 +1111,19 @@ impl PerspectiveSelectionTool {
             v["plane"] = json!(g.plane.id());
         }
         let at = ids.first().and_then(|id| g.attachment_of(cx.doc, *id)).or((g.plane != Plane::None).then_some((g.plane, g.offset(g.plane))));
-        self.measure = at.and_then(|(pl, depth)| {
-            let text = if *perp {
-                format!("dZ: {}", cx.len(g.depth_at(pl, depth, *from, *last)? - depth))
-            } else {
-                let d = g.plane_delta(pl, depth, *from, *last)?;
-                cx.offset_label(d.x, d.y)
-            };
-            Some((*last, text))
-        });
+        self.measure = if cx.measurement_labels {
+            at.and_then(|(pl, depth)| {
+                let text = if *perp {
+                    format!("dZ: {}", cx.len(g.depth_at(pl, depth, *from, *last)? - depth))
+                } else {
+                    let d = g.plane_delta(pl, depth, *from, *last)?;
+                    cx.offset_label(d.x, d.y)
+                };
+                Some((*last, text))
+            })
+        } else {
+            None
+        };
         Some(Action::Preview("perspective.move".into(), v))
     }
 }
@@ -1186,7 +1190,7 @@ impl Tool for PerspectiveSelectionTool {
                 let Some(q) = q else { return vec![] };
                 let a = scale_for_drag(rect, handle, q, m.shift, m.alt);
                 let nr = a.transform_rect_bbox(rect);
-                self.measure = Some((p, cx.size_label(nr.width(), nr.height())));
+                self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
                 vec![Action::Preview("perspective.transform".into(), json!({"ids": crate::json_ids(&ids), "matrix": crate::select::matrix_json(a)}))]
             }
             (PointerKind::Up, SelDrag::Move { began, .. }) => {
@@ -1516,6 +1520,26 @@ mod tests {
         assert!(t.key(&c, ToolKey::Digit(3), Mods::default()).is_empty());
         assert_eq!(t.pointer(&c, &PointerEvent::new(PointerKind::Up, mid.x + 20.0, mid.y)), vec![Action::Commit]);
         assert!(!t.busy());
+        let measures = |t: &PerspectiveSelectionTool, c: &ToolContext| {
+            t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        for on in [true, false] {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            let mut t = PerspectiveSelectionTool::default();
+            t.pointer(&c, &PointerEvent::new(PointerKind::Down, mid.x, mid.y));
+            t.pointer(&c, &PointerEvent::new(PointerKind::Drag, mid.x + 20.0, mid.y));
+            t.key(&c, ToolKey::Digit(5), Mods::default());
+            assert_eq!(measures(&t, &c), usize::from(on), "measurement labels {on}");
+            t.pointer(&c, &PointerEvent::new(PointerKind::Up, mid.x + 20.0, mid.y));
+        }
+        for on in [true, false] {
+            let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+            let mut t = PerspectiveSelectionTool::default();
+            t.pointer(&c, &PointerEvent::new(PointerKind::Down, corner.x, corner.y));
+            t.pointer(&c, &PointerEvent::new(PointerKind::Drag, corner.x + 10.0, corner.y + 10.0));
+            assert_eq!(measures(&t, &c), usize::from(on), "transform tools {on}");
+            t.pointer(&c, &PointerEvent::new(PointerKind::Up, corner.x + 10.0, corner.y + 10.0));
+        }
     }
 
     #[test]
