@@ -371,7 +371,7 @@ impl CornerDrag {
 
     /// The radius readout next to the pointer; at the largest radius, the corners there in red.
     pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
-        if !self.began {
+        if !self.began || !cx.measurement_labels {
             return vec![];
         }
         let mut out = vec![Overlay::Measure { p: self.at, text: format!("Radius: {}", cx.len(self.radius)) }];
@@ -818,5 +818,22 @@ mod tests {
         let w = CornerWidgets::for_tool(&cx(&d, &s, &p), true).unwrap();
         assert_eq!(w.corners(), [1, 2]);
         assert_eq!(pts(&w)[0], Point::new(290.0, 110.0));
+    }
+
+    #[test]
+    fn corner_radius_readout_follows_measurement_labels() {
+        let (d, id) = live_rect(0.0, Affine::translate((100.0, 100.0)));
+        let s = selected(id);
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let measures = |on: bool| {
+            let cx = ToolContext { measurement_labels: on, ..base };
+            let mut t = crate::create("selection");
+            t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 190.0, 191.0));
+            t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 175.0, 176.0));
+            t.overlays(&cx).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        assert_eq!(measures(true), 1);
+        assert_eq!(measures(false), 0);
     }
 }

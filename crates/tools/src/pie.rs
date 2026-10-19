@@ -187,8 +187,8 @@ impl PieDrag {
     }
 
     /// The angle readout next to the pointer.
-    pub fn overlays(&self) -> Vec<Overlay> {
-        if !self.began {
+    pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels {
             return vec![];
         }
         vec![Overlay::Measure { p: self.at, text: format!("{:.1}°", self.angle) }]
@@ -334,5 +334,21 @@ mod tests {
             }
             assert_eq!(t.pointer(&c, &ev(PointerKind::DoubleClick, w.at)), reset);
         }
+    }
+
+    #[test]
+    fn pie_angle_readout_follows_measurement_labels() {
+        let (d, _, s) = doc_with_ellipse((0.0, 360.0));
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let measures = |on: bool| {
+            let c = ToolContext { measurement_labels: on, ..base };
+            let mut t = SelectionTool::default();
+            t.pointer(&c, &ev(PointerKind::Down, Point::new(312.0, 150.0)));
+            t.pointer(&c, &ev(PointerKind::Drag, Point::new(200.0, 20.0)));
+            t.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        assert_eq!(measures(true), 1);
+        assert_eq!(measures(false), 0);
     }
 }
