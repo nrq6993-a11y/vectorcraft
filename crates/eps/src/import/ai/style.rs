@@ -21,7 +21,8 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow with its swatch and blend mode,
+//! Drop Shadow) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
@@ -426,6 +427,36 @@ mod tests {
             let [shadow] = style.effects.as_slice() else { panic!("{dark:?}: {style:?}") };
             assert_eq!((&shadow.params["shade"], &shadow.params["darkness"]), (&json!("darkness"), &json!(want)), "{dark:?}");
         }
+    }
+
+    /// The style `Glow`: an Outer Glow whose dictionary holds `keys`.
+    fn glow_style(keys: &str) -> ArtStyle {
+        let data = format!(
+            "/KnownStyle :\n(Glow) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Outer Glow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{keys}; /Dict ;\n /Part ,\n;\n"
+        );
+        art_styles(data.as_bytes()).remove("Glow").unwrap_or_default()
+    }
+
+    #[test]
+    fn an_outer_glow_reads_opacity_blur_and_blend_mode() {
+        let style = glow_style("1 /Int (blnd) ,\n0.5 /Real (opac) ,\n4 /Real (blur) ,\n");
+        assert!(style.plain, "{style:?}");
+        let [glow] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (glow.id.as_str(), glow.params["opacity"].as_f64(), glow.params["blur"].as_f64(), glow.params["mode"].as_str()),
+            ("stylize.outerGlow", Some(50.0), Some(8.0), Some("Multiply"))
+        );
+    }
+
+    #[test]
+    fn an_outer_glow_keeps_its_swatched_color() {
+        let style = glow_style(
+            "/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n0.5 /Real (opac) ,\n2 /Real (blur) ,\n",
+        );
+        assert!(style.plain, "{style:?}");
+        let [glow] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(glow.params["color"], json!(vectorcraft_color::Color::rgb(0.0, 0.0, 1.0)));
     }
 
     #[test]

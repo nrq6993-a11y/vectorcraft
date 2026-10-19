@@ -1224,9 +1224,28 @@ fn an_object_with_a_style_this_reads_comes_in_as_itself() {
     assert_eq!(a.len(), 1, "{a:#?}");
     assert!(matches!(a[0].kind, NodeKind::Path { .. }), "the object, not its look");
     assert!(matches!(fill(&a[0]), Paint::Gradient(g) if g.swatch.as_deref() == Some("G")));
-    let effects: Vec<_> = a[0].appearance.effects.iter().map(|e| (e.id.as_str(), e.params["opacity"].as_f64())).collect();
-    assert_eq!(effects, [("stylize.outerGlow", Some(50.0))]);
+    let glow = &a[0].appearance.effects[0];
+    assert_eq!((glow.id.as_str(), glow.params["opacity"].as_f64(), glow.params["mode"].as_str()), ("stylize.outerGlow", Some(50.0), Some("Screen")));
     assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+}
+
+#[test]
+fn an_outer_glow_art_style_keeps_multiply_blend_mode() {
+    let styles = ART_STYLES.replace(
+        "0.5 /Real (opac) ,\n2 /Real (blur) ,\n",
+        "1 /Int (blnd) ,\n0.5 /Real (opac) ,\n2 /Real (blur) ,\n",
+    );
+    let defs =
+        "%AI5_BeginGradient: (G)\n(G) 0 2 Bd\n[\n<00FF>\n0\n%_0 0 0 0 1 0 0 2 1 6 50 0 Bs\n%_0 0 0 0 0 0 1 2 1 6 50 100 Bs\nBD\n%AI5_EndGradient\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!(
+        "0 Ae\nu\n{RED}{}f\nU\n%_Bb\n%_1 (G) 0 0 0 1 1 0 0 1 0 0 Bg\n%_10 0 0 10 5 5 Xm\n%_{hidden_rect}f\n%_0 BB\n1 (Lit) XW\n",
+        rect_path(0.0, 0.0, 10.0, 10.0)
+    );
+    let r = read_ok(&format!("{styles}{defs}{}", layer(&art_)));
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1);
+    assert_eq!(a[0].appearance.effects[0].params["mode"].as_str(), Some("Multiply"));
 }
 
 #[test]
