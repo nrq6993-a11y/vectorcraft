@@ -1520,6 +1520,53 @@ impl Document {
         self.guides.retain(|_| flags.next().unwrap_or(true));
         before - self.guides.len()
     }
+    /// Straight horizontal or vertical guide line in `path` → ruler-guide axis and position.
+    pub fn axis_ruler_guide_from_path(path: &vectorcraft_geom::PathData) -> Option<(bool, f64)> {
+        use vectorcraft_geom::EPS;
+        if path.subpaths.len() != 1 {
+            return None;
+        }
+        let sp = &path.subpaths[0];
+        if sp.closed || sp.anchors.len() < 2 {
+            return None;
+        }
+        for i in 0..sp.segment_count() {
+            if !sp.segment_is_line(i) {
+                return None;
+            }
+        }
+        let xs: Vec<f64> = sp.anchors.iter().map(|a| a.p.x).collect();
+        let ys: Vec<f64> = sp.anchors.iter().map(|a| a.p.y).collect();
+        let same_x = xs.iter().all(|x| (*x - xs[0]).abs() <= EPS);
+        let same_y = ys.iter().all(|y| (*y - ys[0]).abs() <= EPS);
+        if same_x && !same_y {
+            Some((true, xs[0]))
+        } else if same_y && !same_x {
+            Some((false, ys[0]))
+        } else {
+            None
+        }
+    }
+    /// Straight horizontal and vertical guide paths (as in Illustrator editing data) become ruler
+    /// guides on the same layer; angled guides stay paths. Returns how many were promoted.
+    pub fn promote_axis_guide_paths(&mut self) -> usize {
+        let mut add = Vec::new();
+        let mut remove = Vec::new();
+        self.walk(|n| {
+            if let NodeKind::Path { guide: true, path, .. } = &n.kind
+                && let Some((vertical, pos)) = Self::axis_ruler_guide_from_path(path)
+            {
+                add.push(Guide { vertical, pos, artboard: None, layer: self.layer_containing(n.id) });
+                remove.push(n.id);
+            }
+        });
+        let n = remove.len();
+        for id in remove {
+            let _ = self.remove(id);
+        }
+        self.guides.extend(add);
+        n
+    }
     /// Move the guides of artboard `id` by `d` (along with their artboard).
     pub fn move_artboard_guides(&mut self, id: u32, d: Vec2) {
         for g in self.guides.iter_mut().filter(|g| g.artboard == Some(id)) {
@@ -2078,6 +2125,8 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod tests_guides_import;
 #[cfg(test)]
 mod tests_lookups;
 #[cfg(test)]

@@ -1169,6 +1169,7 @@ fn build(data: &[u8], visible: Option<&Document>, page: Page, outlined: bool, tr
     if small.is_some() {
         scale_document(&mut doc, unit);
     }
+    doc.promote_axis_guide_paths();
     Ok((doc, notes))
 }
 

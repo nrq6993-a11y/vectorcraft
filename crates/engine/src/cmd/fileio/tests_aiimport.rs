@@ -348,8 +348,12 @@ fn fit_to_artwork_bounds_leaves_out_the_hidden_art_and_guides_the_editing_data_h
     let r = open(&mut s, "fit.eps", &ai::eps(data.as_bytes(), "0 setgray 10 10 40 40 rectfill\n"), json!({})).unwrap();
     let layer = &s.doc().unwrap().doc.layers[0];
     let kids = layer.children().unwrap();
-    assert_eq!(kids.len(), 3, "{r}");
-    assert!(!kids[1].visible && matches!(kids[2].kind, NodeKind::Path { guide: true, .. }));
+    assert_eq!(kids.len(), 2, "{r}");
+    assert!(!kids[1].visible);
+    let guides = &s.doc().unwrap().doc.guides;
+    assert_eq!(guides.len(), 1, "{r}");
+    // Editing-data y=20 is document y=80 on a 100pt-tall page.
+    assert!(!guides[0].vertical && (guides[0].pos - 80.0).abs() < 1e-6);
     s.execute("artboard.fitToArt", &json!({})).unwrap();
     // The square, 50 to 90 down the 100-point page.
     assert_eq!(s.doc().unwrap().doc.artboards[0].rect, vectorcraft_geom::Rect::new(10.0, 50.0, 50.0, 90.0));
