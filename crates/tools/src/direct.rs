@@ -161,6 +161,8 @@ pub struct DirectSelectionTool {
     click: Option<(NodeId, usize, usize)>,
     /// A click on a whole path picks the segment on release; a drag still moves the whole path.
     click_segment: Option<(NodeId, usize, usize)>,
+    /// dX/dY readout while moving anchors or whole paths ([`ToolContext::measurement_labels`]).
+    measure: Option<(Point, String)>,
 }
 
 impl DirectSelectionTool {
@@ -180,6 +182,7 @@ impl DirectSelectionTool {
             guide: GuideEdit::default(),
             click: None,
             click_segment: None,
+            measure: None,
         }
     }
 
@@ -619,6 +622,7 @@ impl Tool for DirectSelectionTool {
                     (d, self.guides) = (q - grab, guides);
                 }
                 self.snapped = snapped(d, unsnapped, ev.mods.shift, &self.guides);
+                self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(d.x, d.y)));
                 out.push(Action::Preview("path.moveAnchors".into(), json!({"dx": d.x, "dy": d.y})));
                 out
             }
@@ -666,6 +670,7 @@ impl Tool for DirectSelectionTool {
                     (d, self.guides) = if ev.mods.shift { snap.snap_along(cx, start, d, ev.mods.alt) } else { snap.snap(cx, start, d, ev.mods.alt) };
                 }
                 self.snapped = snapped(d, unsnapped, ev.mods.shift, &self.guides);
+                self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(d.x, d.y)));
                 out.push(Action::Preview(
                     "object.transform".into(),
                     json!({"matrix": matrix_json(vectorcraft_geom::Affine::translate(d)), "copy": ev.mods.alt}),
@@ -765,6 +770,7 @@ impl Tool for DirectSelectionTool {
             ) => {
                 self.state = State::Idle;
                 self.guides.clear();
+                self.measure = None;
                 (self.anchor_snap, self.copy_snap, self.move_snap) = (None, None, None);
                 match (began, self.click.take(), self.click_segment.take()) {
                     (true, _, _) => vec![Action::Commit],
@@ -839,6 +845,9 @@ impl Tool for DirectSelectionTool {
                     out.push(Overlay::Anchor { p, color: cx.doc.layer_color(id), filled: false, size: 8.0 });
                 }
                 out.extend(self.guide.overlays(cx));
+                if let Some((p, t)) = &self.measure {
+                    out.push(Overlay::Measure { p: *p, text: t.clone() });
+                }
                 out
             }
         }
@@ -1908,6 +1917,35 @@ mod tests {
         assert_eq!(drag(&mut t, &c, (300.0, 300.0), (203.0, 199.0), none).0, json!({"dx": -97.0, "dy": -101.0}));
         let c = ToolContext { smart_guides: false, snap_to_point: false, ..cx(&d, &one, &p) };
         assert_eq!(drag(&mut t, &c, (300.0, 300.0), (201.0, 199.0), none).0, json!({"dx": -99.0, "dy": -101.0}));
+    }
+
+    #[test]
+    fn anchor_drag_measurement_labels() {
+        let (d, _, b) = two_squares();
+        let p = paint();
+        let one = anchors_of(b, &[(0, 0)]);
+        let measures = |on: bool| {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &one, &p) };
+            let mut t = DirectSelectionTool::new(false);
+            t.pointer(&c, &PointerEvent::new(PointerKind::Down, 300.0, 300.0));
+            t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 250.0, 260.0));
+            t.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        assert_eq!(measures(true), 1);
+        assert_eq!(measures(false), 0);
+        let mut t = DirectSelectionTool::new(false);
+        let c = ToolContext { measurement_labels: true, ..cx(&d, &one, &p) };
+        t.pointer(&c, &PointerEvent::new(PointerKind::Down, 300.0, 300.0));
+        t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 250.0, 260.0));
+        let text = t
+            .overlays(&c)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(text, c.offset_label(-50.0, -40.0));
     }
 
     /// #2120: the end of a slanted straight line, dragged roughly along it, stays on its direction
