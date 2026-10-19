@@ -330,6 +330,9 @@ pub struct UiState {
     /// Tool flyouts torn off the toolbar into floating panels.
     #[serde(default)]
     pub floating_flyouts: Vec<FloatingFlyout>,
+    /// Extra toolbars from Window › Toolbars › New Toolbar (#1759).
+    #[serde(default)]
+    pub custom_toolbars: Vec<CustomToolbar>,
     /// The Basic and Advanced toolbars as Edit Toolbar left them (none: as they ship).
     #[serde(default)]
     pub toolbar_edits: ToolbarEdits,
@@ -544,6 +547,14 @@ pub struct FloatingFlyout {
     pub pos: [f32; 2],
 }
 
+/// A toolbar created with Window › Toolbars › New Toolbar (#1759): its own floating tool strip.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CustomToolbar {
+    pub name: String,
+    pub tools: Vec<String>,
+    pub pos: [f32; 2],
+}
+
 /// A category of an edited toolbar: its name (one of the Basic toolbar's; none in the Advanced
 /// toolbar) and its slots, each a tool group (the first tool is the slot's default).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -742,6 +753,10 @@ impl UiState {
             f.tools.retain(|id| vectorcraft_tools::tool_info(id).is_some());
             f.tools.first().is_some_and(|k| seen.insert(k.clone()))
         });
+        self.custom_toolbars.retain_mut(|tb| {
+            tb.tools.retain(|id| vectorcraft_tools::tool_info(id).is_some());
+            !tb.tools.is_empty()
+        });
         FloatingPanels::sanitize(&mut self.floating_panels, &mut self.toolbar_pos);
         crate::edit_toolbar::sanitize(&mut self.toolbar_edits);
         self.docking = self.docking.filter(crate::panel_docking::valid);
@@ -770,6 +785,7 @@ impl Default for UiState {
             context_locked: None,
             slot_tool: Default::default(),
             floating_flyouts: vec![],
+            custom_toolbars: vec![],
             toolbar_edits: ToolbarEdits::default(),
             toolbar_show: ToolbarShow::default(),
             tools_drawer: false,

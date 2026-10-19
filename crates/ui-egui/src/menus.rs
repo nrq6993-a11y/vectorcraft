@@ -299,6 +299,12 @@ pub const UI_COMMANDS: &[(&str, &str, &str, &str)] = &[
         "{open?: bool} open (true), close (false) or toggle (omitted) the All Tools drawer beside the toolbar, as the toolbar's ••• button does; while it is open, tools drag from it onto the toolbar and from the toolbar into it (Escape or a click outside closes it); returns the new state",
     ),
     (
+        "window.newToolbar",
+        "New Toolbar",
+        "",
+        "{} add a floating toolbar with the current toolbar's default tools (one per slot), as Window › Toolbars › New Toolbar; saved with the preferences; returns how many custom toolbars exist",
+    ),
+    (
         "toolbar.addTool",
         "Toolbar: Add Tool",
         "",
@@ -1352,6 +1358,7 @@ pub fn run_ui_command(app: &mut VectorcraftApp, id: &str, p: &Value) -> Option<R
             let Some(tool) = s("tool") else { return Some(Err("tool (a tool id) is required".into())) };
             crate::toolbar::float_group(app, &tool, floating).map(Value::Bool)
         }
+        "window.newToolbar" => Ok(json!(crate::toolbar::new_custom_toolbar(app))),
         "window.taskBar" => flag(&mut app.ui.task_bar),
         "window.taskBar.pin" => {
             let place = &mut app.ui.task_bar_place;
@@ -2923,7 +2930,14 @@ pub fn menu_tree_named(english_names: bool) -> Vec<(&'static str, Vec<Item>)> {
                 c("Control", "window.control"),
                 c("Contextual Task Bar", "window.taskBar"),
                 c("Tools", "window.toolbar"),
-                sub("Toolbars", vec![c("Advanced", "window.toolbarAdvanced"), c("Double Column", "window.toolbarColumns")]),
+                sub(
+                    "Toolbars",
+                    vec![
+                        c("New Toolbar", "window.newToolbar"),
+                        c("Advanced", "window.toolbarAdvanced"),
+                        c("Double Column", "window.toolbarColumns"),
+                    ],
+                ),
                 Sep,
                 panel("Actions", "actions"),
                 panel("Align", "align"),

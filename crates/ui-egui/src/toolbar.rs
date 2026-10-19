@@ -131,6 +131,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
     // Before the flyout: one torn off this frame floats from the next (its bar mustn't be in two
     // layers in one frame).
     floating(app, ui.ctx());
+    custom_toolbars(app, ui.ctx());
     crate::dialogs::dimension::floating(app, ui.ctx());
     flyout(app, ui.ctx());
     crate::edit_toolbar::drawer(app, ui.ctx());
@@ -525,6 +526,26 @@ fn bottom_controls(app: &mut VectorcraftApp, ui: &mut Ui, t: &Tokens, cols: usiz
 /// kept on screen and moved by its bar.
 const FLOAT_AT: [f32; 2] = [90.0, 100.0];
 
+/// Window › Toolbars › New Toolbar (#1759): a floating strip with the current toolbar's default
+/// tools (one per slot). Returns how many custom toolbars exist.
+pub fn new_custom_toolbar(app: &mut VectorcraftApp) -> usize {
+    let tools: Vec<String> = slots(app).into_iter().filter_map(|(_, s)| s.first().map(|t| t.to_string())).collect();
+    if tools.is_empty() {
+        return app.ui.custom_toolbars.len();
+    }
+    let n = app.ui.custom_toolbars.len() as f32;
+    app.ui.custom_toolbars.push(crate::state::CustomToolbar {
+        name: format!("Toolbar {}", app.ui.custom_toolbars.len() + 1),
+        tools,
+        pos: [FLOAT_AT[0] + 72.0 * n, FLOAT_AT[1]],
+    });
+    app.ui.custom_toolbars.len()
+}
+
+fn custom_toolbar_area(i: usize) -> egui::Id {
+    egui::Id::new(("custom-toolbar", i))
+}
+
 /// Float the toolbar group (of the current layout) holding `tool` as a strip of tool buttons, put
 /// it back in the toolbar, or toggle (`floating` omitted), as a flyout's tear-off bar and the
 /// strip's × do (`window.floatTools`). Returns the new state.
@@ -766,6 +787,55 @@ fn flyout(app: &mut VectorcraftApp, ctx: &egui::Context) {
         app.ui.flyout = None;
     }
     let _ = theme::semibold;
+}
+
+/// Custom toolbars from Window › Toolbars › New Toolbar (#1759).
+fn custom_toolbars(app: &mut VectorcraftApp, ctx: &egui::Context) {
+    if app.ui.custom_toolbars.is_empty() {
+        return;
+    }
+    let t = Tokens::get(ctx);
+    let screen = ctx.content_rect();
+    let active = app.session.tool_id();
+    let mut chosen = None;
+    let mut closed = None;
+    for (i, tb) in app.ui.custom_toolbars.iter_mut().enumerate() {
+        let key = tb.tools.first().map_or("", String::as_str);
+        let id = custom_toolbar_area(i);
+        let size = ctx.memory(|m| m.area_rect(id)).map_or(vec2(strip_width(&tb.tools), PITCH), |r| r.size());
+        let pos = crate::floating::clamp(tb.pos, size, screen);
+        let mut input = FlyoutInput::default();
+        egui::Area::new(id).order(egui::Order::Middle).fixed_pos(pos).show(ctx, |ui| {
+            flyout_frame(&t, false).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Label::new(egui::RichText::new(tb.name.clone()).size(11.0).color(t.text_disabled)));
+                });
+                input = flyout_body(ui, &t, active, &tb.tools, true);
+            });
+        });
+        let grab = grab_id(key);
+        if ctx.is_being_dragged(bar_id(key))
+            && let Some(at) = ctx.input(|inp| inp.pointer.interact_pos())
+        {
+            let off = ctx.data_mut(|m| *m.get_temp_mut_or_insert_with(grab, || at - pos));
+            let p = at - off;
+            if p.x.is_finite() && p.y.is_finite() {
+                tb.pos = [p.x, p.y];
+            }
+        } else if !ctx.input(|inp| inp.pointer.any_down()) {
+            ctx.data_mut(|m| m.remove::<egui::Vec2>(grab));
+        }
+        if input.close {
+            closed = Some(i);
+        }
+        chosen = chosen.or(input.chosen);
+    }
+    if let Some(i) = closed.filter(|i| *i < app.ui.custom_toolbars.len()) {
+        app.ui.custom_toolbars.remove(i);
+    }
+    if let Some(id) = chosen {
+        app.select_tool(id);
+    }
 }
 
 /// The flyouts torn off the toolbar, each floating where its bar was dragged; its × puts it back.
@@ -1455,6 +1525,16 @@ pub(crate) mod tests {
         assert!(app.run("window.floatTools", json!({})).is_err());
         assert!(app.run("window.floatTools", json!({"tool": "pen", "floating": "yes"})).is_err());
         assert!(app.ui.floating_flyouts.is_empty());
+    }
+
+    #[test]
+    fn window_new_toolbar_adds_a_floating_strip() {
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        assert_eq!(app.run("window.newToolbar", json!({})).unwrap(), json!(1));
+        let [tb] = app.ui.custom_toolbars.as_slice() else { panic!("{:?}", app.ui.custom_toolbars) };
+        assert_eq!(tb.name, "Toolbar 1");
+        assert!(tb.tools.first().is_some_and(|t| t == "selection"));
+        assert_eq!(app.run("window.newToolbar", json!({})).unwrap(), json!(2));
     }
 
     #[test]
