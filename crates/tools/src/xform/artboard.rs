@@ -466,6 +466,13 @@ impl Tool for ArtboardTool {
                 text: cx.size_label(r.width(), r.height()),
             });
         }
+        if let (Some(Drag::Move { began: true, rect, .. }), true) = (self.drag, cx.measurement_labels) {
+            let moved = self.preview.unwrap_or(rect);
+            o.push(Overlay::Measure {
+                p: Point::new(moved.x1, moved.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: cx.offset_label(moved.x0 - rect.x0, moved.y0 - rect.y0),
+            });
+        }
         if self.drag.is_some() {
             o.extend(self.guides.iter().cloned());
         }
@@ -576,6 +583,25 @@ mod tests {
             })
             .collect();
         assert_eq!(corners[0], Point::new(620.0, 0.0), "the handles sit on the moved artboard, not 10 pt past it");
+    }
+
+    #[test]
+    fn move_shows_offset_in_measurement_labels() {
+        let d = two_boards();
+        let (s, p) = (Selection::default(), paint());
+        let mut t = ArtboardTool::default();
+        for on in [true, false] {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            t.pointer(&c, &ev(PointerKind::Down, 700.0, 100.0));
+            t.pointer(&c, &ev(PointerKind::Drag, 710.0, 95.0));
+            let count = t.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+            assert_eq!(count, usize::from(on), "measurement labels {on}");
+            if on {
+                let want = c.offset_label(10.0, -5.0);
+                assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)));
+            }
+            t.pointer(&c, &ev(PointerKind::Up, 710.0, 95.0));
+        }
     }
 
     #[test]
