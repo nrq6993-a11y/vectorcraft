@@ -65,7 +65,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Join",
             ["Object", "Path"],
             Some("Cmd+J"),
-            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
+            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair), join?: \"corner\"|\"smooth\" (default: \"corner\"; at each merged anchor: corner retracts handles, smooth pulls them in line with the neighbours)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
             has_selection,
             join
         ),
@@ -311,10 +311,20 @@ fn end_points(sp: &SubPath) -> Option<(Point, Point)> {
     Some((sp.anchors.first()?.p, sp.anchors.last()?.p))
 }
 
+/// Corner or smooth at anchor `i` after two endpoints were merged into one.
+fn style_joined_anchor(sp: &mut SubPath, i: usize, smooth: bool) {
+    if smooth {
+        sp.smooth_anchor(i);
+    } else if let Some(a) = sp.anchors.get_mut(i) {
+        a.retract();
+        a.kind = AnchorKind::Corner;
+    }
+}
+
 /// Merge each run of `picked` neighbours of `sp` that lie on one another into one anchor, which
 /// keeps the first one's incoming handle and the last one's outgoing handle. Returns how many
 /// anchors went.
-fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
+fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool, smooth: bool) -> usize {
     let same = |a: &Anchor, b: &Anchor| a.p.distance(b.p) < 1e-6;
     let before = sp.anchors.len();
     // The closing pair of a closed path first: taking the last anchor moves no other index.
@@ -327,6 +337,7 @@ fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
     {
         first.h_in = last.h_in;
         sp.anchors.pop();
+        style_joined_anchor(sp, 0, smooth);
     }
     // Back to front, so the indices `picked` knows stay true for the anchors still to visit.
     for i in (1..sp.anchors.len()).rev() {
@@ -337,13 +348,27 @@ fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool) -> usize {
         {
             a.h_out = b.h_out;
             sp.anchors.remove(i);
+            style_joined_anchor(sp, i - 1, smooth);
         }
     }
     before - sp.anchors.len()
 }
 
+fn join_smooth(p: &Value) -> Result<bool> {
+    const C: &str = "path.join";
+    match p.get("join") {
+        None => Ok(false),
+        Some(v) => match v.as_str() {
+            Some("corner") => Ok(false),
+            Some("smooth") => Ok(true),
+            _ => Err(bad(C, "`join` must be \"corner\" or \"smooth\"")),
+        },
+    }
+}
+
 fn join(s: &mut Session, p: &Value) -> Result<Value> {
     const C: &str = "path.join";
+    let smooth = join_smooth(p)?;
     let ids = match ids_param(p, "ids") {
         Some(ids) => {
             let st = s.doc()?;
@@ -361,7 +386,12 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
         let mut merged = vec![];
         for (id, picked) in &st.selection.anchors {
             let Some(mut path) = st.doc.node(*id).and_then(|n| n.path_data()).cloned() else { continue };
-            let n: usize = path.subpaths.iter_mut().enumerate().map(|(si, sp)| merge_coincident(sp, |ai| picked.contains(&(si, ai)))).sum();
+            let n: usize = path
+                .subpaths
+                .iter_mut()
+                .enumerate()
+                .map(|(si, sp)| merge_coincident(sp, |ai| picked.contains(&(si, ai)), smooth))
+                .sum();
             if n > 0 {
                 merged.push((*id, path));
             }
@@ -401,6 +431,7 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
                     && let Some(first) = sp.anchors.first_mut()
                 {
                     first.h_in = last.h_in;
+                    style_joined_anchor(sp, 0, smooth);
                 }
                 sp.closed = true;
                 Ok(())
@@ -433,15 +464,19 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
                 if ry {
                     y.reverse();
                 }
-                if let (Some(xe), Some(ys)) = (x.anchors.last().map(|a| a.p), y.anchors.first().map(|a| a.p))
-                    && xe.distance(ys) < 1e-6
-                {
+                let merged = x.anchors.last().zip(y.anchors.first()).is_some_and(|(a, b)| a.p.distance(b.p) < 1e-6);
+                if merged {
                     let first = y.anchors.remove(0);
                     if let Some(l) = x.anchors.last_mut() {
                         l.h_out = first.h_out;
                     }
                 }
+                let tail = y.anchors.len();
                 x.anchors.extend(y.anchors);
+                if merged {
+                    let at = x.anchors.len() - tail - 1;
+                    style_joined_anchor(&mut x, at, smooth);
+                }
                 pa.subpaths[sa] = x;
                 d.remove(b)?;
                 sel.set([a]);

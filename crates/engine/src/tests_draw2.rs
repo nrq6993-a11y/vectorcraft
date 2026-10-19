@@ -1828,9 +1828,33 @@ fn join_takes_the_paths_and_the_ends_to_join() {
         json!({"ids": [a.0, 999]}),
         json!({"ids": [a.0, r.0], "ends": ["first"]}),
         json!({"ids": [a.0, b.0], "ends": ["first", "middle"]}),
+        json!({"ids": [a.0, b.0], "join": "miter"}),
     ] {
         assert!(s.execute("path.join", &bad).is_err(), "{bad}");
     }
+}
+
+/// `path.join` with `join: "smooth"` makes a smooth anchor where coincident endpoints merge.
+#[test]
+fn join_smooth_at_coincident_endpoints() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    let b = line(&mut s, 100.0, 0.0, 100.0, 80.0);
+    s.execute("path.join", &json!({"ids": [a.0, b.0], "join": "smooth"})).unwrap();
+    let j = path(&s, a).subpaths[0].anchors[1];
+    assert_eq!(j.kind, vectorcraft_geom::AnchorKind::Smooth);
+    assert!(j.has_in() && j.has_out(), "the merged corner is smooth: {j:?}");
+}
+
+/// `path.join` without `join` keeps a corner at coincident endpoints (the historical default).
+#[test]
+fn join_corner_by_default_at_coincident_endpoints() {
+    let mut s = session();
+    let a = line(&mut s, 0.0, 0.0, 100.0, 0.0);
+    let b = line(&mut s, 100.0, 0.0, 100.0, 80.0);
+    s.execute("path.join", &json!({"ids": [a.0, b.0]})).unwrap();
+    let j = path(&s, a).subpaths[0].anchors[1];
+    assert!(!j.has_in() && !j.has_out(), "default join is a corner: {j:?}");
 }
 
 #[test]
