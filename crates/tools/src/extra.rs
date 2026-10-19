@@ -202,14 +202,21 @@ impl Tool for FlareTool {
         self.drag = None;
         if self.placed.take().is_some() && std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![] }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        match (self.drag, self.placed) {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut o = match (self.drag, self.placed) {
             (Some((c, p)), _) => {
                 vec![Overlay::Path { path: ellipse_path(c, p.distance(c), p.distance(c), 0.0), color: BLUE, width: 1.0, dashed: false }]
             }
             (_, Some((c, _))) => vec![Overlay::Line { a: c, b: self.hover, color: BLUE, dashed: true }],
             _ => vec![],
+        };
+        if cx.measurement_labels && let Some((c, _)) = self.placed {
+            o.push(Overlay::Measure {
+                p: self.hover,
+                text: format!("L: {}", cx.len(c.distance(self.hover))),
+            });
         }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -501,6 +508,25 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn flare_path_length_measure_while_placing_rings() {
+        use crate::testutil::{cx, paint};
+        use vectorcraft_doc::{Document, Selection};
+        let d = Document::new(500.0, 500.0);
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = FlareTool::default();
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 50.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Move, 100.0, 0.0));
+        let off = t.overlays(&cx);
+        assert!(off.iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "L: 100.00 pt")));
+        let quiet = crate::ToolContext { measurement_labels: false, ..cx };
+        assert!(!t.overlays(&quiet).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
