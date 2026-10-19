@@ -240,6 +240,8 @@ pub struct ReshapeTool {
     /// (path, grab point) while dragging.
     grab: Option<(vectorcraft_doc::NodeId, Point)>,
     began: bool,
+    /// Smart Guides › Measurement Labels: offset from the grab point while dragging.
+    measure: Option<(Point, String)>,
 }
 
 impl ReshapeTool {
@@ -266,6 +268,7 @@ impl Tool for ReshapeTool {
             PointerKind::Down => {
                 self.grab = Self::hit(cx, ev.pos);
                 self.began = false;
+                self.measure = None;
                 vec![]
             }
             PointerKind::Drag => {
@@ -277,11 +280,13 @@ impl Tool for ReshapeTool {
                 let mut out = vec![];
                 if !self.began {
                     if d.hypot() < cx.tol(2.0) {
+                        self.measure = None;
                         return out;
                     }
                     self.began = true;
                     out.push(Action::Begin("Reshape".into()));
                 }
+                self.measure = cx.measurement_labels.then(|| (ev.pos, cx.offset_label(d.x, d.y)));
                 out.push(Action::Preview(
                     "path.reshape".into(),
                     json!({ "id": id.0, "x": at.x, "y": at.y, "dx": d.x, "dy": d.y, "tol": cx.tol(4.0) }),
@@ -290,6 +295,7 @@ impl Tool for ReshapeTool {
             }
             PointerKind::Up => {
                 self.grab = None;
+                self.measure = None;
                 if std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![] }
             }
             _ => vec![],
@@ -297,9 +303,16 @@ impl Tool for ReshapeTool {
     }
     fn key(&mut self, _cx: &ToolContext, key: ToolKey, _mods: Mods) -> Vec<Action> {
         if key == ToolKey::Escape && self.grab.take().is_some() && std::mem::take(&mut self.began) {
+            self.measure = None;
             return vec![Action::Cancel];
         }
         vec![]
+    }
+    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+        self.measure
+            .as_ref()
+            .map(|(p, t)| vec![Overlay::Measure { p: *p, text: t.clone() }])
+            .unwrap_or_default()
     }
     fn cursor(&self, cx: &ToolContext, p: Point, _mods: Mods) -> Cursor {
         if self.grab.is_some() || Self::hit(cx, p).is_some() { Cursor::Move } else { Cursor::Arrow }
@@ -514,5 +527,27 @@ mod tests {
         {
             assert_eq!(create(g).unwrap().id(), g);
         }
+    }
+
+    /// Smart Guides › Measurement Labels: the offset readout while reshaping a path.
+    #[test]
+    fn reshape_measurement_labels_follow_the_preference() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+
+        let (d, id) = doc_with_rect();
+        let s = Selection { objects: vec![id], ..Default::default() };
+        let p = paint();
+        let label = |on: bool| {
+            let mut cx = cx(&d, &s, &p);
+            cx.measurement_labels = on;
+            let mut t = ReshapeTool::default();
+            t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 100.0, 150.0));
+            t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 200.0));
+            t.overlays(&cx)
+        };
+        let on = label(true);
+        assert!(on.iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &cx(&d, &s, &p).offset_label(0.0, 50.0))));
+        assert!(label(false).is_empty());
     }
 }
