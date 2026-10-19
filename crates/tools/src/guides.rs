@@ -14,6 +14,7 @@ use std::sync::Arc;
 use vectorcraft_doc::hit::{HitOptions, hit_test};
 use vectorcraft_doc::{Document, Node, NodeId, NodeKind, OrientedBox, Selection};
 use vectorcraft_geom::kurbo::ParamCurveNearest;
+use vectorcraft_geom::bez::tangent;
 use vectorcraft_geom::{Affine, Line, ParamCurve, PathSeg, Point, Rect, SubPath, Vec2, constrain_angle_from};
 
 use crate::bbox::Handle;
@@ -484,6 +485,14 @@ impl Targets {
                 None => (q, vec![]),
             };
         }
+        if let Some(f) = from
+            && f.geometric
+            && let Some((q, label)) = self.line_endpoint_snap(f.at, p, tol)
+        {
+            let mut ov = self.line(f.at, q).into_iter().collect::<Vec<_>>();
+            ov.extend(self.label(q, label));
+            return (q, ov);
+        }
         if let Some((q, k)) = self.nearest_point(p, tol) {
             return (q, self.label(q, k.label()).into_iter().collect());
         }
@@ -597,6 +606,28 @@ impl Targets {
             return self.label(on, k.label()).into_iter().collect();
         }
         self.line(from, q).into_iter().chain(self.label(q, "align")).collect()
+    }
+
+    /// Snap a line's free endpoint on a path so the segment from `from` meets it tangent to a
+    /// curve or at a right angle to a straight segment (Illustrator 30.0 geometric guides).
+    fn line_endpoint_snap(&self, from: Point, p: Point, tol: f64) -> Option<(Point, &'static str)> {
+        let mut best: Option<(f64, Point, &'static str)> = None;
+        for (bounds, seg) in &self.segments {
+            if !bounds.inflate(tol, tol).contains(p) {
+                continue;
+            }
+            let candidate = match seg {
+                PathSeg::Line(l) => perpendicular_on_line(from, *l).map(|q| (q, "perpendicular")),
+                _ => tangent_on_curve(from, *seg, p, tol).map(|q| (q, "tangent")),
+            };
+            if let Some((q, label)) = candidate {
+                let d = q.distance(p);
+                if d <= tol && best.as_ref().is_none_or(|b| d < b.0) {
+                    best = Some((d, q, label));
+                }
+            }
+        }
+        best.map(|(_, q, label)| (q, label))
     }
 
     /// The nearest point within `tol` of `p` on a target segment.
@@ -1007,6 +1038,76 @@ impl Targets {
     }
 }
 
+/// On segment `l`, the point `q` where `from`–`q` meets `l` at a right angle (Illustrator
+/// perpendicular snap).
+fn perpendicular_on_line(from: Point, l: Line) -> Option<Point> {
+    let d = l.p1 - l.p0;
+    let len = d.hypot();
+    if len <= 1e-9 {
+        return None;
+    }
+    let u = d / len;
+    let s = (from - l.p0).dot(u);
+    let q = l.p0 + u * s.clamp(0.0, len);
+    if q.distance(from) <= 1e-9 {
+        return None;
+    }
+    let v = q - from;
+    (v.dot(u).abs() <= 1e-3 * v.hypot()).then_some(q)
+}
+
+/// On `seg`, a point near `near` where the segment from `from` is tangent to the curve.
+fn tangent_on_curve(from: Point, seg: PathSeg, near: Point, tol: f64) -> Option<Point> {
+    if seg.nearest(from, 1e-6).distance_sq <= 1e-12 {
+        return None;
+    }
+    let mut best_t: Option<f64> = None;
+    let mut best_cross = f64::INFINITY;
+    for i in 0..=96 {
+        let t = f64::from(i) / 96.0;
+        let q = seg.eval(t);
+        let v = q - from;
+        let tan = tangent(&seg, t);
+        let (len, tan_len) = (v.hypot(), tan.hypot());
+        if len <= 1e-9 || tan_len <= 1e-9 {
+            continue;
+        }
+        let cross = (v.x * tan.y - v.y * tan.x).abs() / (len * tan_len);
+        if cross < best_cross {
+            best_cross = cross;
+            best_t = Some(t);
+        }
+    }
+    let mut t = best_t.filter(|_| best_cross <= 0.02)?;
+    for _ in 0..16 {
+        let q = seg.eval(t);
+        let tan = tangent(&seg, t);
+        let v = q - from;
+        let (len, tan_len) = (v.hypot(), tan.hypot());
+        if len <= 1e-9 || tan_len <= 1e-9 {
+            break;
+        }
+        let cross = v.x * tan.y - v.y * tan.x;
+        if cross.abs() <= 1e-3 * len * tan_len {
+            return (q.distance(near) <= tol).then_some(q);
+        }
+        let h = 1e-4;
+        let t1 = (t + h).clamp(0.0, 1.0);
+        let cross1 = {
+            let q1 = seg.eval(t1);
+            let v1 = q1 - from;
+            let tan1 = tangent(&seg, t1);
+            v1.x * tan1.y - v1.y * tan1.x
+        };
+        let deriv = (cross1 - cross) / h;
+        if deriv.abs() <= 1e-12 {
+            break;
+        }
+        t = (t - cross / deriv).clamp(0.0, 1.0);
+    }
+    None
+}
+
 /// Where curves `a` and `b` cross near `p`: a point projected from one onto the other and back
 /// settles where they meet (none when they don't nearby).
 fn meeting(a: &PathSeg, b: &PathSeg, p: Point) -> Option<Point> {
@@ -1145,6 +1246,8 @@ pub struct Leave {
     shift: Option<Keep>,
     /// The angles of the construction guides through `at` (none with them off).
     angles: &'static [f64],
+    /// A line endpoint may snap tangent to curves or perpendicular to straight paths (#30.0).
+    geometric: bool,
 }
 
 impl Leave {
@@ -1155,13 +1258,14 @@ impl Leave {
             at,
             shift: shift.then_some(Keep::Angle { step: 45.0, base: cx.constrain_angle }),
             angles: if cx.smart_guides { cx.construction_angles } else { &[] },
+            geometric: true,
         }
     }
 
     /// A box dragged from its corner or centre `at` (Rectangle, Ellipse, Arc, the grids,
     /// Artboard): Shift keeps the dragged corner on a diagonal, the box a square.
     pub fn diagonal(at: Point, shift: bool) -> Self {
-        Self { at, shift: shift.then_some(Keep::Square), angles: &[] }
+        Self { at, shift: shift.then_some(Keep::Square), angles: &[], geometric: false }
     }
 
     /// Where Shift puts `p`: none without it.
@@ -1694,6 +1798,36 @@ mod tests {
         // A box's corner keeps to a diagonal with Shift, the farther axis giving its size.
         let (q, _) = t.snap_from(Point::new(340.0, 310.0), Some(&Leave::diagonal(Point::new(300.0, 300.0), true)), 4.0);
         assert_eq!(q, Point::new(340.0, 340.0));
+    }
+
+    /// Illustrator 30.0: a line endpoint snaps perpendicular to a straight path and tangent to a curve.
+    #[test]
+    fn line_endpoint_snaps_perpendicular_and_tangent() {
+        use vectorcraft_doc::{Appearance, Node};
+        use vectorcraft_geom::shapes;
+        let (mut d, _) = doc_with_rect();
+        let l = d.layers[0].id;
+        let horiz = shapes::line(Point::new(0.0, 100.0), Point::new(400.0, 100.0));
+        let id = d.alloc_id();
+        d.insert(Some(l), 1, Node::path(id, horiz, Appearance::default_art())).unwrap();
+        let (s, p) = (Selection::default(), paint());
+        let c = ToolContext { ..cx(&d, &s, &p) };
+        let t = Targets::for_drawing(&d, &[], None).styled(&c);
+        let from = Leave::segment(&c, Point::new(80.0, 40.0), false);
+        let (q, ov) = t.snap_from(Point::new(82.0, 98.0), Some(&from), 6.0);
+        assert!((q - Point::new(80.0, 100.0)).hypot() < 1e-6, "{q:?}");
+        assert_eq!(labels(&ov), ["perpendicular"]);
+        let mut solo = vectorcraft_doc::Document::new(500.0, 500.0);
+        let layer = solo.layers[0].id;
+        let circle = shapes::ellipse(Rect::new(200.0, 200.0, 300.0, 300.0));
+        let cid = solo.alloc_id();
+        solo.insert(Some(layer), 0, Node::path(cid, circle, Appearance::default_art())).unwrap();
+        let c2 = ToolContext { ..cx(&solo, &s, &p) };
+        let t2 = Targets::for_drawing(&solo, &[], None).styled(&c2);
+        let from = Leave::segment(&c2, Point::new(0.0, 300.0), false);
+        let (q, ov) = t2.snap_from(Point::new(248.0, 299.0), Some(&from), 6.0);
+        assert!((q - Point::new(250.0, 300.0)).hypot() < 0.08, "{q:?}");
+        assert_eq!(labels(&ov), ["tangent"]);
     }
 
     /// #1602: a drawn point lands where two paths cross, where a path crosses a ruler guide and
