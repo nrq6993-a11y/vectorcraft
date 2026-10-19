@@ -203,7 +203,25 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            match self.id {
+                "rectangularGrid" => {
+                    text.push_str(&format!(
+                        "\nRow skew: {:.1}%\nColumn skew: {:.1}%",
+                        self.skew[0],
+                        self.skew[1]
+                    ));
+                }
+                "polarGrid" => {
+                    text.push_str(&format!(
+                        "\nConcentric skew: {:.1}%\nRadial skew: {:.1}%",
+                        self.skew[0],
+                        self.skew[1]
+                    ));
+                }
+                _ => {}
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -279,6 +297,46 @@ mod tests {
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 90.0, 60.0));
         assert!(matches!(&a[..], [Action::Preview(_, v)] if v["x"] == 30.0 && v["width"] == 60.0 && v["height"] == 40.0), "{a:?}");
         assert_eq!(t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 90.0, 60.0)), vec![Action::Commit]);
+    }
+
+    #[test]
+    fn grid_drag_shows_skew_in_measure_label() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = FamilyTool::new("rectangularGrid");
+        t.set_option("rowSkew", &json!(12.5));
+        t.set_option("columnSkew", &json!(-3.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 50.0));
+        let want = format!(
+            "{}\nRow skew: 12.5%\nColumn skew: -3.0%",
+            cx.size_label(100.0, 50.0)
+        );
+        assert!(
+            t.overlays(&cx)
+                .iter()
+                .any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)),
+            "{:?}",
+            t.overlays(&cx)
+        );
+        let mut t = FamilyTool::new("polarGrid");
+        t.set_option("concentricSkew", &json!(40.0));
+        t.set_option("radialSkew", &json!(0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 60.0, 40.0));
+        let want = format!(
+            "{}\nConcentric skew: 40.0%\nRadial skew: 0.0%",
+            cx.size_label(50.0, 30.0)
+        );
+        assert!(
+            t.overlays(&cx)
+                .iter()
+                .any(|o| matches!(o, Overlay::Measure { text, .. } if *text == want)),
+            "{:?}",
+            t.overlays(&cx)
+        );
     }
 
     /// #1377: a drag draws with the tool's stored options, which keep to their types and range.
