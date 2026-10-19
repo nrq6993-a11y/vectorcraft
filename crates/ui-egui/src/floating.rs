@@ -86,6 +86,33 @@ fn move_id() -> Id {
     Id::new("floating-move")
 }
 
+fn move_in_progress(ctx: &egui::Context) -> bool {
+    ctx.data(|d| d.get_temp::<Move>(move_id()).is_some())
+}
+
+/// Groups excluded from drop targets while `panel` moves. During a drag, only the group being
+/// moved is excluded so siblings in the same native column stay valid reorder targets.
+fn moving_groups(ctx: &egui::Context, ui: &UiState, own: Option<usize>) -> Vec<usize> {
+    match (move_in_progress(ctx), own) {
+        (true, Some(i)) => vec![i],
+        (_, Some(i)) => set_of(ui, i),
+        _ => vec![],
+    }
+}
+
+/// Groups passed to [`attach`] / [`dock_column`] on drop. Native sets share a column id; reorder
+/// one group at a time.
+fn moved_groups(ui: &UiState, gi: usize) -> Vec<usize> {
+    let set = set_of(ui, gi);
+    if set.len() <= 1 {
+        return set;
+    }
+    if set.iter().all(|&i| ui.floating_panels.get(i).is_some_and(|g| g.column.is_some())) {
+        return vec![gi];
+    }
+    set
+}
+
 fn suppressed_id() -> Id {
     move_id().with("suppressed-until-primary-press")
 }
@@ -346,7 +373,7 @@ pub(crate) fn drop_target(app: &VectorcraftApp, ctx: &egui::Context, what: Movin
     let zone = |id: Id| ctx.data(|d| d.get_temp::<Rect>(id)).filter(|r| r.contains(at));
     let Moving::Panel(id) = what else { return zone(tools_zone_id()).map(|r| (Drop::Dock, r)) };
     let own = group_of(&app.ui, id);
-    let moving = own.map(|i| set_of(&app.ui, i)).unwrap_or_default();
+    let moving = moving_groups(ctx, &app.ui, own);
     // The left edge of the icon column or of a dock column docks the moved groups as a new column
     // there.
     if app.ui.dock && app.ui.screen_mode < 3 {
@@ -531,9 +558,9 @@ pub fn track(app: &mut VectorcraftApp, ctx: &egui::Context) {
     };
     // The moved set: its groups' panels, showing the top group's.
     let Some(gi) = group_of(&app.ui, id) else { return };
-    let set = set_of(&app.ui, gi);
-    let ids = ids_in(&app.ui, &set);
-    let active = set.first().and_then(|&i| shown(&app.ui, i)).unwrap_or(id);
+    let moved = moved_groups(&app.ui, gi);
+    let ids = ids_in(&app.ui, &moved);
+    let active = moved.first().and_then(|&i| shown(&app.ui, i)).unwrap_or(id);
     match drop {
         Drop::Dock => {
             dock(&mut app.ui, &ids, active);
@@ -543,9 +570,9 @@ pub fn track(app: &mut VectorcraftApp, ctx: &egui::Context) {
             }
         }
         Drop::Stack(onto) => stack(&mut app.ui, &ids, active, onto),
-        Drop::Below(onto) => attach(&mut app.ui, &set, onto, true),
-        Drop::Above(onto) => attach(&mut app.ui, &set, onto, false),
-        Drop::Column(slot) => dock_column(&mut app.ui, &set, slot),
+        Drop::Below(onto) => attach(&mut app.ui, &moved, onto, true),
+        Drop::Above(onto) => attach(&mut app.ui, &moved, onto, false),
+        Drop::Column(slot) => dock_column(&mut app.ui, &moved, slot),
     }
     if let Err(error) = crate::panel_docking::reconcile_native(app, before) {
         app.ui.status = error;
@@ -1707,6 +1734,49 @@ mod tests {
         h.click(pos2(col.right() - 11.0, col.top() + TITLE / 2.0));
         assert!(!h.app.ui.floating_panels.iter().any(|g| g.panels.contains(&"stroke".to_string())));
         assert!(columns(&h).is_empty());
+    }
+
+    #[test]
+    fn native_column_siblings_stay_valid_drop_targets_while_reordering() {
+        let mut h = Harness::new();
+        h.app.run("window.panel.float", json!({"panel":"stroke","x":80,"y":100})).unwrap();
+        h.app.run("window.panel.float", json!({"panel":"color","below":"stroke"})).unwrap();
+        h.app.run("window.panel.float", json!({"panel":"swatches","below":"color"})).unwrap();
+        h.settle();
+        let color = h.temp_rect(group_rect_id("color"));
+        let at = pos2(color.center().x, color.bottom() + 2.0);
+        let stroke = h.temp_rect(group_rect_id("stroke"));
+        let from = pos2(stroke.left() + 20.0, stroke.top() + GAP + STRIP / 2.0);
+        h.ctx.data_mut(|d| {
+            d.insert_temp(
+                move_id(),
+                Move {
+                    what: Moving::Panel("stroke"),
+                    grab: vec2(8.0, 6.0),
+                    from,
+                    original: h.app.ui.clone(),
+                },
+            );
+        });
+        assert_eq!(drop_target(&h.app, &h.ctx, Moving::Panel("stroke"), at).map(|(t, _)| t), Some(Drop::Below("color")));
+    }
+
+    #[test]
+    fn native_column_groups_reorder_by_drag_drop() {
+        let mut h = Harness::new();
+        h.app.run("window.panel.float", json!({"panel":"stroke","x":80,"y":100})).unwrap();
+        h.app.run("window.panel.float", json!({"panel":"color","below":"stroke"})).unwrap();
+        h.app.run("window.panel.float", json!({"panel":"swatches","below":"color"})).unwrap();
+        h.settle();
+        let order = |h: &Harness| h.app.ui.floating_panels.iter().map(|g| g.panels[0].clone()).collect::<Vec<_>>();
+        assert_eq!(order(&h), vec!["stroke".to_string(), "color".to_string(), "swatches".to_string()]);
+        let swatches = h.temp_rect(group_rect_id("swatches"));
+        let color = h.temp_rect(group_rect_id("color"));
+        let from = pos2(swatches.left() + 20.0, swatches.top() + GAP + STRIP / 2.0);
+        let above = pos2(color.center().x, color.top() - 3.0);
+        h.drag(from, above);
+        assert_eq!(order(&h), vec!["stroke".to_string(), "swatches".to_string(), "color".to_string()]);
+        assert!(h.app.ui.floating_panels.iter().all(|g| g.column.is_some()));
     }
 
     #[test]

@@ -541,9 +541,7 @@ impl craft_ui::docking::DockContent<String> for PanelContent<'_> {
             }
         } else {
             let response = ui.interact(grip, ui.id().with("dock-group-bar"), egui::Sense::drag());
-            if response.drag_started()
-                && let Some(pos) = response.interact_pointer_pos()
-            {
+            if response.drag_started() {
                 ui.ctx().data_mut(|data| {
                     data.insert_temp(
                         egui::Id::new("vectorcraft-root-group-drag"),
@@ -555,7 +553,6 @@ impl craft_ui::docking::DockContent<String> for PanelContent<'_> {
                         },
                     )
                 });
-                self.commands.push(("window.panel.float", json!({"panel": active, "group": true, "x": pos.x, "y": pos.y})));
             }
             response.on_hover_cursor(egui::CursorIcon::Grab).on_hover_text(tl!("Drag to float the panel group"));
         }
@@ -573,30 +570,40 @@ pub(crate) fn show(app: &mut VectorcraftApp, ui: &mut egui::Ui) -> bool {
             sync_legacy(app);
             ui.ctx().data_mut(|data| data.remove::<RootGroupDrag>(root_key));
         } else if let Some(pos) = ui.input(|input| input.pointer.interact_pos()) {
+            let panel = normalize(&drag.panel);
+            let dock = ui.ctx().data(|data| data.get_temp::<egui::Rect>(crate::floating::dock_rect_id()));
+            let outside = dock.is_none_or(|rect| !rect.contains(pos));
+            let floated = panel.is_some_and(|id| crate::floating::group_of(&app.ui, id).is_some());
             if ui.input(|input| input.pointer.primary_down()) {
-                if let Err(error) = app.run("window.panel.float", json!({"panel":drag.panel, "group":true, "x":pos.x, "y":pos.y})) {
+                if outside && !floated
+                    && let Some(id) = panel
+                    && let Err(error) = app.run("window.panel.float", json!({"panel":id, "group":true, "x":pos.x, "y":pos.y}))
+                {
                     app.ui.status = error;
                 }
-                if let Some(panel) = normalize(&drag.panel)
-                    && let Some((target, rect)) = crate::floating::drop_target(app, ui.ctx(), crate::floating::Moving::Panel(panel), pos)
+                if floated
+                    && let Some(id) = panel
+                    && let Some((target, rect)) = crate::floating::drop_target(app, ui.ctx(), crate::floating::Moving::Panel(id), pos)
                 {
                     crate::floating::preview(ui.ctx(), target, rect);
                 }
-            } else {
-                if let Some(panel) = normalize(&drag.panel)
-                    && let Some((target, _)) = crate::floating::drop_target(app, ui.ctx(), crate::floating::Moving::Panel(panel), pos)
+            } else if floated {
+                if let Some(id) = panel
+                    && let Some((target, _)) = crate::floating::drop_target(app, ui.ctx(), crate::floating::Moving::Panel(id), pos)
                 {
                     let (id, params) = match target {
-                        crate::floating::Drop::Dock => ("window.panel.dock", json!({"panel":panel,"group":true})),
-                        crate::floating::Drop::Stack(onto) => ("window.panel.float", json!({"panel":panel,"group":true,"onto":onto})),
-                        crate::floating::Drop::Below(onto) => ("window.panel.float", json!({"panel":panel,"group":true,"below":onto})),
-                        crate::floating::Drop::Above(onto) => ("window.panel.float", json!({"panel":panel,"group":true,"above":onto})),
-                        crate::floating::Drop::Column(slot) => ("window.panel.dock", json!({"panel":panel,"group":true,"column":slot})),
+                        crate::floating::Drop::Dock => ("window.panel.dock", json!({"panel":id,"group":true})),
+                        crate::floating::Drop::Stack(onto) => ("window.panel.float", json!({"panel":id,"group":true,"onto":onto})),
+                        crate::floating::Drop::Below(onto) => ("window.panel.float", json!({"panel":id,"group":true,"below":onto})),
+                        crate::floating::Drop::Above(onto) => ("window.panel.float", json!({"panel":id,"group":true,"above":onto})),
+                        crate::floating::Drop::Column(slot) => ("window.panel.dock", json!({"panel":id,"group":true,"column":slot})),
                     };
                     if let Err(error) = app.run(id, params) {
                         app.ui.status = error;
                     }
                 }
+                ui.ctx().data_mut(|data| data.remove::<RootGroupDrag>(root_key));
+            } else {
                 ui.ctx().data_mut(|data| data.remove::<RootGroupDrag>(root_key));
             }
         }
