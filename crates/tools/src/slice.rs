@@ -335,17 +335,15 @@ impl Tool for SliceSelectionTool {
             }
         }
         o.extend(self.guides.iter().cloned());
-        // Smart Guides › Measurement Labels: the size readouts while resizing or moving slices.
-        match self.drag.as_ref().filter(|_| cx.measurement_labels) {
-            Some(Drag::Resize { id, began: true, .. }) => {
-                if let Some(r) = cx.doc.slice_bounds(*id) {
-                    o.push(Overlay::Measure {
-                        p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                        text: cx.size_label(r.width(), r.height()),
-                    });
-                }
-            }
-            _ => {}
+        // Smart Guides › Measurement Labels: the size readout while resizing slices.
+        if cx.measurement_labels
+            && let Some(Drag::Resize { id, began: true, .. }) = self.drag.as_ref()
+            && let Some(r) = cx.doc.slice_bounds(*id)
+        {
+            o.push(Overlay::Measure {
+                p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: cx.size_label(r.width(), r.height()),
+            });
         }
         if let Some((p, text)) = &self.measure {
             o.push(Overlay::Measure { p: *p, text: text.clone() });
