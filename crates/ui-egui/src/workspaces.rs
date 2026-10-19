@@ -54,6 +54,8 @@ impl Default for Workspace {
 }
 
 pub const ESSENTIALS: &str = "Essentials";
+/// Preferences › Devices › Enable Touch Workspace applies this layout.
+pub const TOUCH: &str = "Touch";
 
 /// Built-in workspaces, in Illustrator's menu order (Essentials first).
 pub fn builtins() -> Vec<Workspace> {
@@ -115,7 +117,46 @@ pub fn builtins() -> Vec<Workspace> {
             x.toolbar_advanced = true;
             x.open_panel = Some("symbols".into());
         }),
+        touch(),
     ]
+}
+
+/// A simplified layout for touch screens: the tools and task bar stay visible, the dock is hidden.
+pub fn touch() -> Workspace {
+    let mut x = Workspace { name: TOUCH.into(), ..Workspace::default() };
+    x.control_bar = true;
+    x.rulers = false;
+    x.toolbar = true;
+    x.toolbar_double = true;
+    x.toolbar_advanced = false;
+    x.task_bar = true;
+    x.dock = false;
+    x.dock_collapsed = true;
+    x.open_panel = None;
+    x.status_bar = true;
+    x.floating_flyouts.clear();
+    x.floating_panels.clear();
+    x.toolbar_pos = None;
+    x
+}
+
+/// Preferences › Devices › Enable Touch Workspace (#394): apply [`touch`] or restore the layout
+/// that was active when it was turned on.
+pub fn sync_touch_workspace(app: &mut VectorcraftApp) {
+    if app.session.prefs.touch_workspace {
+        if app.ui.workspace != TOUCH {
+            if app.ui.touch_workspace_restore.is_none() {
+                app.ui.touch_workspace_restore = Some(app.ui.workspace.clone());
+            }
+            apply(&mut app.ui, &touch());
+        }
+        return;
+    }
+    if app.ui.workspace == TOUCH {
+        let back = app.ui.touch_workspace_restore.take().unwrap_or_else(|| ESSENTIALS.into());
+        let w = find(&app.ui, &back).unwrap_or_default();
+        apply(&mut app.ui, &w);
+    }
 }
 
 pub fn is_builtin(name: &str) -> bool {
@@ -493,9 +534,31 @@ mod tests {
     #[test]
     fn all_requested_workspaces_exist() {
         let ui = UiState::default();
-        for n in ["Essentials", "Essentials Classic", "Painting", "Typography", "Layout", "Tracing", "Web", "Automation"] {
+        for n in ["Essentials", "Essentials Classic", "Painting", "Typography", "Layout", "Tracing", "Web", "Automation", TOUCH] {
             assert!(find(&ui, n).is_some(), "{n}");
         }
+    }
+
+    #[test]
+    fn touch_workspace_preference_applies_and_restores_layout() {
+        use vectorcraft_engine::Session;
+        use crate::{Services, VectorcraftApp};
+        let mut app = VectorcraftApp::new(Session::new(), Services::default());
+        app.ui.workspace = "Painting".into();
+        app.session.prefs.touch_workspace = false;
+        sync_touch_workspace(&mut app);
+        assert_eq!(app.ui.workspace, "Painting");
+        assert!(app.ui.dock);
+        app.session.prefs.touch_workspace = true;
+        sync_touch_workspace(&mut app);
+        assert_eq!(app.ui.workspace, TOUCH);
+        assert!(!app.ui.dock);
+        assert_eq!(app.ui.touch_workspace_restore.as_deref(), Some("Painting"));
+        app.session.prefs.touch_workspace = false;
+        sync_touch_workspace(&mut app);
+        assert_eq!(app.ui.workspace, "Painting");
+        assert!(app.ui.dock);
+        assert!(app.ui.touch_workspace_restore.is_none());
     }
 
     #[test]

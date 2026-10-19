@@ -46,6 +46,7 @@ pub fn confirm(app: &mut VectorcraftApp) -> Result<Value, String> {
     app.ui.dialog = None;
     app.ui.engine_prefs = app.session.prefs.to_json();
     app.prefs_changed = true;
+    crate::workspaces::sync_touch_workspace(app);
     Ok(Value::Null)
 }
 
@@ -76,6 +77,7 @@ pub fn restore(app: &mut VectorcraftApp) {
         p.gpu_preference = Prefs::default().gpu_preference;
     }
     app.session.apply_prefs(p);
+    crate::workspaces::sync_touch_workspace(app);
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -89,6 +91,7 @@ struct Applied {
     tool_tips: bool,
     scrub: bool,
     bare_points: bool,
+    touch_workspace: bool,
 }
 
 /// User Interface › Canvas Color: the canvas around the artboards, or `None` to match the
@@ -120,6 +123,7 @@ pub fn apply_runtime(app: &mut VectorcraftApp, ctx: &egui::Context) {
         tool_tips: p.show_tool_tips,
         scrub: p.scrub_numeric_fields,
         bare_points: p.numbers_without_units_are_points,
+        touch_workspace: p.touch_workspace,
     };
     let id = egui::Id::new("dc-applied-prefs");
     let prev: Option<Applied> = ctx.data(|d| d.get_temp::<Option<Applied>>(id)).flatten();
@@ -141,6 +145,10 @@ pub fn apply_runtime(app: &mut VectorcraftApp, ctx: &egui::Context) {
             app.canvas.renderer.threads = vectorcraft_render::default_threads();
             app.canvas.worker = None;
             app.canvas.worker_started = false;
+        }
+        let touch_changed = prev.map(|pr| pr.touch_workspace) != Some(want.touch_workspace);
+        if touch_changed && (prev.is_some() || want.touch_workspace) {
+            crate::workspaces::sync_touch_workspace(app);
         }
         app.canvas.key = None;
         ctx.data_mut(|d| d.insert_temp(id, Some(want)));
