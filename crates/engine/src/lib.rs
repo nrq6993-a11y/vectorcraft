@@ -1475,6 +1475,25 @@ impl Session {
             refresh_tree_text_bounds(tree);
         }
     }
+    /// When [`Prefs::open_documents_as_tabs`] is off, only one document belongs in the window:
+    /// close every saved document so the next [`add_document`] can run. A modified document stays
+    /// open and blocks another open until it is saved or discarded.
+    pub fn prepare_single_document_slot(&mut self) -> Result<()> {
+        if self.prefs.open_documents_as_tabs {
+            return Ok(());
+        }
+        while self.docs.first().is_some_and(|d| !d.is_dirty()) {
+            self.close_document(0);
+        }
+        if self.docs.is_empty() {
+            Ok(())
+        } else {
+            Err(EngineError::Other(
+                "save or discard the open document before opening another (Open Documents As Tabs is off)".into(),
+            ))
+        }
+    }
+
     /// Add a document and make it active.
     pub fn add_document(&mut self, mut doc: Document, path: Option<String>) -> usize {
         // Every edit is checked against the document before it, so the first one is within the cap

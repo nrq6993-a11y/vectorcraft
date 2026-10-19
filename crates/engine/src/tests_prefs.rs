@@ -92,6 +92,29 @@ fn grid_prefs_apply_to_new_documents() {
     assert_eq!((g.spacing, g.subdivisions), (36.0, 4));
 }
 
+/// User Interface › Open Documents As Tabs (#394): off, a new document replaces a saved one.
+#[test]
+fn open_documents_as_tabs_off_replaces_a_saved_document_on_file_new() {
+    let mut s = Session::new();
+    s.execute("prefs.set", &json!({"key": "openDocumentsAsTabs", "value": false})).unwrap();
+    s.execute("file.new", &json!({"width": 100, "height": 100, "name": "First"})).unwrap();
+    s.execute("file.new", &json!({"width": 200, "height": 200, "name": "Second"})).unwrap();
+    assert_eq!(s.documents().len(), 1);
+    assert_eq!(s.doc().unwrap().doc.title, "Second");
+}
+
+/// User Interface › Open Documents As Tabs (#394): off, a modified document blocks another open.
+#[test]
+fn open_documents_as_tabs_off_blocks_a_second_open_while_dirty() {
+    let mut s = Session::new();
+    s.execute("prefs.set", &json!({"key": "openDocumentsAsTabs", "value": false})).unwrap();
+    s.execute("file.new", &json!({"width": 100, "height": 100})).unwrap();
+    s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap();
+    assert!(s.doc().unwrap().is_dirty());
+    assert!(s.execute("file.new", &json!({"width": 200, "height": 200})).is_err());
+    assert_eq!(s.documents().len(), 1);
+}
+
 /// An SVG file with no grid in it.
 const GRIDLESS_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="10" height="10"/></svg>"#;
 

@@ -419,6 +419,9 @@ fn first_tab_shown(widths: &[f32], active: Option<usize>, room: f32) -> usize {
 /// taller, with larger titles. Tabs that don't fit are reached from a » button at the strip's
 /// right end, which lists every open document, and the active tab is always in view (#746).
 pub fn doc_tabs(app: &mut VectorcraftApp, ui: &mut Ui) {
+    if !app.session.prefs.open_documents_as_tabs {
+        return;
+    }
     /// The width of the » button.
     const MORE: f32 = 30.0;
     let t = Tokens::get(ui.ctx());
@@ -1048,6 +1051,28 @@ mod tests {
         if !cfg!(target_os = "macos") {
             assert!(text("zoom").contains("Alt+Click") && text("paintbrush").contains("Ctrl+Shift+/"));
         }
+    }
+
+    /// User Interface › Open Documents As Tabs (#394): off, the tab strip draws nothing.
+    #[test]
+    fn open_documents_as_tabs_off_hides_the_tab_strip() {
+        let mut app = crate::VectorcraftApp::new(Session::new(), Default::default());
+        app.session.execute("file.new", &json!({"width": 100, "height": 100})).unwrap();
+        app.run("prefs.set", json!({"key": "openDocumentsAsTabs", "value": false})).unwrap();
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 200.0));
+        let mut out = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| super::doc_tabs(&mut app, ui));
+        out.textures_delta.clear();
+        let titles = out
+            .shapes
+            .iter()
+            .filter_map(|c| match &c.shape {
+                egui::Shape::Text(t) if t.visual_bounding_rect().width() > 30.0 => Some(t.visual_bounding_rect()),
+                _ => None,
+            })
+            .count();
+        assert_eq!(titles, 0, "no document titles in the tab strip");
     }
 
     /// A document tab's × sits where the platform puts it (#673): after the title on Windows,

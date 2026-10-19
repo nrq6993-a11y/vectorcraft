@@ -412,6 +412,7 @@ fn open_loaded(s: &mut Session, loaded: Loaded, links: Resolved, path: Option<St
     let path = path.filter(|_| !template && !partial && !lossy_ai && SAVE_FORMATS.contains(&format.id));
     let saves_back = path.is_some();
     let converted = saves_back && converted && s.prefs.append_converted;
+    s.prepare_single_document_slot()?;
     let index = s.add_document(doc, path);
     let st = s.doc_mut()?;
     if saves_back {
