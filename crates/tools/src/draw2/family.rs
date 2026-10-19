@@ -203,7 +203,11 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            if self.id == "spiral" {
+                text.push_str(&format!("\nSegments: {}\nDecay: {:.0}%", self.segments, self.decay));
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -309,6 +313,30 @@ mod tests {
         t.set_option("frame", &json!(false));
         t.set_option("rowSkew", &json!(12.5));
         assert_eq!(t.options(), json!({"rows": 5, "columns": 5, "rowSkew": 12.5, "columnSkew": 0.0, "frame": false, "fill": false}));
+    }
+
+    #[test]
+    fn spiral_drag_shows_segments_and_decay_in_measurement_label() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = FamilyTool::new("spiral");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 60.0, 40.0));
+        let want = format!("{}\nSegments: 10\nDecay: 80%", cx.size_label(50.0, 30.0));
+        assert!(
+            t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+            "{:?}",
+            t.overlays(&cx)
+        );
+        t.key(&cx, ToolKey::Up, Mods::default());
+        let want = format!("{}\nSegments: 11\nDecay: 80%", cx.size_label(50.0, 30.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        t.set_option("decay", &json!(95.0));
+        let want = format!("{}\nSegments: 11\nDecay: 95%", cx.size_label(50.0, 30.0));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&ToolContext { measurement_labels: false, ..cx }).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
