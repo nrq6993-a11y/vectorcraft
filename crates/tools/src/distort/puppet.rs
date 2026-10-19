@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 use vectorcraft_doc::{Document, Node, NodeId, PuppetPin, PuppetPins};
-use vectorcraft_geom::{BezPath, Point, Rect};
+use vectorcraft_geom::{BezPath, Point, Rect, Vec2};
 
 use super::arap::{self, Mesh, MeshOptions, default_pins};
 use super::{BLUE, collect_points, warp_node_with};
@@ -462,6 +462,26 @@ impl Tool for PuppetWarpTool {
                 let rr = cx.tol(TURN_RING_PX);
                 out.push(Overlay::Path { path: super::ellipse_path(q.at, rr, rr, 0.0), color: BLUE, width: 1.0, dashed: true });
             }
+            if cx.measurement_labels {
+                match self.drag {
+                    Some(Gesture::Move { from, to }) if from != to => {
+                        let d = to - from;
+                        out.push(Overlay::Measure {
+                            p: to + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                            text: cx.offset_label(d.x, d.y),
+                        });
+                    }
+                    Some(Gesture::Turn { pin, base, angle, .. }) => {
+                        let deg = (base + angle).to_degrees();
+                        let at = self.hover.map(|(p, _)| p).or_else(|| c.set.pins.get(pin).map(|q| q.at)).unwrap_or(Point::ZERO);
+                        out.push(Overlay::Measure {
+                            p: at + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                            text: format!("{:.1}°", -deg),
+                        });
+                    }
+                    _ => {}
+                }
+            }
         }
         if let Some(p) = self.off_mesh {
             out.push(Overlay::Label { p, text: OFF_MESH.into(), color: WARN });
@@ -728,6 +748,37 @@ mod tests {
         let (a, b) = (rest.path_data().unwrap(), back.path_data().unwrap());
         let worst = a.subpaths[0].anchors.iter().zip(&b.subpaths[0].anchors).map(|(x, y)| x.p.distance(y.p)).fold(0.0, f64::max);
         assert!(worst < 0.01, "{worst}");
+    }
+
+    fn measure_overlays(r: &Rig, on: bool) -> usize {
+        let p = paint();
+        let c = ToolContext { measurement_labels: on, ..cx(&r.doc, &r.sel, &p) };
+        r.tool.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+    }
+
+    #[test]
+    fn measurement_labels_while_moving_and_turning_pins() {
+        let mut r = Rig::new();
+        r.click(130.0, 170.0, Mods::default());
+        r.ev(PointerKind::Down, 130.0, 170.0, Mods::default());
+        r.ev(PointerKind::Drag, 120.0, 190.0, Mods::default());
+        assert_eq!(measure_overlays(&r, true), 1, "move offset");
+        assert_eq!(measure_overlays(&r, false), 0);
+        r.ev(PointerKind::Up, 120.0, 190.0, Mods::default());
+        r.ev(PointerKind::Move, 135.0, 190.0, alt());
+        r.ev(PointerKind::Down, 135.0, 190.0, alt());
+        r.ev(PointerKind::Drag, 120.0, 175.0, alt());
+        let p = paint();
+        let c = ToolContext { measurement_labels: true, ..cx(&r.doc, &r.sel, &p) };
+        let text = r
+            .tool
+            .overlays(&c)
+            .iter()
+            .find_map(|o| if let Overlay::Measure { text, .. } = o { Some(text.clone()) } else { None })
+            .unwrap();
+        let deg = text.trim_end_matches('°').parse::<f64>().unwrap();
+        assert!((deg - 90.0).abs() < 10.0, "{text}");
+        r.ev(PointerKind::Up, 120.0, 175.0, alt());
     }
 
     #[test]
