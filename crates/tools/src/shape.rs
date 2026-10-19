@@ -251,15 +251,19 @@ impl Tool for ShapeTool {
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
-            // A box's size as drawn (from its centre with Alt, square with Shift).
-            let (w, h) = match self.id {
-                "polygon" | "star" | "lineSegment" => ((self.last - s).x.abs(), (self.last - s).y.abs()),
+            let text = match self.id {
+                "polygon" => cx.polygon_measure_label(s, self.last, self.sides),
+                "star" => cx.star_measure_label(s, self.last, self.points),
+                "lineSegment" => {
+                    let (w, h) = ((self.last - s).x.abs(), (self.last - s).y.abs());
+                    cx.size_label(w, h)
+                }
                 _ => {
                     let r = drag_rect(s, self.last, self.mods);
-                    (r.width(), r.height())
+                    cx.size_label(r.width(), r.height())
                 }
             };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -377,6 +381,31 @@ mod tests {
             t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 10.0, 10.0)),
             vec![Action::Dialog("star".into(), json!({"x": 10.0, "y": 10.0}))]
         );
+    }
+
+    #[test]
+    fn polygon_and_star_measurement_labels_show_radius_and_counts() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.measurement_labels = true;
+        let mut poly = ShapeTool::new("polygon");
+        poly.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        poly.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, 0.0));
+        let want_poly = cx.polygon_measure_label(Point::ZERO, Point::new(40.0, 0.0), 6);
+        assert!(poly.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want_poly)));
+        poly.key(&cx, ToolKey::Up, Mods::default());
+        let want_seven = cx.polygon_measure_label(Point::ZERO, Point::new(40.0, 0.0), 7);
+        assert!(poly.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want_seven)));
+        cx.measurement_labels = false;
+        assert!(!poly.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        cx.measurement_labels = true;
+        let mut star = ShapeTool::new("star");
+        star.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        star.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 10.0));
+        let want_star = cx.star_measure_label(Point::new(10.0, 10.0), Point::new(50.0, 10.0), 5);
+        assert!(star.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want_star)));
     }
 
     #[test]

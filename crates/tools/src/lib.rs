@@ -376,6 +376,14 @@ impl ToolContext<'_> {
     pub fn size_label(&self, w: f64, h: f64) -> String {
         format!("W: {}\nH: {}", self.len(w), self.len(h))
     }
+    /// Polygon tool drag: outer radius and the live side count (↑/↓).
+    pub fn polygon_measure_label(&self, center: vectorcraft_geom::Point, p: vectorcraft_geom::Point, sides: u32) -> String {
+        format!("R: {}\nSides: {}", self.len((p - center).hypot()), sides)
+    }
+    /// Star tool drag: outer radius and the live point count (↑/↓).
+    pub fn star_measure_label(&self, center: vectorcraft_geom::Point, p: vectorcraft_geom::Point, points: u32) -> String {
+        format!("R: {}\nPoints: {}", self.len((p - center).hypot()), points)
+    }
     /// A move label: `dX: …` over `dY: …`.
     pub fn offset_label(&self, dx: f64, dy: f64) -> String {
         format!("dX: {}\ndY: {}", self.len(dx), self.len(dy))
