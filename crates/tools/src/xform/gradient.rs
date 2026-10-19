@@ -544,7 +544,7 @@ impl Tool for GradientTool {
 
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         if let Some(a) = FreeformAnnotator::of(cx) {
-            return a.overlays(cx, &self.lines);
+            return a.overlays(cx, &self.lines, self.free.as_ref());
         }
         let mut o = match (Annotator::of(cx), self.gesture.as_ref().and_then(|g| g.vector)) {
             (Some(a), _) => annotator_overlays(cx, &a),

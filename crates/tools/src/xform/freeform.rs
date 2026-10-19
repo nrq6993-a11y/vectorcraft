@@ -18,6 +18,7 @@ use vectorcraft_doc::NodeId;
 use vectorcraft_doc::hit::hit_test;
 use vectorcraft_geom::{Point, Shape, Vec2};
 
+use super::measure::measure;
 use super::paint_owner;
 use crate::{Action, Cursor, Overlay, ToolContext, ToolKey};
 
@@ -86,13 +87,21 @@ impl Annotator {
         self.selected(cx).filter(|_| lines.open && self.freeform.mode == FreeformMode::Lines)
     }
 
-    pub fn overlays(&self, cx: &ToolContext, lines: &Lines) -> Vec<Overlay> {
+    pub fn overlays(&self, cx: &ToolContext, lines: &Lines, gesture: Option<&Gesture>) -> Vec<Overlay> {
         let f = &self.freeform;
         let mut o: Vec<Overlay> =
             (0..f.lines.len()).map(|l| Overlay::Path { path: f.line_path(l), color: LINE, width: 1.0, dashed: false }).collect();
         // The line being drawn, on to the pointer.
         if let (Some(from), Some(hover)) = (self.line_open(cx, lines), lines.hover) {
             o.push(Overlay::Path { path: rubber_band(f, from, hover), color: LINE, width: 1.0, dashed: true });
+            if cx.measurement_labels {
+                let a = f.points[from].at;
+                let (dist, ang, dx, dy) = measure(a, hover);
+                o.push(Overlay::Measure {
+                    p: hover + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: format!("D: {}\nAngle: {ang:.1}°\n{}", cx.len(dist), cx.offset_label(dx, dy)),
+                });
+            }
         }
         if let Some(i) = self.selected(cx) {
             let (r, handle) = self.ring(cx, i);
@@ -107,6 +116,11 @@ impl Annotator {
             color: pt.color.to_rgba8(pt.opacity),
             selected: cx.freeform_point == Some(i),
         }));
+        if cx.measurement_labels {
+            if let Some((p, text)) = gesture.and_then(|g| g.measure.as_ref()) {
+                o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: text.clone() });
+            }
+        }
         o
     }
 }
@@ -159,6 +173,9 @@ pub(super) struct Gesture {
     /// A dragged point is out of the object (releasing removes it); `left`: it has been.
     out: bool,
     left: bool,
+    /// Where a dragged point started (for measurement labels).
+    drag_origin: Option<Point>,
+    measure: Option<(Point, String)>,
 }
 
 impl Gesture {
@@ -200,7 +217,11 @@ pub(super) fn press(cx: &ToolContext, a: &Annotator, p: Point) -> (Vec<Action>, 
     } else {
         Grab::Clear
     };
-    (out, Gesture { grab, id: a.id, points: a.freeform.points.len(), at: p, began: false, out: false, left: false })
+    let drag_origin = match grab {
+        Grab::Point(i) => a.freeform.points.get(i).map(|pt| pt.at),
+        _ => None,
+    };
+    (out, Gesture { grab, id: a.id, points: a.freeform.points.len(), at: p, began: false, out: false, left: false, drag_origin, measure: None })
 }
 
 pub(super) fn drag(cx: &ToolContext, g: &mut Gesture, p: Point) -> Vec<Action> {
@@ -220,6 +241,13 @@ pub(super) fn drag(cx: &ToolContext, g: &mut Gesture, p: Point) -> Vec<Action> {
             // Out of the object the point goes (never the last one).
             g.out = g.points > 1 && cx.doc.node(g.id).is_some_and(|n| !n.contains_fn()(p));
             g.left |= g.out;
+            if cx.measurement_labels && !g.out {
+                let origin = g.drag_origin.unwrap_or(g.at);
+                let d = p - origin;
+                g.measure = Some((p, cx.offset_label(d.x, d.y)));
+            } else {
+                g.measure = None;
+            }
             if g.out {
                 ("paint.freeform.deletePoint", json!({ "index": index }))
             } else {
@@ -228,6 +256,11 @@ pub(super) fn drag(cx: &ToolContext, g: &mut Gesture, p: Point) -> Vec<Action> {
         }
         Grab::Spread { index, at, r, d, scale } => {
             let spread = if scale > 0.0 { ((r + at.distance(p) - d) / scale).clamp(0.0, 1.0) } else { 0.0 };
+            if cx.measurement_labels {
+                g.measure = Some((p, format!("Spread: {:.0}%", spread * 100.0)));
+            } else {
+                g.measure = None;
+            }
             ("paint.freeform.setPoint", json!({ "index": index, "spread": spread }))
         }
         // Checked above.
@@ -514,6 +547,38 @@ mod tests {
         cx.freeform_point = Some(2);
         t.pointer(&cx, &ev(PointerKind::Down, 166.0, 180.0));
         assert_eq!(spread(&t.pointer(&cx, &ev(PointerKind::Drag, 176.0, 180.0))), 0.2);
+    }
+
+    #[test]
+    fn measurement_labels_while_dragging_a_point_and_drawing_a_line() {
+        let (d, s) = doc(FreeformMode::Lines);
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.freeform_point = Some(1);
+        let mut t = GradientTool::default();
+        click(&mut t, &cx, 180.0, 120.0);
+        t.pointer(&cx, &ev(PointerKind::Move, 170.0, 160.0));
+        let has_band = |on: bool| {
+            let mut c = crate::testutil::cx(&d, &s, &p);
+            c.measurement_labels = on;
+            c.freeform_point = Some(1);
+            t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { .. }))
+        };
+        assert!(has_band(true), "rubber band");
+        assert!(!has_band(false));
+        let mut t2 = GradientTool::default();
+        let mut cx_drag = crate::testutil::cx(&d, &s, &p);
+        cx_drag.freeform_point = Some(0);
+        t2.pointer(&cx_drag, &ev(PointerKind::Down, 120.0, 120.0));
+        t2.pointer(&cx_drag, &ev(PointerKind::Drag, 130.0, 140.0));
+        let measure = |on: bool| {
+            let mut c = crate::testutil::cx(&d, &s, &p);
+            c.measurement_labels = on;
+            c.freeform_point = Some(0);
+            t2.overlays(&c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        assert_eq!(measure(true), 1);
+        assert_eq!(measure(false), 0);
     }
 
     #[test]
