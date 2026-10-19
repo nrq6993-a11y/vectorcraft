@@ -140,7 +140,7 @@ impl Tool for SliceTool {
 
 #[derive(Clone, Debug)]
 enum Drag {
-    Move { start: Point, ids: Vec<NodeId>, began: bool },
+    Move { start: Point, ids: Vec<NodeId>, began: bool, delta: Vec2 },
     Resize { id: NodeId, handle: Handle, rect: Rect, began: bool },
 }
 
@@ -240,18 +240,18 @@ impl Tool for SliceSelectionTool {
                 match slice_at(cx, p) {
                     Some(id) if m.shift => vec![Action::Exec("object.slice.select".into(), json!({ "slices": [id.0], "toggle": true }))],
                     Some(id) if selected.contains(&id) => {
-                        self.drag = Some(Drag::Move { start: p, ids: selected.clone(), began: false });
+                        self.drag = Some(Drag::Move { start: p, ids: selected.clone(), began: false, delta: Vec2::ZERO });
                         vec![]
                     }
                     Some(id) => {
-                        self.drag = Some(Drag::Move { start: p, ids: vec![id], began: false });
+                        self.drag = Some(Drag::Move { start: p, ids: vec![id], began: false, delta: Vec2::ZERO });
                         vec![Self::select(&[id])]
                     }
                     None if !m.shift && !selected.is_empty() => vec![Self::select(&[])],
                     None => vec![],
                 }
             }
-            (PointerKind::Drag, Some(Drag::Move { start, ids, began })) => {
+            (PointerKind::Drag, Some(Drag::Move { start, ids, began, .. })) => {
                 let mut out = vec![];
                 if !began {
                     if p.distance(start) < cx.tol(3.0) {
@@ -261,7 +261,7 @@ impl Tool for SliceSelectionTool {
                 }
                 let d = move_delta(start, p, m.shift);
                 out.push(Action::Preview("object.slice.move".into(), json!({ "slices": json_ids(&ids), "dx": d.x, "dy": d.y })));
-                self.drag = Some(Drag::Move { start, ids, began: true });
+                self.drag = Some(Drag::Move { start, ids, began: true, delta: d });
                 out
             }
             (PointerKind::Drag, Some(Drag::Resize { id, handle, rect, began })) => {
@@ -326,7 +326,7 @@ impl Tool for SliceSelectionTool {
             }
         }
         o.extend(self.guides.iter().cloned());
-        // Smart Guides › Measurement Labels: the size readouts while resizing or moving slices.
+        // Smart Guides › Measurement Labels: W/H while resizing, dX/dY while moving slices.
         match self.drag.as_ref().filter(|_| cx.measurement_labels) {
             Some(Drag::Resize { id, began: true, .. }) => {
                 if let Some(r) = cx.doc.slice_bounds(*id) {
@@ -336,13 +336,11 @@ impl Tool for SliceSelectionTool {
                     });
                 }
             }
-            Some(Drag::Move { ids, began: true, .. }) => {
-                if let Some(r) = ids.iter().filter_map(|id| cx.doc.slice_bounds(*id)).reduce(|a, b| a.union(b)) {
-                    o.push(Overlay::Measure {
-                        p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                        text: cx.size_label(r.width(), r.height()),
-                    });
-                }
+            Some(Drag::Move { start, began: true, delta, .. }) => {
+                o.push(Overlay::Measure {
+                    p: *start + *delta + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: cx.offset_label(delta.x, delta.y),
+                });
             }
             _ => {}
         }
@@ -449,6 +447,13 @@ mod tests {
         assert_eq!(
             m,
             vec![Action::Begin("Move Slice".into()), Action::Preview("object.slice.move".into(), json!({"slices": [a.0], "dx": 10.0, "dy": 5.0}))]
+        );
+        let mut mc = cx(&d, &sel, &p);
+        mc.measurement_labels = true;
+        assert!(
+            t.overlays(&mc)
+                .iter()
+                .any(|o| matches!(o, Overlay::Measure { text, .. } if text == &mc.offset_label(10.0, 5.0)))
         );
         assert_eq!(t.pointer(&c, &ev(PointerKind::Up, 30.0, 25.0)), vec![Action::Commit]);
         // Shift-click toggles another slice.
