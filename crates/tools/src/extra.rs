@@ -202,14 +202,24 @@ impl Tool for FlareTool {
         self.drag = None;
         if self.placed.take().is_some() && std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![] }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        match (self.drag, self.placed) {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut o = match (self.drag, self.placed) {
             (Some((c, p)), _) => {
                 vec![Overlay::Path { path: ellipse_path(c, p.distance(c), p.distance(c), 0.0), color: BLUE, width: 1.0, dashed: false }]
             }
             (_, Some((c, _))) => vec![Overlay::Line { a: c, b: self.hover, color: BLUE, dashed: true }],
             _ => vec![],
+        };
+        if cx.measurement_labels
+            && self.began
+            && let Some((c, p)) = self.drag
+        {
+            let d = 2.0 * p.distance(c);
+            if d > 1e-9 {
+                o.push(Overlay::Measure { p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("D: {}", cx.len(d)) });
+            }
         }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -518,6 +528,35 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn flare_centre_drag_measure_labels() {
+        use crate::testutil::*;
+
+        let (d, _) = doc_with_rect();
+        let s = vectorcraft_doc::Selection::default();
+        let p = paint();
+        let measure_count = |t: &FlareTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        let measure_text = |t: &FlareTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut t = FlareTool::default();
+        let centre_drag = |t: &mut FlareTool, c: &ToolContext| {
+            t.pointer(c, &PointerEvent::new(PointerKind::Down, 50.0, 50.0));
+            t.pointer(c, &PointerEvent::new(PointerKind::Drag, 70.0, 50.0));
+        };
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        centre_drag(&mut t, &on);
+        assert_eq!(measure_count(&t, &on), 1);
+        assert_eq!(measure_text(&t, &on).as_deref(), Some("D: 40.00 pt"));
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut quiet = FlareTool::default();
+        centre_drag(&mut quiet, &off);
+        assert_eq!(measure_count(&quiet, &off), 0);
     }
 
     #[test]
