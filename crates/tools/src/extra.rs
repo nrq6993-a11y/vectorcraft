@@ -210,13 +210,22 @@ impl Tool for FlareTool {
             (_, Some((c, _))) => vec![Overlay::Line { a: c, b: self.hover, color: BLUE, dashed: true }],
             _ => vec![],
         };
-        if cx.measurement_labels && let Some((c, p)) = self.drag.filter(|_| self.began) {
-            let mut text = format!("D: {}", cx.len(2.0 * p.distance(c)));
-            if self.rays_on {
+        if cx.measurement_labels && self.began {
+            let mut text = String::new();
+            if let Some((c, p)) = self.drag {
+                text = format!("D: {}", cx.len(2.0 * p.distance(c)));
+                if self.rays_on {
+                    let r = self.rays.unwrap_or_else(|| self.options()["rays"].as_u64().unwrap_or(0));
+                    text.push_str(&format!("\nRays: {r}"));
+                }
+            } else if self.rays_on && self.placed.is_some() {
                 let r = self.rays.unwrap_or_else(|| self.options()["rays"].as_u64().unwrap_or(0));
-                text.push_str(&format!("\nRays: {r}"));
+                text = format!("Rays: {r}");
             }
-            o.push(Overlay::Measure { p, text });
+            if !text.is_empty() {
+                let p = self.drag.map(|(_, p)| p).unwrap_or(self.hover) + Vec2::new(cx.tol(12.0), cx.tol(12.0));
+                o.push(Overlay::Measure { p, text });
+            }
         }
         o
     }
@@ -526,6 +535,9 @@ mod tests {
         assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text.contains("Rays: 15"))));
         t.key(&cx, ToolKey::Up, Mods::default());
         assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text.contains("Rays: 16"))));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 40.0, 0.0));
+        t.key(&cx, ToolKey::Down, Mods::default());
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "Rays: 15")));
     }
 
     #[test]
