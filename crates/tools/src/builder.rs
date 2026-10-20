@@ -454,6 +454,8 @@ impl RegionCache {
 pub struct ShapeBuilderTool {
     cache: RegionCache,
     hover: Option<Hit>,
+    /// Pointer while hovering (for measurement labels).
+    at: Option<Point>,
     points: Vec<Point>,
     touched: Touched,
     dragging: bool,
@@ -463,6 +465,14 @@ pub struct ShapeBuilderTool {
 
 /// How close (screen px) the pointer must come to a line piece or an edge to delete it.
 const LINE_TOL_PX: f64 = 4.0;
+
+/// Filled area of a Shape Builder region hit, in document points².
+fn shape_builder_region_area(hit: Hit, map: &BuilderMap) -> Option<f64> {
+    let Hit::Region(i) = hit else { return None };
+    let (_, bp, _) = map.regions.get(i)?;
+    let area = bp.area().abs();
+    (area.is_finite() && area > 0.0).then_some(area)
+}
 
 impl ShapeBuilderTool {
     fn line_tol(cx: &ToolContext, alt: bool) -> Option<f64> {
@@ -492,6 +502,7 @@ impl Tool for ShapeBuilderTool {
         match ev.kind {
             PointerKind::Move => {
                 self.alt = ev.mods.alt;
+                self.at = Some(p);
                 self.hover = self.cache.get(cx, self.alt).hit(p, Self::line_tol(cx, self.alt));
                 vec![]
             }
@@ -499,6 +510,7 @@ impl Tool for ShapeBuilderTool {
                 if cx.selection.is_empty() {
                     return vec![];
                 }
+                self.at = None;
                 self.dragging = true;
                 self.alt = ev.mods.alt;
                 self.points = vec![p];
@@ -574,6 +586,13 @@ impl Tool for ShapeBuilderTool {
                 bp.line_to(*q);
             }
             out.push(Overlay::Path { path: bp, color, width: 1.0, dashed: false });
+        }
+        if cx.measurement_labels
+            && !self.dragging
+            && let (Some(hit), Some(p)) = (self.hover, self.at)
+            && let Some(area) = shape_builder_region_area(hit, map)
+        {
+            out.push(Overlay::Measure { p, text: format!("Area: {}", cx.len(area)) });
         }
         out
     }
@@ -872,6 +891,25 @@ mod tests {
         assert!((bb.x0 - 50.0).abs() < 1e-6 && (bb.x1 - 100.0).abs() < 1e-6, "{bb:?}");
         t.pointer(&cx, &ev(PointerKind::Move, 400.0, 400.0));
         assert!(t.overlays(&cx).is_empty());
+    }
+
+    #[test]
+    fn shape_builder_region_hover_honors_measurement_labels() {
+        let (d, a, b) = two_rects();
+        let mut s = Selection::default();
+        s.set([a, b]);
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let on = ToolContext { measurement_labels: true, ..base };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = ShapeBuilderTool::default();
+        t.pointer(&on, &ev(PointerKind::Move, 75.0, 50.0));
+        let area = 50.0 * 100.0;
+        let want = format!("Area: {}", on.len(area));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        t.pointer(&on, &ev(PointerKind::Move, 400.0, 400.0));
+        assert!(!t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
