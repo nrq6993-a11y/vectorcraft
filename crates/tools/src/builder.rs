@@ -574,6 +574,14 @@ impl Tool for ShapeBuilderTool {
                 bp.line_to(*q);
             }
             out.push(Overlay::Path { path: bp, color, width: 1.0, dashed: false });
+            if cx.measurement_labels {
+                let last = self.points[self.points.len() - 1];
+                let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
+                out.push(Overlay::Measure {
+                    p: last + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: format!("L: {}", cx.len(length)),
+                });
+            }
         }
         out
     }
@@ -892,6 +900,22 @@ mod tests {
         assert_eq!(v["erase"], false);
         assert_eq!(v["ids"], json!([a.0, b.0]), "sorted back to front");
         assert!(v["points"].as_array().unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn shape_builder_drag_shows_scrub_length_measurement_labels() {
+        let (d, a, b) = two_rects();
+        let mut s = Selection::default();
+        s.set([a, b]);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = ShapeBuilderTool::default();
+        t.pointer(&on, &ev(PointerKind::Down, 25.0, 50.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 75.0, 50.0));
+        let want = format!("L: {}", on.len(50.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
