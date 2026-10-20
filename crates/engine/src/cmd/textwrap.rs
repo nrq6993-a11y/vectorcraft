@@ -4,6 +4,8 @@
 //! resolves, for each area text object, the outlines of the wrap objects above it into
 //! `TextObject::wrap` (text space); the layout engine subtracts them from each line's span.
 
+use std::collections::HashMap;
+
 use serde_json::{Value, json};
 use vectorcraft_doc::{Document, Node, NodeId, NodeKind, TextKind, TextWrap, WrapShape};
 use vectorcraft_geom::{PathData, shapes};
@@ -39,20 +41,68 @@ fn wrap_param(p: &Value, base: TextWrap) -> TextWrap {
     TextWrap { offset: f64_or(p, "offset", base.offset).clamp(-1000.0, 1000.0), invert: bool_or(p, "invert", base.invert) }
 }
 
+fn is_area_text(n: &Node) -> bool {
+    matches!(&n.kind, NodeKind::Text(t) if matches!(t.kind, TextKind::Area { .. }))
+}
+
+/// When Make includes area type, bring wrap objects above those texts in the same parent so refresh sees them.
+fn raise_wraps_above_texts(d: &mut Document, wraps: &[NodeId], texts: &[NodeId]) -> Result<()> {
+    let mut by_parent: HashMap<Option<NodeId>, (usize, Vec<NodeId>)> = HashMap::new();
+    for &id in texts {
+        let Some((par, idx, _)) = d.position(id) else { continue };
+        by_parent.entry(par).and_modify(|(top, _)| *top = (*top).max(idx)).or_insert((idx, vec![]));
+    }
+    for &id in wraps {
+        let Some((par, _, _)) = d.position(id) else { continue };
+        by_parent.entry(par).or_insert((0, vec![])).1.push(id);
+    }
+    for (par, (text_top, wrap_ids)) in by_parent {
+        let mut below: Vec<NodeId> = wrap_ids
+            .into_iter()
+            .filter(|id| d.position(*id).is_some_and(|(_, idx, _)| idx <= text_top))
+            .collect();
+        if below.is_empty() {
+            continue;
+        }
+        below.reverse();
+        for (k, id) in below.iter().enumerate() {
+            let Some((_, idx, len)) = d.position(*id) else { continue };
+            if len == 0 {
+                continue;
+            }
+            let to = (len - 1).saturating_sub(k);
+            if to != idx {
+                d.move_node(*id, par, to).map_err(|e| EngineError::Other(e.to_string()))?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn make(s: &mut Session, p: &Value) -> Result<Value> {
     let ids = checked_ids_or_selection(s, p, "object.textWrap.make")?;
     let w = wrap_param(p, TextWrap::default());
+    let d = &s.doc()?.doc;
+    let wrap_ids: Vec<NodeId> = ids
+        .iter()
+        .copied()
+        .filter(|&id| d.node(id).is_some_and(|n| !matches!(&n.kind, NodeKind::Layer { .. } | NodeKind::Text(_))))
+        .collect();
+    if wrap_ids.is_empty() {
+        return Err(EngineError::Other("Text Wrap: select a wrap object".into()));
+    }
+    let area_text_ids: Vec<NodeId> = ids.iter().copied().filter(|id| d.node(*id).is_some_and(is_area_text)).collect();
     s.edit("Make Text Wrap", |d, _| {
-        for id in &ids {
+        for id in &wrap_ids {
             let n = d.node_mut(*id).ok_or(EngineError::NoNode(*id))?;
-            if matches!(n.kind, NodeKind::Layer { .. }) {
-                return Err(EngineError::Other("layers can't be wrap objects".into()));
-            }
             n.extras_mut().wrap = Some(w);
+        }
+        if !area_text_ids.is_empty() {
+            raise_wraps_above_texts(d, &wrap_ids, &area_text_ids)?;
         }
         Ok(())
     })?;
-    Ok(json!({ "ids": ids.iter().map(|i| i.0).collect::<Vec<_>>() }))
+    Ok(json!({ "ids": wrap_ids.iter().map(|i| i.0).collect::<Vec<_>>() }))
 }
 
 fn release(s: &mut Session, p: &Value) -> Result<Value> {
@@ -271,6 +321,24 @@ mod tests {
         s.execute("object.textWrap.make", &json!({})).unwrap();
         s.execute("object.arrange.sendToBack", &json!({})).unwrap();
         assert_eq!(lines(&s, t), plain);
+    }
+
+    #[test]
+    fn make_with_shape_and_area_text_below_does_not_mark_text_as_wrap() {
+        let mut s = Session::new();
+        s.execute("file.new", &json!({"width": 600, "height": 600})).unwrap();
+        let circle = s.execute("shape.ellipse", &json!({"x": 150, "y": 100, "width": 100, "height": 100})).unwrap()["id"].as_u64().unwrap();
+        let t = s
+            .execute("text.create", &json!({"x": 0, "y": 0, "text": "word ".repeat(300), "size": 12, "area": {"width": 400, "height": 400}}))
+            .unwrap()["id"]
+            .as_u64()
+            .unwrap();
+        s.execute("select.set", &json!({"ids": [circle, t]})).unwrap();
+        s.execute("object.textWrap.make", &json!({})).unwrap();
+        assert!(s.doc().unwrap().doc.node(NodeId(circle)).unwrap().extras().wrap.is_some());
+        assert!(s.doc().unwrap().doc.node(NodeId(t)).unwrap().extras().wrap.is_none());
+        let wrapped = lines(&s, t);
+        assert!(wrapped.iter().any(|l| l.0 >= 155.0), "{wrapped:?}");
     }
 
     #[test]
