@@ -8,7 +8,8 @@
 //! else the document's current brush).
 
 use serde_json::{Value, json};
-use vectorcraft_geom::{Point, Shape};
+use vectorcraft_doc::DEFAULT_GRAPHIC_STYLE;
+use vectorcraft_geom::{Point, Shape, Vec2};
 
 use crate::draw2::{FEEDBACK, GestureTool, points_json};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -54,6 +55,22 @@ impl SymbolismTool {
             _ => "symbolSprayer",
         };
         Self { id, points: vec![], active: false, hover: None, alt: false, diameter: 80.0, intensity: 5.0, density: 5.0, symbol: None, style: None }
+    }
+
+    /// Graphic style name the Styler applies (`symbol.adjust` uses the same default).
+    fn style_label(&self, cx: &ToolContext) -> Option<String> {
+        if self.id != "symbolStyler" {
+            return None;
+        }
+        if let Some(name) = &self.style {
+            return Some(name.clone());
+        }
+        cx.doc
+            .graphic_styles
+            .iter()
+            .find(|g| g.name != DEFAULT_GRAPHIC_STYLE)
+            .or_else(|| cx.doc.graphic_styles.first())
+            .map(|g| g.name.clone())
     }
 
     fn label(&self) -> &'static str {
@@ -165,10 +182,16 @@ impl Tool for SymbolismTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(p) = self.hover else { return vec![] };
         let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
-        vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }]
+        let mut o = vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }];
+        if cx.measurement_labels
+            && let Some(name) = self.style_label(cx)
+        {
+            o.push(Overlay::Measure { p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("Style: {}", name) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         match self.id {
@@ -318,6 +341,27 @@ mod tests {
         t.key(&cx, ToolKey::BracketLeft, Mods { shift: true, ..Default::default() });
         assert_eq!(t.options()["diameter"], json!(90.0));
         assert_eq!(t.options()["intensity"], json!(4.0));
+    }
+
+    #[test]
+    fn styler_honors_measurement_labels_with_style_readout() {
+        let (d, _) = doc_with_rect();
+        let (s, p) = (Selection::default(), paint());
+        let cx = cx(&d, &s, &p);
+        let mut t = SymbolismTool::new("symbolStyler");
+        t.hover = Some(Point::new(10.0, 20.0));
+        let on = ToolContext { measurement_labels: true, ..cx };
+        let text = |t: &SymbolismTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        assert_eq!(text(&t, &on).as_deref(), Some("Style: Black Outline"));
+        t.set_option("style", &json!("Sunshine"));
+        assert_eq!(text(&t, &on).as_deref(), Some("Style: Sunshine"));
+        let off = ToolContext { measurement_labels: false, ..cx };
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
