@@ -203,7 +203,18 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            if self.id == "polarGrid" && w > 0.0 && h > 0.0 {
+                // Evenly spaced dividers: pitch between concentric ellipses and radial wedges.
+                if self.skew[0].abs() < 1e-9 && self.rows > 0 {
+                    let n = self.rows as f64 + 1.0;
+                    text.push_str(&format!("\nRx: {}\nRy: {}", cx.len(w / n), cx.len(h / n)));
+                }
+                if self.skew[1].abs() < 1e-9 && self.columns > 0 {
+                    text.push_str(&format!("\nAngle: {:.1}°", 360.0 / self.columns as f64));
+                }
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -309,6 +320,36 @@ mod tests {
         t.set_option("frame", &json!(false));
         t.set_option("rowSkew", &json!(12.5));
         assert_eq!(t.options(), json!({"rows": 5, "columns": 5, "rowSkew": 12.5, "columnSkew": 0.0, "frame": false, "fill": false}));
+    }
+
+    #[test]
+    fn polar_grid_divider_spacing_measure_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let measure_text = |t: &FamilyTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut polar = FamilyTool::new("polarGrid");
+        polar.rows = 4;
+        polar.columns = 8;
+        polar.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        polar.pointer(&on, &PointerEvent::new(PointerKind::Drag, 100.0, 50.0));
+        assert!(measure_text(&polar, &off).is_none());
+        let text = measure_text(&polar, &on).unwrap_or_default();
+        assert!(text.contains("W: "), "{text}");
+        assert!(text.contains(&format!("Rx: {}", on.len(20.0))), "{text}");
+        assert!(text.contains(&format!("Ry: {}", on.len(10.0))), "{text}");
+        assert!(text.contains("Angle: 45.0°"), "{text}");
+        polar.skew[0] = 10.0;
+        let text = measure_text(&polar, &on).unwrap_or_default();
+        assert!(!text.contains("Rx:"), "{text}");
+        assert!(text.contains("Angle: 45.0°"), "{text}");
     }
 
     #[test]
