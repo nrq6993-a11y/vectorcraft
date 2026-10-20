@@ -19,6 +19,7 @@ use vectorcraft_geom::kurbo::ParamCurveArclen;
 use vectorcraft_geom::{Anchor, AnchorKind, PathData, Point, Rect, SubPath, Vec2};
 
 use super::ellipse_path;
+use crate::draw2::{FEEDBACK, polyline};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -700,6 +701,11 @@ impl LiquifyTool {
         self.params.width = w.clamp(1.0, 10_000.0);
         self.params.height = h.clamp(1.0, 10_000.0);
     }
+
+    /// Document length of the stroke polyline collected so far.
+    fn stroke_path_length(&self) -> f64 {
+        self.points.windows(2).map(|w| w[0].0.distance(w[1].0)).sum()
+    }
 }
 
 impl Tool for LiquifyTool {
@@ -750,14 +756,27 @@ impl Tool for LiquifyTool {
             _ => vec![],
         }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        let Some(c) = self.hover.filter(|_| self.show_brush || self.sizing.is_some()) else { return vec![] };
-        vec![Overlay::Path {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut o = vec![];
+        if self.active && self.points.len() >= 2 {
+            let pts: Vec<Point> = self.points.iter().map(|(p, _)| *p).collect();
+            o.push(Overlay::Path { path: polyline(&pts), color: FEEDBACK, width: 1.0, dashed: false });
+            if cx.measurement_labels {
+                let p = self.hover.or_else(|| self.points.last().map(|(pt, _)| *pt));
+                if let Some(p) = p {
+                    let text = format!("D: {}", cx.len(self.stroke_path_length()));
+                    o.push(Overlay::Measure { p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text });
+                }
+            }
+        }
+        let Some(c) = self.hover.filter(|_| self.show_brush || self.sizing.is_some()) else { return o };
+        o.push(Overlay::Path {
             path: ellipse_path(c, self.params.width / 2.0, self.params.height / 2.0, self.params.angle),
             color: [0x80, 0x80, 0x80],
             width: 1.0,
             dashed: false,
-        }]
+        });
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -923,5 +942,32 @@ mod tests {
         assert_eq!(p, q);
         let r = LiquifyParams::from_json(&json!({"tool": "warp", "diameter": 40, "intensity": 80})).unwrap();
         assert_eq!((r.width, r.height, r.intensity), (40.0, 40.0, 0.8));
+    }
+
+    #[test]
+    fn liquify_stroke_shows_path_length_measurement_labels() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+
+        let d = vectorcraft_doc::Document::new(500.0, 500.0);
+        let s = Selection::default();
+        let p = paint();
+        let measure_text = |t: &LiquifyTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut t = LiquifyTool::new("warp");
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        assert!(measure_text(&t, &on).is_none(), "one sample only");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 50.0, 0.0));
+        assert_eq!(measure_text(&t, &on).as_deref(), Some("D: 50.00 pt"));
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(measure_text(&t, &off).is_none());
+        t.pointer(&off, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+        assert!(measure_text(&t, &off).is_none());
+        assert_eq!(measure_text(&t, &on).as_deref(), Some("D: 100.00 pt"));
     }
 }
