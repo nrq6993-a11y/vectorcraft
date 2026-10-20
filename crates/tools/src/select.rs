@@ -712,7 +712,13 @@ impl Tool for SelectionTool {
             }
         }
         match &self.state {
-            State::Marquee { start, cur, .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
+            State::Marquee { start, cur, .. } => {
+                let r = Rect::from_points(*start, *cur);
+                o.push(Overlay::Marquee(r));
+                if cx.measurement_labels {
+                    o.push(Overlay::Measure { p: *cur, text: cx.size_label(r.width(), r.height()) });
+                }
+            }
             State::Corner(c) => o.extend(c.overlays(cx)),
             State::Pie(d) => o.extend(d.overlays(cx)),
             State::Loaded { press: Some((start, cur)), .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
@@ -1547,9 +1553,35 @@ mod tests {
         let mut t = SelectionTool::default();
         t.pointer(&cx, &ev(PointerKind::Down, 50.0, 50.0));
         t.pointer(&cx, &ev(PointerKind::Drag, 120.0, 120.0));
-        assert_eq!(t.overlays(&cx).len(), 1);
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Marquee(_))));
         let a = t.pointer(&cx, &ev(PointerKind::Up, 120.0, 120.0));
         assert_eq!(a, vec![Action::Exec("select.set".into(), json!({"ids": [id.0]}))]);
+    }
+
+    #[test]
+    fn marquee_honors_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let want = base.size_label(70.0, 70.0);
+        let measures = |on: bool| {
+            let c = ToolContext { measurement_labels: on, ..base };
+            let mut t = SelectionTool::default();
+            t.pointer(&c, &ev(PointerKind::Down, 50.0, 50.0));
+            t.pointer(&c, &ev(PointerKind::Drag, 120.0, 120.0));
+            t.overlays(&c)
+                .iter()
+                .filter(|o| matches!(o, Overlay::Measure { .. }))
+                .count()
+        };
+        assert_eq!(measures(true), 1);
+        assert_eq!(measures(false), 0);
+        let on = ToolContext { measurement_labels: true, ..base };
+        let mut t = SelectionTool::default();
+        t.pointer(&on, &ev(PointerKind::Down, 50.0, 50.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 120.0, 120.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
     }
 
     /// Shift-drag a marquee: the objects it reaches toggle (#483), so selected ones can be

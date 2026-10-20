@@ -843,7 +843,14 @@ impl Tool for DirectSelectionTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         match &self.state {
-            State::Marquee { start, cur, .. } => vec![Overlay::Marquee(Rect::from_points(*start, *cur))],
+            State::Marquee { start, cur, .. } => {
+                let r = Rect::from_points(*start, *cur);
+                let mut o = vec![Overlay::Marquee(r)];
+                if cx.measurement_labels {
+                    o.push(Overlay::Measure { p: *cur, text: cx.size_label(r.width(), r.height()) });
+                }
+                o
+            }
             State::Corner(c) => c.overlays(cx),
             _ => {
                 let mut out = self.spine_overlays(cx);
@@ -1344,6 +1351,37 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 250.0, 150.0));
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 250.0, 150.0));
         assert_eq!(a, vec![Action::Exec("select.anchorsMany".into(), json!({"items": [{"id": id.0, "anchors": [[0, 1]]}], "mode": "set"}))]);
+    }
+
+    #[test]
+    fn marquee_honors_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let want = base.size_label(100.0, 100.0);
+        for group in [false, true] {
+            let measures = |on: bool| {
+                let c = ToolContext { measurement_labels: on, ..base };
+                let mut t = DirectSelectionTool::new(group);
+                t.pointer(&c, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
+                t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 250.0, 150.0));
+                t.overlays(&c)
+                    .iter()
+                    .filter(|o| matches!(o, Overlay::Measure { .. }))
+                    .count()
+            };
+            assert_eq!(measures(true), 1, "group={group}");
+            assert_eq!(measures(false), 0, "group={group}");
+            let on = ToolContext { measurement_labels: true, ..base };
+            let mut t = DirectSelectionTool::new(group);
+            t.pointer(&on, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
+            t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 250.0, 150.0));
+            assert!(
+                t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+                "group={group}"
+            );
+        }
     }
 
     #[test]
