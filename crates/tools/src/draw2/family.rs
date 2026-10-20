@@ -203,7 +203,22 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let mut text = cx.size_label(w, h);
+            match self.id {
+                // Evenly spaced dividers: pitch between horizontal and vertical grid lines.
+                "rectangularGrid"
+                    if self.skew[0].abs() < 1e-9 && self.skew[1].abs() < 1e-9 && w > 0.0 && h > 0.0 =>
+                {
+                    let rows = self.rows as f64 + 1.0;
+                    let cols = self.columns as f64 + 1.0;
+                    text.push_str(&format!("\nRow: {}\nCol: {}", cx.len(h / rows), cx.len(w / cols)));
+                }
+                "polarGrid" if self.columns > 0 => {
+                    text.push_str(&format!("\nAngle: {:.1}°", 360.0 / self.columns as f64));
+                }
+                _ => {}
+            }
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -328,6 +343,37 @@ mod tests {
         let (c, v) = t.command(Point::new(0.0, 0.0), Point::new(10.0, 4.0), Mods { shift: true, ..Default::default() });
         assert_eq!(c, "shape.arc");
         assert_eq!(v, json!({"x1": 0.0, "y1": 0.0, "x2": 10.0, "y2": 10.0, "closed": false}));
+    }
+
+    #[test]
+    fn grid_divider_spacing_measure_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let measure_text = |t: &FamilyTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut rect = FamilyTool::new("rectangularGrid");
+        rect.rows = 4;
+        rect.columns = 9;
+        rect.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        rect.pointer(&on, &PointerEvent::new(PointerKind::Drag, 100.0, 50.0));
+        assert!(measure_text(&rect, &off).is_none());
+        let text = measure_text(&rect, &on).unwrap_or_default();
+        assert!(text.contains("W: "), "{text}");
+        assert!(text.contains(&format!("Row: {}", on.len(10.0))), "{text}");
+        assert!(text.contains(&format!("Col: {}", on.len(10.0))), "{text}");
+        let mut polar = FamilyTool::new("polarGrid");
+        polar.columns = 8;
+        polar.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        polar.pointer(&on, &PointerEvent::new(PointerKind::Drag, 40.0, 40.0));
+        let text = measure_text(&polar, &on).unwrap_or_default();
+        assert!(text.contains("Angle: 45.0°"), "{text}");
     }
 
     /// The start and the dragged corner snap to Smart Guides (#506), Shift sliding the corner of
