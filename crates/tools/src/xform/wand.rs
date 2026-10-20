@@ -73,6 +73,25 @@ fn anchors_json(v: &BTreeSet<AnchorRef>) -> Value {
     Value::Array(v.iter().map(|(s, a)| json!([s, a])).collect())
 }
 
+/// Anchor points inside a closed lasso loop on every editable, visible path the Lasso may pick.
+fn lasso_hits(cx: &ToolContext, poly: &[Point]) -> Vec<(NodeId, BTreeSet<AnchorRef>)> {
+    if poly.len() < 3 {
+        return vec![];
+    }
+    let mut hits: Vec<(NodeId, BTreeSet<AnchorRef>)> = vec![];
+    crate::draw2::walk_pickable(cx, |n| {
+        if let NodeKind::Path { path, .. } = &n.kind {
+            let v: BTreeSet<AnchorRef> =
+                path.anchors().filter(|(_, _, a)| point_in_polygon(poly, a.p)).map(|(s, i, _)| (s, i)).collect();
+            if !v.is_empty() {
+                hits.push((n.id, v));
+            }
+        }
+    });
+    hits.retain(|(id, _)| cx.doc.is_editable(*id) && cx.doc.is_visible(*id));
+    hits
+}
+
 impl Tool for LassoTool {
     fn id(&self) -> &'static str {
         "lasso"
@@ -103,18 +122,7 @@ impl Tool for LassoTool {
                 if poly.len() < 3 {
                     return if add || sub { vec![] } else { vec![Action::Exec("select.none".into(), json!({}))] };
                 }
-                // Anchors inside the loop for every editable path the Lasso may pick.
-                let mut hits: Vec<(NodeId, BTreeSet<AnchorRef>)> = vec![];
-                crate::draw2::walk_pickable(cx, |n| {
-                    if let NodeKind::Path { path, .. } = &n.kind {
-                        let v: BTreeSet<AnchorRef> =
-                            path.anchors().filter(|(_, _, a)| point_in_polygon(&poly, a.p)).map(|(s, i, _)| (s, i)).collect();
-                        if !v.is_empty() {
-                            hits.push((n.id, v));
-                        }
-                    }
-                });
-                hits.retain(|(id, _)| cx.doc.is_editable(*id) && cx.doc.is_visible(*id));
+                let hits = lasso_hits(cx, &poly);
                 let items: Vec<Value> = hits.iter().map(|(id, v)| json!({ "id": id.0, "anchors": anchors_json(v) })).collect();
                 let mode = if sub {
                     "subtract"
@@ -137,11 +145,17 @@ impl Tool for LassoTool {
         vec![]
     }
 
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         if !self.active || self.points.len() < 2 {
             return vec![];
         }
-        vec![Overlay::Path { path: super::polygon(&self.points, false), color: [0x40, 0x40, 0x40], width: 1.0, dashed: true }]
+        let mut o = vec![Overlay::Path { path: super::polygon(&self.points, false), color: [0x40, 0x40, 0x40], width: 1.0, dashed: true }];
+        if cx.measurement_labels && self.points.len() >= 3 {
+            let count = lasso_hits(cx, &self.points).iter().map(|(_, v)| v.len()).sum::<usize>();
+            let p = self.points.last().copied().unwrap_or(Point::ZERO) + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0));
+            o.push(Overlay::Measure { p, text: format!("Anchors: {}", count) });
+        }
+        o
     }
 
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
@@ -199,6 +213,28 @@ mod tests {
         let shared = [(-20.0, 280.0), (30.0, 280.0), (0.0, 320.0)];
         assert_eq!(lasso(None, shared), vec![face]);
         assert_eq!(lasso(Some(rect), shared), vec![]);
+    }
+
+    #[test]
+    fn lasso_anchor_count_measure_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let measure_text = |t: &LassoTool, on: bool| {
+            let cx = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            t.overlays(&cx).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut t = LassoTool::default();
+        let cx = cx(&d, &s, &p);
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 80.0, 80.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 140.0, 80.0));
+        assert!(measure_text(&t, true).is_none(), "need a closed loop");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 80.0, 140.0));
+        assert_eq!(measure_text(&t, true).as_deref(), Some("Anchors: 1"));
+        assert!(measure_text(&t, false).is_none());
     }
 
     #[test]
