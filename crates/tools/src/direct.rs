@@ -858,6 +858,9 @@ impl Tool for DirectSelectionTool {
                 if let Some((id, p)) = self.hover.filter(|_| matches!(self.state, State::Idle)) {
                     out.push(Overlay::Anchor { p, color: cx.doc.layer_color(id), filled: false, size: 8.0 });
                 }
+                if let State::Bracket(b) = &self.state {
+                    out.extend(b.measure_overlays(cx));
+                }
                 out.extend(self.guide.overlays(cx));
                 out
             }

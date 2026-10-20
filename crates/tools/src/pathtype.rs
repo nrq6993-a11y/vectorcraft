@@ -162,6 +162,8 @@ pub struct BracketDrag {
     /// Where the press was along the path (a fraction of its length).
     grab: f64,
     began: bool,
+    /// The pointer during an active drag (overlay placement).
+    at: Point,
 }
 
 impl BracketDrag {
@@ -172,10 +174,42 @@ impl BracketDrag {
         }
         let (brackets, which) = bracket_at(cx, ev.pos)?;
         let grab = brackets.fraction_at(ev.pos)?;
-        Some(Self { brackets, which, start: ev.pos, grab, began: false })
+        Some(Self { brackets, which, start: ev.pos, grab, began: false, at: ev.pos })
+    }
+
+    /// Signed slide along the path while dragging the centre bracket (document units).
+    fn centre_slide_len(&self, u: f64) -> Option<f64> {
+        if self.which != Bracket::Centre {
+            return None;
+        }
+        let total = self.brackets.arc.len();
+        if !total.is_finite() || total <= 0.0 {
+            return None;
+        }
+        let closed = self.brackets.arc.is_closed();
+        let mut d = u - self.grab;
+        if closed {
+            d -= d.round();
+        }
+        Some(d * total)
+    }
+
+    /// Measurement readout while the centre bracket slides the type ([`ToolContext::measurement_labels`]).
+    pub fn measure_overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels || self.which != Bracket::Centre {
+            return vec![];
+        }
+        let Some(u) = self.brackets.fraction_at(self.at) else { return vec![] };
+        let Some(slide) = self.centre_slide_len(u) else { return vec![] };
+        if slide.abs() < 1e-9 {
+            return vec![];
+        }
+        let text = format!("Δ: {}", cx.len(slide));
+        vec![Overlay::Measure { p: self.at + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text }]
     }
 
     pub fn drag(&mut self, cx: &ToolContext, p: Point, cmd: bool) -> Vec<Action> {
+        self.at = p;
         let mut out = vec![];
         if !self.began {
             if p.distance(self.start) < cx.tol(3.0) {
@@ -328,6 +362,35 @@ mod tests {
             assert_eq!(n, 0);
             assert_ne!(cursor, Cursor::PathBracket);
         }
+    }
+
+    #[test]
+    fn centre_bracket_drag_shows_spacing_delta_in_measurement_labels() {
+        let (d, id) = doc_with_path_type();
+        let s = selected(id);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let grab = Point::new(280.0, 295.0);
+        let mut drag = BracketDrag::hit(&on, &PointerEvent::new(PointerKind::Down, grab.x, grab.y).with_mods(Mods::default())).unwrap();
+        assert_eq!(drag.which, Bracket::Centre);
+        let _ = drag.drag(&on, Point::new(340.0, 295.0), false);
+        let want = format!("Δ: {}", on.len(60.0));
+        assert!(drag.measure_overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(drag.measure_overlays(&off).is_empty());
+    }
+
+    #[test]
+    fn start_bracket_drag_shows_no_spacing_measurement_label() {
+        let (d, id) = doc_with_path_type();
+        let s = selected(id);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let grab = Point::new(160.0, 295.0);
+        let mut drag = BracketDrag::hit(&on, &PointerEvent::new(PointerKind::Down, grab.x, grab.y).with_mods(Mods::default())).unwrap();
+        assert_eq!(drag.which, Bracket::Start);
+        let _ = drag.drag(&on, Point::new(190.0, 295.0), false);
+        assert!(drag.measure_overlays(&on).is_empty());
     }
 
     #[test]

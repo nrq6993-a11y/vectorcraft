@@ -716,6 +716,7 @@ impl Tool for SelectionTool {
             State::Corner(c) => o.extend(c.overlays(cx)),
             State::Pie(d) => o.extend(d.overlays(cx)),
             State::Loaded { press: Some((start, cur)), .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
+            State::Bracket(b) => o.extend(b.measure_overlays(cx)),
             _ => {}
         }
         o.extend(self.guides.iter().cloned());
