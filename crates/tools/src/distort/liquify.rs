@@ -750,14 +750,23 @@ impl Tool for LiquifyTool {
             _ => vec![],
         }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(c) = self.hover.filter(|_| self.show_brush || self.sizing.is_some()) else { return vec![] };
-        vec![Overlay::Path {
+        let mut o = vec![Overlay::Path {
             path: ellipse_path(c, self.params.width / 2.0, self.params.height / 2.0, self.params.angle),
             color: [0x80, 0x80, 0x80],
             width: 1.0,
             dashed: false,
-        }]
+        }];
+        if self.sizing.is_none() && self.active && self.points.len() >= 2 && cx.measurement_labels {
+            let last = self.points[self.points.len() - 1].0;
+            let length = self.points.windows(2).map(|w| w[0].0.distance(w[1].0)).sum::<f64>();
+            o.push(Overlay::Measure {
+                p: last + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: format!("L: {}", cx.len(length)),
+            });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -923,5 +932,22 @@ mod tests {
         assert_eq!(p, q);
         let r = LiquifyParams::from_json(&json!({"tool": "warp", "diameter": 40, "intensity": 80})).unwrap();
         assert_eq!((r.width, r.height, r.intensity), (40.0, 40.0, 0.8));
+    }
+
+    #[test]
+    fn liquify_stroke_length_honors_measurement_labels() {
+        use crate::testutil::*;
+        use crate::{PointerEvent, PointerKind};
+
+        let (d, _) = doc_with_rect();
+        let (s, p) = (vectorcraft_doc::Selection::default(), paint());
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..on };
+        let mut t = LiquifyTool::new("warp");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 50.0, 0.0));
+        let want = format!("L: {}", on.len(50.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 }
