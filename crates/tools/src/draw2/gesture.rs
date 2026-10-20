@@ -12,7 +12,7 @@
 
 use serde_json::{Value, json};
 use vectorcraft_doc::NodeId;
-use vectorcraft_geom::Point;
+use vectorcraft_geom::{Point, Vec2};
 
 use super::{FEEDBACK, points_json, polyline};
 use crate::guides::DrawSnap;
@@ -354,6 +354,14 @@ impl Tool for GestureTool {
         };
         let color = if self.id == "eraser" { [0x80, 0x80, 0x80] } else { FEEDBACK };
         o.push(Overlay::Path { path: polyline(&self.points), color, width, dashed: self.id == "knife" });
+        if self.id == "knife" && cx.measurement_labels {
+            let last = self.points[self.points.len() - 1];
+            let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
+            o.push(Overlay::Measure {
+                p: last + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: format!("L: {}", cx.len(length)),
+            });
+        }
         o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, m: Mods) -> Cursor {
@@ -559,6 +567,22 @@ mod tests {
     }
 
     #[test]
+    fn knife_drag_shows_polyline_length_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut k = GestureTool::new("knife");
+        k.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+        let want = format!("L: {}", cx.len(100.0));
+        assert!(k.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 100.0));
+        let want = format!("L: {}", cx.len(200.0));
+        assert!(k.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+    }
+
+    #[test]
     fn eraser_and_knife_exec_on_release() {
         let (d, _) = doc_with_rect();
         let s = Selection::default();
@@ -571,7 +595,9 @@ mod tests {
         let mut k = GestureTool::new("knife");
         k.pointer(&cx, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
         k.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
-        assert_eq!(k.overlays(&cx).len(), 1);
+        assert_eq!(k.overlays(&cx).len(), 2);
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert_eq!(k.overlays(&quiet).len(), 1);
         let a = k.pointer(&cx, &PointerEvent::new(PointerKind::Up, 250.0, 150.0));
         assert!(matches!(&a[0], Action::Exec(c, v) if c == "path.knife" && v["points"].as_array().unwrap().len() == 3));
     }
