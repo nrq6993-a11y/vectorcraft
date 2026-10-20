@@ -204,13 +204,15 @@ impl FreeTransformTool {
                     (a, self.guides) = t.snap_scale(cx, &vectorcraft_doc::OrientedBox::aligned(d.rect), h, a, shift, m.alt);
                 }
                 let nr = a.transform_rect_bbox(d.rect);
-                self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, cx.size_label(nr.width(), nr.height())));
                 a
             }
             Op::Shear(h) => shear_for_side(d.rect, h, delta, m.alt),
             Op::Rotate => {
                 let (a, deg) = rotate_for_drag(d.rect.center(), d.start, p, shift);
-                self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", -deg)));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, format!("{:.1}°", -deg)));
                 a
             }
         };
@@ -519,6 +521,29 @@ mod tests {
         assert_eq!(q[0], Point::new(2.0, 0.0));
         assert_eq!(q[1], Point::new(8.0, 0.0));
         assert_eq!(q[2], Point::new(10.0, 10.0));
+    }
+
+    #[test]
+    fn scale_drag_readouts_need_measurement_labels_and_transform_tools() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let measures = |t: &FreeTransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        for on in [true, false] {
+            let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+            let mut t = FreeTransformTool::default();
+            t.pointer(&c, &ev(PointerKind::Down, 150.0, 200.0));
+            t.pointer(&c, &ev(PointerKind::Drag, 150.0, 230.0));
+            assert_eq!(measures(&t, &c), usize::from(on), "transform tools {on}");
+            t.pointer(&c, &ev(PointerKind::Up, 150.0, 230.0));
+        }
+        let c = ToolContext { measurement_labels: false, transform_tools_guides: true, ..cx(&d, &s, &p) };
+        let mut t = FreeTransformTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, 150.0, 200.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 150.0, 230.0));
+        assert_eq!(measures(&t, &c), 0, "measurement labels off");
+        t.pointer(&c, &ev(PointerKind::Up, 150.0, 230.0));
     }
 
     #[test]

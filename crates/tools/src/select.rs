@@ -623,7 +623,8 @@ impl Tool for SelectionTool {
                     (a, self.guides) = t.snap_scale(cx, &bx, handle, a, m.shift, m.alt);
                 }
                 let nr = a.transform_rect_bbox(bx.rect);
-                self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, cx.size_label(nr.width(), nr.height())));
                 let mut params = json!({ "matrix": matrix_json(bx.conjugate(a)), "copy": false });
                 if areas {
                     params["typeAreas"] = json!(true);
@@ -632,7 +633,8 @@ impl Tool for SelectionTool {
             }
             (PointerKind::Drag, State::Rotating { center, start, .. }) => {
                 let (a, deg) = rotate_for_drag(center, start, p, m.shift);
-                self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", -deg)));
+                self.measure = (cx.measurement_labels && cx.transform_tools_guides)
+                    .then(|| (p, format!("{:.1}°", -deg)));
                 vec![Action::Preview("object.transform".into(), json!({ "matrix": matrix_json(a), "copy": false }))]
             }
             (PointerKind::Drag, State::Marquee { start, toggle, enclosed, .. }) => {
@@ -1897,7 +1899,7 @@ mod tests {
             assert_eq!(measures(&t, &c), usize::from(on), "measurement labels {on}");
             t.pointer(&c, &ev(PointerKind::Up, 285.0, 135.0));
         }
-        // Scaling by a handle: the size readout belongs to Transform Tools.
+        // Scaling by a handle: W/H readouts need Measurement Labels and Transform Tools.
         for on in [true, false] {
             let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
             let mut t = SelectionTool::default();
@@ -1906,6 +1908,12 @@ mod tests {
             assert_eq!(measures(&t, &c), usize::from(on), "transform tools {on}");
             t.pointer(&c, &ev(PointerKind::Up, 275.0, 180.0));
         }
+        let c = ToolContext { measurement_labels: false, transform_tools_guides: true, ..cx(&d, &s, &p) };
+        let mut t = SelectionTool::default();
+        t.pointer(&c, &ev(PointerKind::Down, 275.0, 150.0));
+        t.pointer(&c, &ev(PointerKind::Drag, 275.0, 180.0));
+        assert_eq!(measures(&t, &c), 0, "measurement labels off");
+        t.pointer(&c, &ev(PointerKind::Up, 275.0, 180.0));
         // Snapping Tolerance: 6 px from the neighbour's bottom edge is beyond 4, within 8.
         for (tol, want) in [(4.0, 94.0), (8.0, 100.0), (0.0, 94.0)] {
             let c = ToolContext { snapping_tolerance: tol, ..cx(&d, &s, &p) };
