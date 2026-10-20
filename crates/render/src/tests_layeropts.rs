@@ -148,6 +148,25 @@ fn hide_template_leaves_only_the_template_layers_out() {
     assert!(guide_drawn(&hidden), "the guide on the other layer still draws");
 }
 
+/// View › Hide Guides (#3219): guide paths left out of the screen view, like ruler guides.
+#[test]
+fn hide_guides_leaves_guide_paths_out_of_the_screen_view() {
+    let mut d = Document::new(100.0, 100.0);
+    let l = d.layers[0].id;
+    let mut g = Node::path(d.alloc_id(), shapes::rectangle(Rect::new(70.0, 70.0, 90.0, 90.0)), Appearance::default());
+    if let NodeKind::Path { guide, .. } = &mut g.kind {
+        *guide = true;
+    }
+    d.insert(Some(l), 0, g).unwrap();
+    let guide_drawn = |hide: bool| {
+        let opts = RenderOptions { background: Some([255, 255, 255, 255]), hide_guides: hide, ..Default::default() };
+        let r = Renderer::new().render(&d, 100, 100, Affine::IDENTITY, &opts);
+        (60..100).flat_map(|y| (60..100).map(move |x| (x, y))).any(|(x, y)| r.pixel(x, y) != [255, 255, 255, 255])
+    };
+    assert!(guide_drawn(false));
+    assert!(!guide_drawn(true));
+}
+
 /// A guide path draws on screen only: exports leave it out, as they leave templates out (and as
 /// the SVG, PSD and PDF exports and printing already do).
 #[test]

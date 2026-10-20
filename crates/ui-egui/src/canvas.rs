@@ -330,6 +330,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         outline: app.ui.view.outline,
         trim: app.ui.view.trim_view,
         templates: app.ui.view.templates,
+        guides: app.ui.view.guides,
         ppp,
         hidden: vec![],
         rot: v.rotation,
@@ -383,6 +384,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
             overprint_preview: vectorcraft_render::proof::overprint_preview_on(),
             trim: app.ui.view.trim_view,
             hide_templates: !app.ui.view.templates,
+            hide_guides: !app.ui.view.guides,
             tile_edge: vectorcraft_color::Color::from_hex(&app.session.prefs.pattern_tile_edge_color).map_or(opts.tile_edge, |c| {
                 let [r, g, b, _] = c.to_rgba8(1.0);
                 [r, g, b]
