@@ -202,14 +202,23 @@ impl Tool for FlareTool {
         self.drag = None;
         if self.placed.take().is_some() && std::mem::take(&mut self.began) { vec![Action::Commit] } else { vec![] }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        match (self.drag, self.placed) {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut out = match (self.drag, self.placed) {
             (Some((c, p)), _) => {
                 vec![Overlay::Path { path: ellipse_path(c, p.distance(c), p.distance(c), 0.0), color: BLUE, width: 1.0, dashed: false }]
             }
             (_, Some((c, _))) => vec![Overlay::Line { a: c, b: self.hover, color: BLUE, dashed: true }],
             _ => vec![],
+        };
+        if cx.measurement_labels
+            && let Some((c, p)) = self.drag.filter(|_| self.began)
+        {
+            let r = p.distance(c);
+            if r > 0.0 {
+                out.push(Overlay::Measure { p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("R: {}", cx.len(r)) });
+            }
         }
+        out
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -518,6 +527,28 @@ mod tests {
         assert_eq!(p["longest"].as_f64(), Some(300.0));
         t.set_option("raysOn", &json!(false));
         assert_eq!(t.params(Point::ZERO, 1.0, None)["rays"].as_u64(), Some(0));
+    }
+
+    #[test]
+    fn flare_center_drag_measure_labels() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut t = FlareTool::default();
+        let cx_on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let cx_off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        t.pointer(&cx_on, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+        t.pointer(&cx_on, &PointerEvent::new(PointerKind::Drag, 150.0, 100.0));
+        let want = format!("R: {}", cx_on.len(50.0));
+        assert!(
+            t.overlays(&cx_on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
+            "{:?}",
+            t.overlays(&cx_on)
+        );
+        assert!(!t.overlays(&cx_off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
