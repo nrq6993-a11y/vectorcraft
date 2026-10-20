@@ -715,7 +715,13 @@ impl Tool for SelectionTool {
             State::Marquee { start, cur, .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
             State::Corner(c) => o.extend(c.overlays(cx)),
             State::Pie(d) => o.extend(d.overlays(cx)),
-            State::Loaded { press: Some((start, cur)), .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
+            State::Loaded { press: Some((start, cur)), .. } => {
+                let r = Rect::from_points(*start, *cur);
+                o.push(Overlay::Marquee(r));
+                if cx.measurement_labels && r.width() > cx.tol(6.0) && r.height() > cx.tol(6.0) {
+                    o.push(Overlay::Measure { p: *cur, text: cx.size_label(r.width(), r.height()) });
+                }
+            }
             _ => {}
         }
         o.extend(self.guides.iter().cloned());
@@ -2066,6 +2072,15 @@ mod tests {
         t.pointer(&cx, &ev(PointerKind::Down, 20.0, 20.0));
         t.pointer(&cx, &ev(PointerKind::Drag, 80.0, 90.0));
         assert!(t.overlays(&cx).contains(&Overlay::Marquee(Rect::new(20.0, 20.0, 80.0, 90.0))), "the new frame's outline");
+        let on = ToolContext { measurement_labels: true, ..cx };
+        let off = ToolContext { measurement_labels: false, ..cx };
+        assert!(
+            t.overlays(&on)
+                .iter()
+                .any(|o| matches!(o, Overlay::Measure { text, .. } if text == &on.size_label(60.0, 70.0))),
+            "loaded-text marquee size"
+        );
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
         assert_eq!(t.pointer(&cx, &ev(PointerKind::Up, 80.0, 90.0)), thread(json!({"from": id.0, "rect": [20.0, 20.0, 60.0, 70.0]})));
         // The bounding box's corner handle below the port still resizes the frame.
         let corner = Point::new(port.x, port.y + crate::text::PORT_RISE_PX);
