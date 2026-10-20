@@ -75,6 +75,7 @@ pub use pixel::{PIXEL_EFFECTS, PixelFx, PixelSpace};
 pub use raster::{RASTERIZE, RasterFx, Rasterize, outset, raster_effects};
 pub use reshape::{expand_outlined, has_gradient_copies, has_item_geometry, image_paint, needs_outline, outline_art, outline_text, reshape};
 pub use revolve::{REVOLVE, has_revolve, revolve_art, revolve_options, validate_revolve};
+pub use stylize::{ScribbleSetting, scribble_setting_id, scribble_settings};
 pub use solids::{
     EXTRUDE, INFLATE, ROTATE, ROTATION_PRESETS, SOLIDS, extrude_options, has_solid, inflate_options, is_three_d, solid_art, validate_solid,
     view_options,
