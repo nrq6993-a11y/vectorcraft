@@ -215,7 +215,7 @@ impl Tool for TransformTool {
                 let (m, text) = self.matrix_for(d.origin, d.pick, p, ev.mods.shift, d.bounds);
                 d.last = m;
                 self.drag = Some(d);
-                self.measure = Some((p, text));
+                self.measure = cx.transform_tools_guides.then_some((p, text));
                 out.push(preview(m, ev.mods.alt));
                 out
             }
@@ -505,6 +505,29 @@ mod tests {
         let (m, _) = t.matrix_for(o, Point::new(150.0, 100.0), Point::new(200.0, 100.0), false, Rect::new(100.0, 100.0, 200.0, 200.0));
         assert!((m * Point::new(100.0, 200.0)).distance(Point::new(100.0, 200.0)) < 1e-9);
         assert!((m * Point::new(150.0, 100.0)).distance(Point::new(200.0, 100.0)) < 1e-9);
+    }
+
+    /// Smart Guides › Transform Tools (#394): the dedicated Scale, Rotate, Reflect and Shear tools
+    /// show drag readouts only when the option is on (as with Free Transform and bbox scaling).
+    #[test]
+    fn transform_tools_preference_gates_drag_readouts() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let measures = |t: &TransformTool, c: &ToolContext| {
+            t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count()
+        };
+        for kind in [TransformKind::Rotate, TransformKind::Reflect, TransformKind::Scale, TransformKind::Shear] {
+            for on in [true, false] {
+                let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+                let mut t = TransformTool::new(kind);
+                t.pointer(&c, &ev(PointerKind::Down, 260.0, 150.0));
+                t.pointer(&c, &ev(PointerKind::Drag, 300.0, 180.0));
+                assert_eq!(measures(&t, &c), usize::from(on), "{kind:?} transform_tools_guides={on}");
+                t.pointer(&c, &ev(PointerKind::Up, 300.0, 180.0));
+            }
+        }
     }
 
     #[test]
