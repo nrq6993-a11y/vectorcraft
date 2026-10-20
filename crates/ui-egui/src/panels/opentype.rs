@@ -63,6 +63,38 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
             *field(&mut next) = !on;
         }
     }
+    widgets::divider(ui);
+    widgets::dim_label(ui, tl!("Stylistic Sets"));
+    ui.columns(2, |cols| {
+        for i in 0..20 {
+            let ui = &mut cols[i % 2];
+            let label = format!("Stylistic Set {}", i + 1);
+            let on = next.extra & (1 << i) != 0;
+            if widgets::check(ui, &label, on, true) {
+                if on {
+                    next.extra &= !(1 << i);
+                } else {
+                    next.extra |= 1 << i;
+                }
+            }
+        }
+    });
+    widgets::divider(ui);
+    for (label, i) in [
+        (tl!("Stylistic Alternates"), 20usize),
+        (tl!("Titling Alternates"), 21),
+        (tl!("Superscript"), 24),
+        (tl!("Subscript"), 25),
+    ] {
+        let on = next.extra & (1 << i) != 0;
+        if widgets::check(ui, label, on, true) {
+            if on {
+                next.extra &= !(1 << i);
+            } else {
+                next.extra |= 1 << i;
+            }
+        }
+    }
     if cur.ligatures && vectorcraft_text::ligatures_suppressed_by(st.tracking) && !vectorcraft_text::explicit_ligatures(&st.features) {
         widgets::dim_label(ui, tl!("Ligatures are off while the text is tracked."));
     }
@@ -93,7 +125,7 @@ mod tests {
             menu(&mut app, ui);
         });
         out.textures_delta.clear();
-        set(&mut app, OtFeatures { ligatures: false, fractions: true, ..Default::default() });
-        assert_eq!(text_style(&app).unwrap().0.features, ["-liga", "frac"]);
+        set(&mut app, OtFeatures { ligatures: false, fractions: true, extra: 1 << 2, ..Default::default() });
+        assert_eq!(text_style(&app).unwrap().0.features, ["-liga", "frac", "ss03"]);
     }
 }
