@@ -159,12 +159,19 @@ pub fn shapes_for<'a>(doc: &'a Document, roots: &[NodeId]) -> (Vec<po::Shape>, V
 }
 
 /// Shape Builder inputs: [`shapes_for`], with the open subpaths of filled paths closed where that
-/// encloses an area (the fill bounds a region, as if an invisible edge closed it). Unfilled open
-/// paths and straight lines stay open and cut the regions they cross.
+/// encloses an area (the fill bounds a region, as if an invisible edge closed it). Unfilled paths
+/// are cutting edges only when something else is filled: closed outlines open so they split fills
+/// without bounding a filled region of their own (stroke-only rosettes stay closed).
 fn shape_builder_shapes<'a>(doc: &'a Document, roots: &[NodeId]) -> (Vec<po::Shape>, Vec<&'a Node>) {
     let (mut shapes, leaves) = shapes_for(doc, roots);
+    let cutters = leaves.iter().any(|l| !l.appearance.fill_paint().is_none());
     for (s, l) in shapes.iter_mut().zip(&leaves) {
         if l.appearance.fill_paint().is_none() {
+            if cutters {
+                for sp in &mut s.path.subpaths {
+                    sp.closed = false;
+                }
+            }
             continue;
         }
         for sp in s.path.subpaths.iter_mut().filter(|sp| !sp.closed) {
