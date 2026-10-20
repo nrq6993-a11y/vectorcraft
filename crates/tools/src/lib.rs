@@ -252,6 +252,8 @@ pub struct ToolContext<'a> {
     /// points (a transform's reference point) land on anchors and ruler guides within
     /// [`Self::snap_tolerance`].
     pub snap_to_point: bool,
+    /// View → Snap to Glyph: drawn points snap to live-text baselines and glyph bounds (with Smart Guides).
+    pub snap_to_glyph: bool,
     /// View → Show Corner Widget: paths show draggable Live Corners widgets in their corners.
     pub corner_widgets: bool,
     /// Which paint proxy is in front (true = Fill): the one the Gradient tool edits.
@@ -263,6 +265,8 @@ pub struct ToolContext<'a> {
     pub appearance_item: Option<usize>,
     /// General → Constrain Angle (degrees): Shift constrains drags to 45° steps from it.
     pub constrain_angle: f64,
+    /// General → Keyboard Increment: arrow-key nudges in document units (Shift multiplies by 10).
+    pub keyboard_increment: f64,
     /// The selected freeform gradient point (`paint.freeform.selectPoint`), marked on the
     /// freeform annotator.
     pub freeform_point: Option<usize>,
@@ -380,6 +384,11 @@ impl ToolContext<'_> {
     pub fn offset_label(&self, dx: f64, dy: f64) -> String {
         format!("dX: {}\ndY: {}", self.len(dx), self.len(dy))
     }
+    /// A segment label while drawing: distance, angle and offsets between two points.
+    pub fn segment_measure_label(&self, a: Point, b: Point) -> String {
+        let (dist, ang, dx, dy) = xform::measure(a, b);
+        format!("D: {}\nAngle: {ang:.1}°\n{}", self.len(dist), self.offset_label(dx, dy))
+    }
     /// What Snap to Grid snaps to: the grid's subdivisions (or its lines without any).
     pub fn grid_step(&self) -> f64 {
         self.doc.grid.spacing / self.doc.grid.subdivisions.max(1) as f64
@@ -403,6 +412,7 @@ impl ToolContext<'_> {
             path_only: self.path_only,
             type_path_only: self.type_path_only,
             scope: self.isolation,
+            skip_guides: !self.guides,
         }
     }
 }
@@ -926,11 +936,13 @@ pub(crate) mod testutil {
             show_bbox: true,
             snap_to_pixel: false,
             snap_to_point: true,
+            snap_to_glyph: false,
             corner_widgets: true,
             fill_active: true,
             gradient_stop: None,
             appearance_item: None,
             constrain_angle: 0.0,
+            keyboard_increment: 1.0,
             freeform_point: None,
             raster_sample: 1,
             preview_bounds: false,
