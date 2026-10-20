@@ -715,7 +715,13 @@ impl Tool for SelectionTool {
             State::Marquee { start, cur, .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
             State::Corner(c) => o.extend(c.overlays(cx)),
             State::Pie(d) => o.extend(d.overlays(cx)),
-            State::Loaded { press: Some((start, cur)), .. } => o.push(Overlay::Marquee(Rect::from_points(*start, *cur))),
+            State::Loaded { press: Some((start, cur)), .. } => {
+                let r = Rect::from_points(*start, *cur);
+                o.push(Overlay::Marquee(r));
+                if cx.measurement_labels {
+                    o.push(Overlay::Measure { p: *cur, text: cx.size_label(r.width(), r.height()) });
+                }
+            }
             _ => {}
         }
         o.extend(self.guides.iter().cloned());
@@ -2070,6 +2076,24 @@ mod tests {
         // The bounding box's corner handle below the port still resizes the frame.
         let corner = Point::new(port.x, port.y + crate::text::PORT_RISE_PX);
         assert_eq!(t.pointer(&cx, &ev(PointerKind::Down, corner.x, corner.y)), vec![Action::Begin("Resize Type Area".into())]);
+    }
+
+    #[test]
+    fn loaded_text_marquee_honors_measurement_labels() {
+        let (d, id, _, port) = overflowing_area_type();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let measures = |t: &SelectionTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        let mut t = SelectionTool::default();
+        t.pointer(&cx(&d, &s, &p), &ev(PointerKind::Down, port.x, port.y));
+        t.pointer(&cx(&d, &s, &p), &ev(PointerKind::Up, port.x, port.y));
+        t.pointer(&cx(&d, &s, &p), &ev(PointerKind::Down, 20.0, 20.0));
+        t.pointer(&cx(&d, &s, &p), &ev(PointerKind::Drag, 80.0, 90.0));
+        for on in [true, false] {
+            let c = ToolContext { measurement_labels: on, ..cx(&d, &s, &p) };
+            assert_eq!(measures(&t, &c), usize::from(on), "measurement labels {on}");
+        }
     }
 
     /// Escape drops the loaded text, and the next click is an ordinary one; type that fits its
