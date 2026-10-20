@@ -311,17 +311,17 @@ fn style(filters: &[Filter]) -> ArtStyle {
     }
     for (i, f) in filters.iter().enumerate() {
         let effect = f.name == GLOW || f.name == INNER || f.name == FEATHER || f.name == SHADOW;
+        if !f.visible {
+            // A hidden fill or stroke leaves the object painting differently; a hidden effect, nothing.
+            plain &= effect;
+            continue;
+        }
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW && f.name != INNER {
             plain = false;
         }
         // An effect inside the stack is a fill's or a stroke's, not the object's.
         if effect && painted.is_some_and(|p| i < p) {
             plain = false;
-        }
-        if !f.visible {
-            // A hidden fill or stroke leaves the object painting differently; a hidden effect, nothing.
-            plain &= effect;
-            continue;
         }
         let param = |k: &str| f.params.get(k).copied();
         let mode = |default: usize| super::read::blend_name(param("blnd").map_or(default, |v| v.max(0.0) as usize));
@@ -468,6 +468,16 @@ mod tests {
         let styles = art_styles(data);
         let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
         assert_eq!(inner.params["source"].as_str(), Some("center"));
+    }
+
+    #[test]
+    fn a_hidden_inner_glow_does_not_force_the_style_non_plain() {
+        // GUARDS: visibility must be checked before unknown-filter plain checks, or a hidden Inner Glow
+        // (not listed in PLAIN) made the style fall back to its drawn look.
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n0 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        assert!(art_styles(data)["GlowIn"].plain);
+        assert!(art_styles(data)["GlowIn"].effects.is_empty());
     }
 
     #[test]
