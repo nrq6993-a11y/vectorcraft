@@ -267,13 +267,14 @@ impl Tool for TransformTool {
             o.extend(target_overlays(r, cx.tol(8.0)));
         }
         o.extend(self.hover.iter().cloned());
-        if let (Some(d), TransformKind::Reflect | TransformKind::Rotate) = (self.drag, self.kind)
+        if cx.transform_tools_guides
+            && let (Some(d), TransformKind::Reflect | TransformKind::Rotate) = (self.drag, self.kind)
             && d.began
             && let Some((p, _)) = &self.measure
         {
             o.push(Overlay::Line { a: d.origin, b: *p, color: super::CYAN, dashed: true });
         }
-        if let (Some((p, t)), true) = (&self.measure, cx.transform_tools_guides) {
+        if let (Some((p, t)), true) = (&self.measure, cx.measurement_labels) {
             o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: t.clone() });
         }
         o
@@ -505,6 +506,37 @@ mod tests {
         let (m, _) = t.matrix_for(o, Point::new(150.0, 100.0), Point::new(200.0, 100.0), false, Rect::new(100.0, 100.0, 200.0, 200.0));
         assert!((m * Point::new(100.0, 200.0)).distance(Point::new(100.0, 200.0)) < 1e-9);
         assert!((m * Point::new(150.0, 100.0)).distance(Point::new(200.0, 100.0)) < 1e-9);
+    }
+
+    #[test]
+    fn transform_tools_honor_measurement_labels() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let measures = |t: &TransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        let angle_guides = |t: &TransformTool, c: &ToolContext| {
+            t.overlays(c).iter().filter(|o| matches!(o, Overlay::Line { dashed: true, .. })).count()
+        };
+        for labels_on in [true, false] {
+            let c = ToolContext { measurement_labels: labels_on, ..cx(&d, &s, &p) };
+            for kind in [TransformKind::Rotate, TransformKind::Reflect, TransformKind::Scale, TransformKind::Shear] {
+                let mut t = TransformTool::new(kind);
+                t.pointer(&c, &ev(PointerKind::Down, 250.0, 150.0));
+                t.pointer(&c, &ev(PointerKind::Drag, 150.0, 250.0));
+                assert_eq!(measures(&t, &c), usize::from(labels_on), "{kind:?} labels {labels_on}");
+                if matches!(kind, TransformKind::Rotate | TransformKind::Reflect) {
+                    assert_eq!(angle_guides(&t, &c), 1, "{kind:?} angle guide follows transform-tools pref");
+                }
+                t.pointer(&c, &ev(PointerKind::Up, 150.0, 250.0));
+            }
+        }
+        let quiet = ToolContext { measurement_labels: false, transform_tools_guides: false, ..cx(&d, &s, &p) };
+        let mut t = TransformTool::new(TransformKind::Rotate);
+        t.pointer(&quiet, &ev(PointerKind::Down, 250.0, 150.0));
+        t.pointer(&quiet, &ev(PointerKind::Drag, 150.0, 250.0));
+        assert_eq!(measures(&t, &quiet), 0);
+        assert_eq!(angle_guides(&t, &quiet), 0);
     }
 
     #[test]
