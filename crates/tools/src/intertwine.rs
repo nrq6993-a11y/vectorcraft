@@ -265,12 +265,25 @@ impl Tool for IntertwineTool {
         matches!(key, ToolKey::Escape | ToolKey::Enter)
     }
 
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let color = crate::builder::HIGHLIGHT_RED;
         let mut out = vec![];
         if self.dragging && self.points.len() > 1 {
             if let Some(l) = self.lasso() {
                 out.push(Overlay::Path { path: l.to_bezpath(), color, width: 1.0, dashed: true });
+            }
+            if cx.measurement_labels {
+                let len = if self.rect {
+                    let (a, b) = (self.points[0], *self.points.last().unwrap_or(&self.points[0]));
+                    let r = Rect::from_points(a, b);
+                    2.0 * (r.width() + r.height())
+                } else {
+                    self.points.windows(2).fold(0.0, |sum, w| sum + w[0].distance(w[1]))
+                };
+                if len > 0.0 {
+                    let p = *self.points.last().unwrap_or(&self.points[0]);
+                    out.push(Overlay::Measure { p, text: format!("L: {}", cx.len(len)) });
+                }
             }
         } else if let Some(h) = &self.hover {
             out.push(Overlay::Path { path: h.clone(), color, width: 2.0, dashed: false });
@@ -339,5 +352,18 @@ mod tests {
         let around = |r: Rect| shapes::rectangle(r);
         assert_eq!(faces_in(&f, &around(Rect::new(4.0, -1.0, 11.0, 11.0))).len(), 1);
         assert!(faces_in(&f, &around(Rect::new(20.0, 0.0, 30.0, 10.0))).is_empty());
+    }
+
+    #[test]
+    fn intertwine_lasso_drag_honors_measurement_labels() {
+        use crate::testutil::{cx, paint};
+        use vectorcraft_doc::{Document, Selection};
+
+        let (d, s, p) = (Document::new(500.0, 500.0), Selection::default(), paint());
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let t = IntertwineTool { dragging: true, points: vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)], ..IntertwineTool::default() };
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == "L: 100.00 pt")));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 }
