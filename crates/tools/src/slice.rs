@@ -140,7 +140,7 @@ impl Tool for SliceTool {
 
 #[derive(Clone, Debug)]
 enum Drag {
-    Move { start: Point, ids: Vec<NodeId>, began: bool },
+    Move { start: Point, at: Point, delta: vectorcraft_geom::Vec2, ids: Vec<NodeId>, began: bool },
     Resize { id: NodeId, handle: Handle, rect: Rect, began: bool },
 }
 
@@ -240,18 +240,18 @@ impl Tool for SliceSelectionTool {
                 match slice_at(cx, p) {
                     Some(id) if m.shift => vec![Action::Exec("object.slice.select".into(), json!({ "slices": [id.0], "toggle": true }))],
                     Some(id) if selected.contains(&id) => {
-                        self.drag = Some(Drag::Move { start: p, ids: selected.clone(), began: false });
+                        self.drag = Some(Drag::Move { start: p, at: p, delta: vectorcraft_geom::Vec2::ZERO, ids: selected.clone(), began: false });
                         vec![]
                     }
                     Some(id) => {
-                        self.drag = Some(Drag::Move { start: p, ids: vec![id], began: false });
+                        self.drag = Some(Drag::Move { start: p, at: p, delta: vectorcraft_geom::Vec2::ZERO, ids: vec![id], began: false });
                         vec![Self::select(&[id])]
                     }
                     None if !m.shift && !selected.is_empty() => vec![Self::select(&[])],
                     None => vec![],
                 }
             }
-            (PointerKind::Drag, Some(Drag::Move { start, ids, began })) => {
+            (PointerKind::Drag, Some(Drag::Move { start, ids, began, .. })) => {
                 let mut out = vec![];
                 if !began {
                     if p.distance(start) < cx.tol(3.0) {
@@ -261,7 +261,7 @@ impl Tool for SliceSelectionTool {
                 }
                 let d = move_delta(start, p, m.shift);
                 out.push(Action::Preview("object.slice.move".into(), json!({ "slices": json_ids(&ids), "dx": d.x, "dy": d.y })));
-                self.drag = Some(Drag::Move { start, ids, began: true });
+                self.drag = Some(Drag::Move { start, at: p, delta: d, ids, began: true });
                 out
             }
             (PointerKind::Drag, Some(Drag::Resize { id, handle, rect, began })) => {
@@ -336,13 +336,11 @@ impl Tool for SliceSelectionTool {
                     });
                 }
             }
-            Some(Drag::Move { ids, began: true, .. }) => {
-                if let Some(r) = ids.iter().filter_map(|id| cx.doc.slice_bounds(*id)).reduce(|a, b| a.union(b)) {
-                    o.push(Overlay::Measure {
-                        p: Point::new(r.x1, r.y1) + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                        text: cx.size_label(r.width(), r.height()),
-                    });
-                }
+            Some(Drag::Move { at, delta, began: true, .. }) => {
+                o.push(Overlay::Measure {
+                    p: *at + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: cx.offset_label(delta.x, delta.y),
+                });
             }
             _ => {}
         }
@@ -431,6 +429,23 @@ mod tests {
         let b = d.alloc_id();
         d.slices.push(Slice { id: b, rect: Rect::new(300.0, 300.0, 400.0, 400.0), options: Default::default() });
         (d, a, b)
+    }
+
+    #[test]
+    fn slice_selection_move_honors_measurement_labels() {
+        let (d, a, _) = doc_with_slices();
+        let p = paint();
+        let mut sel = Selection::default();
+        sel.set_slices([a]);
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &sel, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &sel, &p) };
+        let mut t = SliceSelectionTool::default();
+        t.pointer(&on, &ev(PointerKind::Down, 20.0, 20.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 30.0, 25.0));
+        let want = on.offset_label(10.0, 5.0);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        t.pointer(&on, &ev(PointerKind::Up, 30.0, 25.0));
     }
 
     #[test]
