@@ -63,6 +63,16 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
             *field(&mut next) = !on;
         }
     }
+    for (label, tag, other) in [(tl!("Superscript"), "sups", "subs"), (tl!("Subscript"), "subs", "sups")] {
+        let on = next.extra_on(tag);
+        if widgets::check(ui, label, on, true) {
+            let on = !on;
+            next.set_extra(tag, on);
+            if on {
+                next.set_extra(other, false);
+            }
+        }
+    }
     if cur.ligatures && vectorcraft_text::ligatures_suppressed_by(st.tracking) && !vectorcraft_text::explicit_ligatures(&st.features) {
         widgets::dim_label(ui, tl!("Ligatures are off while the text is tracked."));
     }
@@ -95,5 +105,13 @@ mod tests {
         out.textures_delta.clear();
         set(&mut app, OtFeatures { ligatures: false, fractions: true, ..Default::default() });
         assert_eq!(text_style(&app).unwrap().0.features, ["-liga", "frac"]);
+        let mut f = OtFeatures::default();
+        f.set_extra("sups", true);
+        set(&mut app, f);
+        assert_eq!(text_style(&app).unwrap().0.features, ["sups"]);
+        f.set_extra("sups", false);
+        f.set_extra("subs", true);
+        set(&mut app, f);
+        assert_eq!(text_style(&app).unwrap().0.features, ["subs"]);
     }
 }

@@ -111,6 +111,22 @@ impl OtFeatures {
         matches!(t, "liga" | "calt" | "dlig" | "smcp" | "frac" | "onum" | "tnum" | "ordn" | "swsh") || EXTRA_FEATURES.contains(&t)
     }
 
+    /// Is an [`EXTRA_FEATURES`] entry such as `sups` or `ss03` on?
+    pub fn extra_on(&self, tag: &str) -> bool {
+        EXTRA_FEATURES.iter().position(|e| *e == tag).is_some_and(|i| self.extra & (1 << i) != 0)
+    }
+
+    /// Turn an [`EXTRA_FEATURES`] entry on or off.
+    pub fn set_extra(&mut self, tag: &str, on: bool) {
+        if let Some(i) = EXTRA_FEATURES.iter().position(|e| *e == tag) {
+            if on {
+                self.extra |= 1 << i;
+            } else {
+                self.extra &= !(1 << i);
+            }
+        }
+    }
+
     /// This set with `tags` applied on top.
     pub fn with_tags<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
         let o = &mut self;
