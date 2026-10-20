@@ -193,7 +193,7 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
     }
     // The fields as the dialog held them, so they show as typed when it opens again.
     if d.kind == "offsetPath" {
-        let kept = ["offset", "joins", "miterLimit"].into_iter().filter_map(|k| Some((k.to_string(), d.fields.get(k)?.clone())));
+        let kept = ["offset", "joins", "miterLimit", "preview"].into_iter().filter_map(|k| Some((k.to_string(), d.fields.get(k)?.clone())));
         app.ui.offset_path = Value::Object(kept.collect());
     }
     Ok(r)

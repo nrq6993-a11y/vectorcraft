@@ -277,11 +277,13 @@ fn offset_path_remembers_its_last_values() {
     let d = app.ui.dialog.as_mut().unwrap();
     d.fields.insert("offset".into(), json!(-4.5));
     d.fields.insert("joins".into(), json!("round"));
+    d.fields.insert("preview".into(), json!(true));
     confirm(&mut app).unwrap();
     assert!(app.ui.dialog.is_none());
     crate::menus::invoke(&mut app, "object.path.offsetPath", json!({}));
     let d = app.ui.dialog.as_ref().unwrap();
     assert_eq!((d.f64("offset", 0.0), d.str("joins"), d.f64("miterLimit", 0.0)), (-4.5, "round".to_string(), 4.0));
+    assert!(d.bool("preview"), "Preview checkbox should be remembered (#3195)");
 }
 
 fn app_with_dense_path() -> VectorcraftApp {
