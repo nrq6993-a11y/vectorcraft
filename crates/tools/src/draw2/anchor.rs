@@ -16,6 +16,7 @@ use vectorcraft_doc::NodeId;
 use vectorcraft_geom::Point;
 
 use super::{hit_anchor, hit_segment, insert_anchor, remove_anchor};
+use crate::distort::pathutil::{length_at, length_to_anchor};
 use crate::direct::hit_handle;
 use crate::guides::HandleSnap;
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext};
@@ -89,6 +90,8 @@ pub struct AnchorTool {
     /// Smart guides of the handle being dragged, and what it snaps to.
     guides: Vec<Overlay>,
     snap: HandleSnap,
+    /// Last pointer position (Scissors measurement labels on hover).
+    at: Point,
 }
 
 impl AnchorTool {
@@ -99,7 +102,7 @@ impl AnchorTool {
             "scissors" => "scissors",
             _ => "addAnchor",
         };
-        Self { id, state: State::Idle, guides: vec![], snap: HandleSnap::default() }
+        Self { id, state: State::Idle, guides: vec![], snap: HandleSnap::default(), at: Point::ZERO }
     }
 
     /// Nearest point of this eligible spine, in document coordinates.
@@ -237,6 +240,9 @@ impl Tool for AnchorTool {
     }
     fn pointer(&mut self, cx: &ToolContext, ev: &PointerEvent) -> Vec<Action> {
         let p = ev.pos;
+        if self.id == "scissors" {
+            self.at = p;
+        }
         // Anchors and handle ends are picked from a little further than segments.
         let (tol, point) = (cx.pick_tol(), cx.point_tol());
         match (self.id, ev.kind) {
@@ -450,6 +456,22 @@ impl Tool for AnchorTool {
         let mut out = if self.id == "anchorPoint" { Self::spine_overlays(cx) } else { vec![] };
         if matches!(self.state, State::Handle { .. }) {
             out.extend(self.guides.iter().cloned());
+        }
+        if self.id == "scissors" && cx.measurement_labels {
+            let (tol, point) = (cx.pick_tol(), cx.point_tol());
+            let dist = if let Some((id, si, ai)) = hit_anchor(cx, self.at, point) {
+                cx.doc.node(id).and_then(|n| n.path_data()).and_then(|pd| pd.subpaths.get(si)).map(|sp| length_to_anchor(sp, ai))
+            } else {
+                hit_segment(cx, self.at, tol).and_then(|(id, si, seg, t)| {
+                    cx.doc.node(id).and_then(|n| n.path_data()).and_then(|pd| pd.subpaths.get(si)).map(|sp| length_at(sp, seg, t))
+                })
+            };
+            if let Some(d) = dist.filter(|d| d.is_finite()) {
+                out.push(Overlay::Measure {
+                    p: self.at + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                    text: format!("L: {}", cx.len(d)),
+                });
+            }
         }
         out
     }
@@ -788,6 +810,29 @@ mod tests {
         assert!(
             matches!(&a[0], Action::Exec(c, v) if c == "path.split" && v["id"] == id.0 && v["segment"] == 1 && (v["t"].as_f64().unwrap() - 0.5).abs() < 1e-6)
         );
+    }
+
+    #[test]
+    fn scissors_hover_honors_measurement_labels() {
+        use crate::testutil::*;
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut t = AnchorTool::new("scissors");
+        let at = Point::new(200.0, 150.0);
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        t.pointer(&on, &PointerEvent::new(PointerKind::Move, at.x, at.y));
+        let text = |c: &ToolContext| {
+            t.overlays(c).into_iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+        };
+        let label = text(&on).unwrap_or_default();
+        assert!(label.starts_with("L: "), "{label}");
+        assert!(label.contains(&on.len(150.0)), "{label}");
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(text(&off).is_none());
     }
 
     /// The Add Anchor Point, Delete Anchor Point, Anchor Point and Scissors tools pick anchors and

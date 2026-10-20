@@ -10,6 +10,20 @@ pub fn seg_lengths(sp: &SubPath) -> Vec<f64> {
     (0..sp.segment_count()).map(|i| sp.segment(i).arclen(ACC)).collect()
 }
 
+/// Arc length from the subpath start to segment `seg`, parameter `t`.
+pub fn length_at(sp: &SubPath, seg: usize, t: f64) -> f64 {
+    let l = seg_lengths(sp);
+    let before: f64 = l[..seg.min(l.len())].iter().sum();
+    let part = if seg < l.len() { sp.segment(seg).subsegment(0.0..t.clamp(0.0, 1.0)).arclen(ACC) } else { 0.0 };
+    before + part
+}
+
+/// Arc length from the subpath start to anchor index `ai`.
+pub fn length_to_anchor(sp: &SubPath, ai: usize) -> f64 {
+    let l = seg_lengths(sp);
+    l[..ai.min(l.len())].iter().sum()
+}
+
 /// Fraction of the subpath's length at segment `seg`, parameter `t`.
 pub fn fraction_at(sp: &SubPath, seg: usize, t: f64) -> f64 {
     let l = seg_lengths(sp);
@@ -75,6 +89,8 @@ mod tests {
         let sp = SubPath::polyline(&[Point::new(0.0, 0.0), Point::new(100.0, 0.0), Point::new(100.0, 100.0)], false);
         assert!((fraction_at(&sp, 0, 0.5) - 0.25).abs() < 1e-6);
         assert!((fraction_at(&sp, 1, 0.5) - 0.75).abs() < 1e-6);
+        assert!((length_at(&sp, 1, 0.5) - 150.0).abs() < 1e-3);
+        assert!((length_to_anchor(&sp, 2) - 200.0).abs() < 1e-6);
         let (p, t) = eval_fraction(&sp, 0.75).unwrap();
         assert!((p - Point::new(100.0, 50.0)).hypot() < 1e-3);
         assert!((t - Vec2::new(0.0, 1.0)).hypot() < 1e-6);
