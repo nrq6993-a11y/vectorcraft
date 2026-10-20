@@ -240,6 +240,9 @@ pub struct ReshapeTool {
     /// (path, grab point) while dragging.
     grab: Option<(vectorcraft_doc::NodeId, Point)>,
     began: bool,
+    /// Pointer and modifiers from the latest drag (measurement label while reshaping).
+    last: Point,
+    last_mods: Mods,
 }
 
 impl ReshapeTool {
@@ -282,6 +285,8 @@ impl Tool for ReshapeTool {
                     self.began = true;
                     out.push(Action::Begin("Reshape".into()));
                 }
+                self.last = ev.pos;
+                self.last_mods = ev.mods;
                 out.push(Action::Preview(
                     "path.reshape".into(),
                     json!({ "id": id.0, "x": at.x, "y": at.y, "dx": d.x, "dy": d.y, "tol": cx.tol(4.0) }),
@@ -294,6 +299,20 @@ impl Tool for ReshapeTool {
             }
             _ => vec![],
         }
+    }
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels {
+            return vec![];
+        }
+        let Some((_, at)) = self.grab else { return vec![] };
+        let mut d = self.last - at;
+        if self.last_mods.shift {
+            d = vectorcraft_geom::constrain_angle(d, 45.0);
+        }
+        vec![Overlay::Measure {
+            p: self.last + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+            text: cx.offset_label(d.x, d.y),
+        }]
     }
     fn key(&mut self, _cx: &ToolContext, key: ToolKey, _mods: Mods) -> Vec<Action> {
         if key == ToolKey::Escape && self.grab.take().is_some() && std::mem::take(&mut self.began) {
@@ -550,6 +569,28 @@ mod tests {
         let mut quiet = GraphTool::new("columnGraph");
         drag(&mut quiet, &off);
         assert_eq!(measure_count(&quiet, &off), 0);
+    }
+
+    #[test]
+    fn reshape_drag_honors_measurement_labels() {
+        use crate::testutil::*;
+        use vectorcraft_doc::Selection;
+
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let on = ToolContext { measurement_labels: true, ..base };
+        let off = ToolContext { measurement_labels: false, ..base };
+        let mut t = ReshapeTool::default();
+        let at = Point::new(150.0, 100.0);
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, at.x, at.y));
+        assert!(!t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 170.0, 80.0));
+        let want = on.offset_label(20.0, -20.0);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
