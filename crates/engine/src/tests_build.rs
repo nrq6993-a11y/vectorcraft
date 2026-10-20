@@ -359,6 +359,26 @@ fn shape_builder_fills_an_area_lines_enclose() {
 }
 
 #[test]
+fn shape_builder_unfilled_closed_path_splits_without_filled_region() {
+    let mut s = session();
+    let a = rect(&mut s, 0.0, 0.0, 100.0, 100.0);
+    set_fill(&mut s, a, Color::rgb(1.0, 0.0, 0.0));
+    let b = rect(&mut s, 49.0, 0.0, 2.0, 100.0);
+    s.edit("t", |d, _| {
+        let n = d.node_mut(b).unwrap();
+        n.appearance.set_fill(Paint::None);
+        n.appearance.set_stroke(Paint::solid(Color::BLACK));
+        Ok(())
+    })
+    .unwrap();
+    s.execute("select.set", &json!({"ids": [a.0, b.0]})).unwrap();
+    let r = s.execute("shapeBuilder.regions", &json!({})).unwrap();
+    let regs = r["regions"].as_array().unwrap();
+    assert_eq!(regs.len(), 2, "{r}");
+    assert!(regs.iter().all(|x| x["sources"] == json!([a.0])), "{r}");
+}
+
+#[test]
 fn shape_builder_closes_filled_open_paths() {
     let mut s = session();
     let r = s.execute("path.create", &json!({"anchors": [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}]})).unwrap();
