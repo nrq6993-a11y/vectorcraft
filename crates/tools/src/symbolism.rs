@@ -8,7 +8,7 @@
 //! else the document's current brush).
 
 use serde_json::{Value, json};
-use vectorcraft_geom::{Point, Shape};
+use vectorcraft_geom::{Point, Shape, Vec2};
 
 use crate::draw2::{FEEDBACK, GestureTool, points_json};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -165,10 +165,18 @@ impl Tool for SymbolismTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(p) = self.hover else { return vec![] };
         let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
-        vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }]
+        let mut o = vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }];
+        if cx.measurement_labels
+            && self.active
+            && self.id == "symbolStainer"
+            && let Some(c) = cx.paint.fill.color()
+        {
+            o.push(Overlay::Measure { p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("Fill: {}", c.to_hex()) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         match self.id {
@@ -306,6 +314,26 @@ mod tests {
         let fill = serde_json::to_value(p.fill.color().unwrap()).unwrap();
         let a = create("symbolStainer").unwrap().pointer(&cx, &PointerEvent::new(PointerKind::Down, 5.0, 5.0));
         assert!(matches!(&a[1], Action::Preview(_, v) if v["color"] == fill && v["keepModel"] == true), "{a:?}");
+    }
+
+    #[test]
+    fn stainer_scrub_honors_measurement_labels_with_fill_readout() {
+        let (d, _) = doc_with_rect();
+        let (s, p) = (Selection::default(), paint());
+        let c = cx(&d, &s, &p);
+        let fill_hex = p.fill.color().unwrap().to_hex();
+        let want = format!("Fill: {fill_hex}");
+        let mut t = SymbolismTool::new("symbolStainer");
+        t.pointer(&c, &PointerEvent::new(PointerKind::Down, 5.0, 5.0));
+        t.pointer(&c, &PointerEvent::new(PointerKind::Drag, 25.0, 5.0));
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let text = t.overlays(&on).iter().find_map(|o| match o {
+            Overlay::Measure { text, .. } => Some(text.clone()),
+            _ => None,
+        });
+        assert_eq!(text.as_deref(), Some(want.as_str()));
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
