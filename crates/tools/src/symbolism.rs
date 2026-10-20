@@ -8,7 +8,7 @@
 //! else the document's current brush).
 
 use serde_json::{Value, json};
-use vectorcraft_geom::{Point, Shape};
+use vectorcraft_geom::{Point, Shape, Vec2};
 
 use crate::draw2::{FEEDBACK, GestureTool, points_json};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -165,10 +165,17 @@ impl Tool for SymbolismTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(p) = self.hover else { return vec![] };
         let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
-        vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }]
+        let mut out = vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }];
+        if cx.measurement_labels {
+            out.push(Overlay::Measure {
+                p: p + Vec2::new(cx.tol(12.0), cx.tol(12.0)),
+                text: format!("D: {}", cx.len(self.diameter)),
+            });
+        }
+        out
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         match self.id {
@@ -318,6 +325,31 @@ mod tests {
         t.key(&cx, ToolKey::BracketLeft, Mods { shift: true, ..Default::default() });
         assert_eq!(t.options()["diameter"], json!(90.0));
         assert_eq!(t.options()["intensity"], json!(4.0));
+    }
+
+    #[test]
+    fn symbolism_brush_shows_diameter_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let (s, p) = (Selection::default(), paint());
+        let measure = |t: &SymbolismTool, c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        let mut t = SymbolismTool::new("symbolSprayer");
+        t.hover = Some(Point::new(40.0, 50.0));
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let text = measure(&t, &on).unwrap_or_default();
+        assert!(text.starts_with("D: "), "{text}");
+        t.key(&on, ToolKey::BracketRight, Mods::default());
+        let wider = measure(&t, &on).unwrap_or_default();
+        assert_ne!(text, wider, "{text} vs {wider}");
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(measure(&t, &off).is_none());
+        let mut shifter = SymbolismTool::new("symbolShifter");
+        shifter.hover = Some(Point::new(10.0, 10.0));
+        assert!(measure(&shifter, &on).unwrap_or_default().starts_with("D: "));
     }
 
     #[test]
