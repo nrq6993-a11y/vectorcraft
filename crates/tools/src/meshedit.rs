@@ -130,8 +130,13 @@ impl MeshEdit {
             && let Some(d) = &self.drag
             && let Some(at) = d.at
         {
-            let delta = at - d.origin;
-            out.push(Overlay::Measure { p: at + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: cx.offset_label(delta.x, delta.y) });
+            let text = if d.grab.handle.is_some() {
+                format!("L: {}", cx.len(at.distance(q.p)))
+            } else {
+                let delta = at - d.origin;
+                cx.offset_label(delta.x, delta.y)
+            };
+            out.push(Overlay::Measure { p: at + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text });
         }
         out
     }
@@ -146,7 +151,7 @@ mod tests {
     use crate::{PointerEvent, PointerKind, Tool};
     use vectorcraft_doc::live::{EnvelopeOptions, grid_points};
     use vectorcraft_doc::{Document, Selection};
-    use vectorcraft_geom::{Affine, Rect};
+    use vectorcraft_geom::{Affine, Point, Rect};
 
     /// The rectangle of [`doc_with_rect`] (100..200 square) in a 1×1 mesh envelope.
     fn doc_with_envelope() -> (Document, NodeId) {
@@ -227,5 +232,24 @@ mod tests {
         let want = on.offset_label(10.0, -10.0);
         assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
         assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+    }
+
+    #[test]
+    fn mesh_handle_drag_shows_handle_length_in_measurement_labels() {
+        let (d, _e) = doc_with_envelope();
+        let (s, p) = (Selection::default(), paint());
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = crate::meshblend::create("mesh").unwrap();
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 200.0, 100.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 200.0, 133.33333));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 220.0, 140.0));
+        let want = format!("L: {}", on.len(Point::new(220.0, 140.0).distance(Point::new(200.0, 100.0))));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)), "{:?}", t.overlays(&on));
+        let mut quiet = crate::meshblend::create("mesh").unwrap();
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 200.0, 100.0));
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 200.0, 133.33333));
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 220.0, 140.0));
+        assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 }
