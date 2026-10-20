@@ -162,15 +162,21 @@ fn planes(px: &[[u8; 4]]) -> ([Vec<f32>; 3], Vec<f32>) {
     (std::array::from_fn(|k| colours.iter().map(|c| c[k]).collect()), px.iter().map(|p| f32::from(p[3]) / 255.0).collect())
 }
 
+/// How far (document units) Colored Pencil reaches at pencil width `width`: soften at
+/// `0.12 * width` and the Sobel neighbourhood around it.
+pub(super) fn colored_pencil_reach(width: f64) -> f64 {
+    3.0 * 0.12 * width.clamp(1.0, 24.0) + 1.0
+}
+
 /// Colored Pencil: the object redrawn with coloured pencil strokes along local edges, keeping its
-/// hues. `width` (1..24) sets the stroke spacing in document units; `pressure` (0..100) darkens
+/// hues. `width` (1..24) sets the stroke spacing in document units; `pressure` (0..15) darkens
 /// along the strokes; `paper` (0..50) lifts lighter areas toward the paper. Coverage is kept.
 pub(super) fn colored_pencil(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, width: f64, pressure: f64, paper: f64) {
     if !([width, pressure, paper].iter().all(|v| v.is_finite()) && space.px.is_finite() && space.px > 0.0) {
         return;
     }
     let width = width.clamp(1.0, 24.0);
-    let pressure = (pressure / 100.0).clamp(0.0, 1.0) as f32;
+    let pressure = (pressure / 15.0).clamp(0.0, 1.0) as f32;
     let paper_lift = (paper / 50.0).clamp(0.0, 1.0) as f32;
     if pressure == 0.0 && paper_lift == 0.0 {
         return;

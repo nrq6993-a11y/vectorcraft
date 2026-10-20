@@ -80,7 +80,7 @@ pub const PIXEL_EFFECTS: [&str; 33] = [
 #[derive(Clone, Debug, PartialEq)]
 pub enum PixelFx {
     /// Artistic › Colored Pencil: coloured strokes `width` (1..24) apart, as heavy as `pressure`
-    /// (0..100), on paper lifted by `paper` (0..50).
+    /// (0..15), on paper lifted by `paper` (0..50).
     ColoredPencil { width: f64, pressure: f64, paper: f64 },
     /// Artistic › Cutout: flat pieces of colour in `levels` (2..8) steps per channel, their
     /// edges as simple as `simplicity` (0..10) and as faithful as `fidelity` (1..3) say.
@@ -228,7 +228,7 @@ pub(crate) fn parse(id: &str, p: &Value) -> Option<PixelFx> {
     Some(match id {
         "artistic.coloredPencil" => PixelFx::ColoredPencil {
             width: num(p, "pencilWidth", 5.0).clamp(1.0, 24.0),
-            pressure: num(p, "strokePressure", 50.0).clamp(0.0, 100.0),
+            pressure: num(p, "strokePressure", 5.0).clamp(0.0, 15.0),
             paper: num(p, "paperBrightness", 25.0).clamp(0.0, 50.0),
         },
         "artistic.cutout" => PixelFx::Cutout {
@@ -449,10 +449,8 @@ impl PixelFx {
             // The cells around the pixel's, and the cells around theirs.
             PixelFx::ColorHalftone { max_radius, .. } => Some(3.0 * std::f64::consts::SQRT_2 * max_radius),
             PixelFx::Crystallize { cell } => Some(1.5 * cell),
-            PixelFx::FilmGrain { .. }
-            | PixelFx::ColoredPencil { .. }
-            | PixelFx::Mezzotint { .. }
-            | PixelFx::HalftonePattern { .. } => Some(0.0),
+            PixelFx::ColoredPencil { width, .. } => Some(artistic::colored_pencil_reach(width)),
+            PixelFx::FilmGrain { .. } | PixelFx::Mezzotint { .. } | PixelFx::HalftonePattern { .. } => Some(0.0),
             // Cutout's palette comes from the whole object.
             PixelFx::Cutout { .. } => None,
             // The softened tones around the pixel.
