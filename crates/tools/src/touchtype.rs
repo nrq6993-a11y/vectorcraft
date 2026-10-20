@@ -90,6 +90,8 @@ struct Drag {
     part: Part,
     /// Where the button went down (document space).
     press: Point,
+    /// The pointer during a drag (document space).
+    last: Point,
     /// The character as it was then.
     from: CharBox,
     /// A preview has been sent (the interaction began).
@@ -346,7 +348,7 @@ impl Tool for TouchTypeTool {
                         (Part::Move, b)
                     }
                 };
-                self.drag = Some(Drag { part, press: ev.pos, from, began: false });
+                self.drag = Some(Drag { part, press: ev.pos, last: ev.pos, from, began: false });
                 out
             }
             PointerKind::Drag => {
@@ -360,6 +362,7 @@ impl Tool for TouchTypeTool {
                     d.began = true;
                     out.push(Action::Begin("Touch Type".into()));
                 }
+                d.last = ev.pos;
                 out.push(Action::Preview("text.touchType".into(), Self::params(id, t, d, ev.pos)));
                 out
             }
@@ -418,6 +421,14 @@ impl Tool for TouchTypeTool {
                 Part::Move => Overlay::Anchor { p, color: BLUE, filled: true, size: 7.0 },
                 _ => Overlay::Anchor { p, color: BLUE, filled: false, size: 7.0 },
             });
+        }
+        if cx.measurement_labels
+            && let Some(d) = &self.drag
+            && d.began
+            && d.part == Part::Move
+        {
+            let delta = d.last - d.press;
+            out.push(Overlay::Measure { p: d.last + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: cx.offset_label(delta.x, delta.y) });
         }
         out
     }
@@ -533,6 +544,26 @@ mod tests {
         let cx = crate::testutil::cx(&d, &none, &p);
         let acts = t.pointer(&cx, &PointerEvent::new(PointerKind::Down, at.x, at.y));
         assert_eq!(acts, vec![Action::Exec("select.set".into(), json!({"ids": [id.0]}))]);
+    }
+
+    #[test]
+    fn touch_type_move_honors_measurement_labels() {
+        let (d, id, s) = doc_with_type();
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let on = ToolContext { measurement_labels: true, ..base };
+        let off = ToolContext { measurement_labels: false, ..base };
+        let mut t = TouchTypeTool::default();
+        let lay = vectorcraft_text::layout(FontDb::global(), text_of(&on, id).unwrap());
+        let y = lay.glyphs.iter().find(|g| g.byte == 1).unwrap();
+        let at = Point::new(100.0, 200.0) + (y.origin.to_vec2() + Vec2::new(y.advance / 2.0, -10.0));
+        let to = at + Vec2::new(10.0, -4.0);
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, at.x, at.y));
+        assert!(!t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, to.x, to.y));
+        let want = on.offset_label(10.0, -4.0);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
