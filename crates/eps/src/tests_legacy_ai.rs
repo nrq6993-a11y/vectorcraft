@@ -191,6 +191,9 @@ fn ruler_units_follow_the_document_general_unit() {
     doc.units = Unit::Inches;
     let text = String::from_utf8(write(&doc).bytes).unwrap();
     assert!(text.contains("%AI5_RulerUnits: 0\n"), "{text}");
+    doc.units = Unit::Pixels;
+    let text = String::from_utf8(write(&doc).bytes).unwrap();
+    assert!(text.contains("%AI5_RulerUnits: 6\n"), "{text}");
 }
 
 #[test]

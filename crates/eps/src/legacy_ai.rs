@@ -119,9 +119,10 @@ fn ai5_ruler_units(unit: Unit) -> u8 {
     match unit {
         Unit::Inches => 0,
         Unit::Millimeters => 1,
-        Unit::Points | Unit::Pixels => 2,
+        Unit::Points => 2,
         Unit::Picas => 3,
         Unit::Centimeters => 4,
+        Unit::Pixels => 6,
         // The published format has no codes for these; points is what readers expect.
         Unit::Meters | Unit::Yards | Unit::Feet | Unit::FeetInches => 2,
     }
