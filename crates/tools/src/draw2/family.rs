@@ -203,7 +203,11 @@ impl Tool for FamilyTool {
             // The size as drawn (from the centre with Alt, square with Shift).
             let r = drag_rect(s, self.last, self.mods);
             let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = match self.id {
+                "rectangularGrid" | "polarGrid" => grid_spacing_measure(cx, self.id, w, h, self.rows, self.columns),
+                _ => cx.size_label(w, h),
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -240,6 +244,39 @@ impl Tool for FamilyTool {
     }
 }
 
+/// Measurement labels for grid drags: overall size, divider counts and average cell spacing.
+fn grid_spacing_measure(cx: &ToolContext, id: &str, w: f64, h: f64, rows: u32, columns: u32) -> String {
+    let mut text = cx.size_label(w, h);
+    match id {
+        "rectangularGrid" => {
+            text.push_str(&format!("\nRows: {}\nColumns: {}", rows, columns));
+            if rows > 0 || columns > 0 {
+                let cell_w = w / (columns as f64 + 1.0);
+                let cell_h = h / (rows as f64 + 1.0);
+                let cell = cx
+                    .size_label(cell_w, cell_h)
+                    .replace("W:", "Cell W:")
+                    .replace("H:", "Cell H:");
+                text.push('\n');
+                text.push_str(&cell);
+            }
+        }
+        "polarGrid" => {
+            text.push_str(&format!("\nConcentric: {}\nRadial: {}", rows, columns));
+            if rows > 0 {
+                let ring = h / (2.0 * (rows as f64 + 1.0));
+                text.push_str(&format!("\nRing: {}", cx.len(ring)));
+            }
+            if columns > 0 {
+                let angle = 360.0 / columns as f64;
+                text.push_str(&format!("\nAngle: {angle:.1}°"));
+            }
+        }
+        _ => {}
+    }
+    text
+}
+
 /// A grid divider skew from option value `v`: a finite number within the range, else `current`.
 fn grid_skew(v: &Value, current: f64) -> f64 {
     let max = vectorcraft_geom::shapes::GRID_SKEW_MAX;
@@ -251,6 +288,34 @@ mod tests {
     use super::*;
     use crate::testutil::*;
     use vectorcraft_doc::Selection;
+
+    #[test]
+    fn rectangular_grid_shows_cell_spacing_in_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let mut cx = cx(&d, &s, &p);
+        cx.smart_guides = false;
+        let on = ToolContext { measurement_labels: true, ..cx };
+        let off = ToolContext { measurement_labels: false, ..cx };
+        let mut t = FamilyTool::new("rectangularGrid");
+        t.rows = 4;
+        t.columns = 2;
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 30.0, 15.0));
+        let measure = |c: &ToolContext| {
+            t.overlays(c).iter().find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+        };
+        assert!(measure(&off).is_none());
+        let text = measure(&on).unwrap_or_default();
+        assert!(text.contains("Rows: 4"), "{text}");
+        assert!(text.contains("Columns: 2"), "{text}");
+        assert!(text.contains("Cell W:"), "{text}");
+        assert!(text.contains("Cell H:"), "{text}");
+    }
 
     #[test]
     fn grid_drag_and_arrows() {
