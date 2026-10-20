@@ -126,6 +126,28 @@ fn text_on_top_clips_by_its_glyphs() {
 }
 
 #[test]
+fn clipped_art_stays_visible_after_send_to_back() {
+    let mut s = session();
+    let (art, donut) = art_and_donut(&mut s);
+    select(&mut s, &[art, donut]);
+    let g = id_of(&s.execute("object.clippingMask.make", &json!({})).unwrap());
+    let d = &s.doc().unwrap().doc;
+    let NodeKind::Group { children, clip: true } = &d.node(g).unwrap().kind else { panic!("a clip group") };
+    assert_eq!(children[0].id, donut);
+    assert_eq!(children[1].id, art);
+    assert!(opaque(&render(&s), 20, 50), "the ring shows the art");
+    select(&mut s, &[art]);
+    s.execute("object.arrange.sendToBack", &json!({})).unwrap();
+    let d = &s.doc().unwrap().doc;
+    let NodeKind::Group { children, clip: true } = &d.node(g).unwrap().kind else { panic!("a clip group") };
+    assert_eq!(children[0].id, donut, "the clipping path stays at the bottom");
+    assert_eq!(children[1].id, art);
+    assert!(opaque(&render(&s), 20, 50), "send to back keeps art above the clipping path");
+    s.execute("object.arrange.sendBackward", &json!({})).unwrap();
+    assert!(opaque(&render(&s), 20, 50), "send backward is a no-op at the back of the clipped art");
+}
+
+#[test]
 fn make_refuses_a_top_object_that_cannot_clip() {
     let mut s = session();
     let art = id_of(&s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": 100, "height": 100})).unwrap());

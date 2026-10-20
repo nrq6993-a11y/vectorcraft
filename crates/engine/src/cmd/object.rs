@@ -616,6 +616,16 @@ enum Arrange {
     Back,
 }
 
+/// In a clip group or clipping layer, the clipping path stays at index 0; clipped art stays above it.
+fn clip_arrange_range(d: &Document, parent: Option<NodeId>, id: NodeId, last: usize) -> (usize, usize) {
+    let Some(p) = parent else { return (0, last) };
+    if !d.node(p).is_some_and(Node::clips) {
+        return (0, last);
+    }
+    let is_clip_path = d.children(Some(p)).and_then(|c| c.first()).is_some_and(|c| c.id == id);
+    if is_clip_path { (0, 0) } else { (1, last) }
+}
+
 fn arrange(s: &mut Session, how: Arrange) -> Result<Value> {
     let mut ids = selected_roots(s)?;
     if matches!(how, Arrange::Forward | Arrange::Front) {
@@ -646,12 +656,14 @@ fn arrange(s: &mut Session, how: Arrange) -> Result<Value> {
                     continue;
                 }
                 let last = len - 1;
+                let (lo, hi) = clip_arrange_range(d, par, *id, last);
                 let to = match how {
                     Arrange::Front => last.saturating_sub(k),
                     Arrange::Back => k.min(last),
                     Arrange::Forward => (idx + 1).min(last.saturating_sub(k)).max(idx),
                     Arrange::Backward => idx.saturating_sub(1).max(k.min(idx)),
-                };
+                }
+                .clamp(lo, hi);
                 if to != idx {
                     d.move_node(*id, par, to)?;
                     moved += 1;
