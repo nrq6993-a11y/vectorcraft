@@ -162,6 +162,9 @@ pub struct BracketDrag {
     /// Where the press was along the path (a fraction of its length).
     grab: f64,
     began: bool,
+    /// The pointer's last position while dragging.
+    at: Point,
+    cmd: bool,
 }
 
 impl BracketDrag {
@@ -172,10 +175,46 @@ impl BracketDrag {
         }
         let (brackets, which) = bracket_at(cx, ev.pos)?;
         let grab = brackets.fraction_at(ev.pos)?;
-        Some(Self { brackets, which, start: ev.pos, grab, began: false })
+        Some(Self { brackets, which, start: ev.pos, grab, began: false, at: ev.pos, cmd: false })
+    }
+
+    /// Arc length of the type's span along its path (document units).
+    fn span_arc_len(total: f64, closed: bool, start: f64, end: f64) -> f64 {
+        if !total.is_finite() || total <= 0.0 {
+            return 0.0;
+        }
+        let frac = if closed {
+            let run = (end - start).rem_euclid(1.0);
+            if run < 1e-9 { 1.0 } else { run }
+        } else {
+            (end - start).max(0.0)
+        };
+        total * frac
+    }
+
+    fn preview_span(&self, cx: &ToolContext, p: Point, cmd: bool) -> Option<f64> {
+        let u = self.brackets.fraction_at(p)?;
+        let params = self.params(cx, p, u, cmd);
+        let b = &self.brackets;
+        let (s, e) = b.span;
+        let start = params.get("start").and_then(|v| v.as_f64()).unwrap_or(s);
+        let end = params.get("end").and_then(|v| v.as_f64()).unwrap_or(e);
+        Some(Self::span_arc_len(b.arc.len(), b.arc.is_closed(), start, end))
+    }
+
+    /// Measurement readout while a bracket moves ([`ToolContext::measurement_labels`]).
+    pub fn measure_overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        if !self.began || !cx.measurement_labels {
+            return vec![];
+        }
+        let Some(len) = self.preview_span(cx, self.at, self.cmd) else { return vec![] };
+        let text = format!("L: {}", cx.len(len));
+        vec![Overlay::Measure { p: self.at + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text }]
     }
 
     pub fn drag(&mut self, cx: &ToolContext, p: Point, cmd: bool) -> Vec<Action> {
+        self.at = p;
+        self.cmd = cmd;
         let mut out = vec![];
         if !self.began {
             if p.distance(self.start) < cx.tol(3.0) {
@@ -328,6 +367,21 @@ mod tests {
             assert_eq!(n, 0);
             assert_ne!(cursor, Cursor::PathBracket);
         }
+    }
+
+    #[test]
+    fn bracket_drag_shows_baseline_length_in_measurement_labels() {
+        let (d, id) = doc_with_path_type();
+        let s = selected(id);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let grab = Point::new(160.0, 295.0);
+        let mut drag = BracketDrag::hit(&on, &PointerEvent::new(PointerKind::Down, grab.x, grab.y).with_mods(Mods::default())).unwrap();
+        let _ = drag.drag(&on, Point::new(190.0, 295.0), false);
+        let want = format!("L: {}", on.len(210.0));
+        assert!(drag.measure_overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(drag.measure_overlays(&off).is_empty());
     }
 
     #[test]
