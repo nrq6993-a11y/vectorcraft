@@ -1308,6 +1308,40 @@ fn an_object_with_a_darkness_shadow_comes_in_as_itself() {
     );
 }
 
+/// A Drop Shadow whose filter dictionary carries a red swatch, Screen blend and 40 % opacity is read
+/// as a live effect, not as the object's drawn look.
+#[test]
+fn an_object_with_a_colored_drop_shadow_comes_in_as_itself() {
+    let shadow_style = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(RedShadow) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /CompoundFilter :\n(Stack Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Fill Style Filter) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n; /Dict ;\n /Part ,\n\
+        /BasicFilter :\n(Conduit Filter) 0 0 /Filter ,\n1 /Visible ,\n;\n /Part ,\n;\n /Part ,\n\
+        /BasicFilter :\n(Adobe Drop Shadow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+        /FillStyle : 0 O\n0 1 1 0 1 0 0 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n\
+        2 /Int (blnd) ,\n0.4 /Real (opac) ,\n4 /Real (blur) ,\n5 /Real (horz) ,\n6 /Real (vert) ,\n; /Dict ;\n /Part ,\n;\n\
+        %AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!("0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (RedShadow) XW\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    let r = read_ok(&format!("{shadow_style}{}", layer(&art_)));
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    let [shadow] = a[0].appearance.effects.as_slice() else { panic!("{:?}", a[0].appearance.effects) };
+    assert_eq!(shadow.id.as_str(), "stylize.dropShadow");
+    assert_eq!(shadow.params["color"], serde_json::json!(Color::rgb(1.0, 0.0, 0.0)));
+    assert_eq!(
+        (
+            shadow.params["mode"].as_str(),
+            shadow.params["opacity"].as_f64(),
+            shadow.params["blur"].as_f64(),
+            shadow.params["x"].as_f64(),
+            shadow.params["y"].as_f64(),
+        ),
+        (Some("Screen"), Some(40.0), Some(8.0), Some(5.0), Some(6.0))
+    );
+}
+
 /// A styled object read in place of its drawn look keeps the transparency written on the look (the
 /// object's own, after the look's group ends): here 60 % in Multiply.
 #[test]

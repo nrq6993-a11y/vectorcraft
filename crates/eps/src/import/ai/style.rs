@@ -21,7 +21,8 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow with its swatch, opacity
+//! and blend mode, Feather) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
@@ -445,6 +446,36 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_drop_shadow_reads_opacity_blur_and_blend_mode() {
+        let style = shadow_style("1 /Int (blnd) ,\n0.75 /Real (opac) ,\n5 /Real (blur) ,\n7 /Real (horz) ,\n8 /Real (vert) ,\n");
+        assert!(style.plain, "{style:?}");
+        let [shadow] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (
+                shadow.id.as_str(),
+                shadow.params["mode"].as_str(),
+                shadow.params["opacity"].as_f64(),
+                shadow.params["blur"].as_f64(),
+                shadow.params["x"].as_f64(),
+                shadow.params["y"].as_f64(),
+            ),
+            ("stylize.dropShadow", Some("Multiply"), Some(75.0), Some(10.0), Some(7.0), Some(8.0))
+        );
+    }
+
+    #[test]
+    fn a_drop_shadow_keeps_its_swatched_color() {
+        let style = shadow_style(
+            "/FillStyle : 0 O\n0 1 1 0 1 0 0 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n2 /Int (blnd) ,\n0.5 /Real (opac) ,\n5 /Real (blur) ,\n",
+        );
+        assert!(style.plain, "{style:?}");
+        let [shadow] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(shadow.params["color"], json!(vectorcraft_color::Color::rgb(1.0, 0.0, 0.0)));
+        assert_eq!(shadow.params["mode"].as_str(), Some("Screen"));
+        assert_eq!(shadow.params["opacity"].as_f64(), Some(50.0));
     }
 
     #[test]
