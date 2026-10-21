@@ -17,6 +17,25 @@ use crate::state::{Dialog, UiState};
 use crate::theme::{self, Tokens};
 use crate::{VectorcraftApp, menus, widgets};
 
+/// Override map key for an Effect-menu item (`effect:<effect id>`).
+pub const EFFECT_KEY_PREFIX: &str = "effect:";
+
+/// Override key for the Effect-menu item that opens or applies `id`.
+pub fn effect_entry_key(id: &str) -> String {
+    format!("{EFFECT_KEY_PREFIX}{id}")
+}
+
+fn effect_id_from_entry_key(key: &str) -> Option<&str> {
+    key.strip_prefix(EFFECT_KEY_PREFIX)
+}
+
+/// The command and params a shortcut for an effect should run.
+pub fn effect_invoke(id: &str) -> Option<(&'static str, Value)> {
+    let info = vectorcraft_effects::effect_info(id)?;
+    let cmd = if info.defaults.as_object().is_some_and(|o| o.is_empty()) { "effect.apply" } else { "effect.dialog" };
+    Some((cmd, json!({ "effect": id })))
+}
+
 pub const PRESETS: &[&str] = &["VectorCraft Defaults", "Classic Defaults"];
 pub const CUSTOM: &str = "Custom";
 /// Set names earlier versions saved: (old name, current name).
@@ -167,6 +186,20 @@ pub fn panel_shortcut(panel: &str) -> Option<&'static str> {
     effective(&format!("panel:{panel}"))
 }
 
+/// Effective shortcut of an Effect-menu item (`effect.dialog` / `effect.apply` with its id).
+pub fn effect_shortcut(id: &str) -> Option<&'static str> {
+    effective(&effect_entry_key(id))
+}
+
+/// Effect id whose effective shortcut is exactly `key` (single-key shortcuts: T, Shift+T).
+pub fn effect_for_key(key: &str) -> Option<&'static str> {
+    let n = normalize(key)?;
+    entries()
+        .iter()
+        .filter_map(|e| effect_id_from_entry_key(&e.key))
+        .find(|id| effect_shortcut(id).and_then(|s| normalize(s)).as_deref() == Some(n.as_str()))
+}
+
 /// Tool whose (effective) shortcut is `key` ("V", "Shift+M").
 pub fn tool_for_key(key: &str) -> Option<&'static str> {
     let n = normalize(key)?;
@@ -256,7 +289,7 @@ pub fn entries() -> &'static [Entry] {
         let mut v: Vec<Entry> = vectorcraft_tools::catalog::all_tools()
             .map(|t| Entry { key: format!("tool:{}", t.id), label: t.label.to_string(), group: "Tools".into(), is_tool: true })
             .collect();
-        let mut seen = HashSet::new();
+        let mut seen: HashSet<String> = HashSet::new();
         for c in vectorcraft_engine::command_specs() {
             // Commands outside the menus (panel menu items) are
             // listed when a key alone can run them; queries and aliases never are.
@@ -265,7 +298,7 @@ pub fn entries() -> &'static [Entry] {
             } else {
                 true
             };
-            if !listed || !seen.insert(c.id) {
+            if !listed || !seen.insert(c.id.to_string()) {
                 continue;
             }
             let group = if c.menu.is_empty() { id_group(c.id) } else { c.menu.join(" › ") };
@@ -278,10 +311,18 @@ pub fn entries() -> &'static [Entry] {
             is_tool: false,
         }));
         for (id, label, sc, params) in menus::UI_COMMANDS {
-            if !seen.insert(id) || (sc.is_empty() && !params.starts_with("{}") && !params.starts_with("{path")) {
+            if !seen.insert(id.to_string()) || (sc.is_empty() && !params.starts_with("{}") && !params.starts_with("{path")) {
                 continue;
             }
             v.push(Entry { key: id.to_string(), label: label.to_string(), group: id_group(id), is_tool: false });
+        }
+        for e in vectorcraft_effects::effect_catalog().iter().chain(vectorcraft_effects::plugin_effects().iter()) {
+            let key = effect_entry_key(e.id);
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            let group = e.menu.join(" › ");
+            v.push(Entry { key, label: e.label.to_string(), group, is_tool: false });
         }
         v
     })
@@ -1031,5 +1072,19 @@ mod tests {
         let mut ov = BTreeMap::new();
         assign(&mut ov, "object.isolate", Some("Cmd+Alt+Shift+F11"), false).unwrap();
         assert_eq!(effective_in(&ov, "object.isolate").as_deref(), Some("Cmd+Alt+Shift+F11"));
+    }
+
+    /// #3296: Effect-menu items (Transform, Offset Path, …) can be given shortcuts.
+    #[test]
+    fn effect_menu_items_are_listed_and_assignable() {
+        let transform = entry("effect:distort.transform").expect("listed");
+        assert_eq!(transform.label, "Transform…");
+        assert_eq!(transform.group, "Effect › Distort & Transform");
+        let (cmd, params) = effect_invoke("distort.transform").expect("invoke");
+        assert_eq!(cmd, "effect.dialog");
+        assert_eq!(params.get("effect").and_then(|v| v.as_str()), Some("distort.transform"));
+        let mut ov = BTreeMap::new();
+        assign(&mut ov, "effect:distort.transform", Some("Cmd+Alt+Shift+T"), false).unwrap();
+        assert_eq!(effective_in(&ov, "effect:distort.transform").as_deref(), Some("Cmd+Alt+Shift+T"));
     }
 }

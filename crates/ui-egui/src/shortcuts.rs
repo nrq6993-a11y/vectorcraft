@@ -80,6 +80,13 @@ pub(crate) fn all_shortcuts() -> Vec<(KeyboardShortcut, &'static str, serde_json
             v.push((sc, "window.panel", json!({ "panel": panel })));
         }
     }
+    for e in vectorcraft_effects::effect_catalog().iter().chain(vectorcraft_effects::plugin_effects().iter()) {
+        if let Some(sc) = crate::shortcut_editor::effect_shortcut(e.id).and_then(parse)
+            && let Some((cmd, p)) = crate::shortcut_editor::effect_invoke(e.id)
+        {
+            v.push((sc, cmd, p));
+        }
+    }
     settings_chord(&mut v, cfg!(target_os = "macos"));
     // Most specific (most modifiers) first so Cmd+Shift+Z isn't eaten by Cmd+Z.
     v.sort_by_key(|(sc, ..)| {
@@ -616,6 +623,12 @@ pub fn handle(app: &mut VectorcraftApp, ctx: &egui::Context) {
         // Single-key command shortcuts (X, Shift+X, D, /, Shift+D, F, Shift+F by default).
         if let Some(id) = lookup(crate::shortcut_editor::command_for_key) {
             let _ = app.run(id, json!({}));
+            continue;
+        }
+        if let Some(effect) = lookup(crate::shortcut_editor::effect_for_key)
+            && let Some((cmd, p)) = crate::shortcut_editor::effect_invoke(effect)
+        {
+            crate::menus::invoke(app, cmd, p);
             continue;
         }
         if let Some(t) = lookup(crate::shortcut_editor::tool_for_key) {
