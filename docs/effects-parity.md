@@ -44,7 +44,7 @@ its resolution, PDF export warns once per object with the requested and the lowe
 | Distort | Diffuse Glow, Glass, Ocean Ripple | 3/3 | — |
 | Pixelate | Color Halftone, Crystallize, Mezzotint, Pointillize | 4/4 | — |
 | Sharpen | Unsharp Mask | 1/1 | — |
-| Sketch | Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Conté Crayon, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Torn Edges, Water Paper | 13/14 (approximate Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Torn Edges, Water Paper; Chalk & Charcoal, Graphic Pen, Note Paper and Water Paper defaults unverified) | Conté Crayon |
+| Sketch | Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Conté Crayon, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Torn Edges, Water Paper | 14/14 (approximate Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Conté Crayon, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Torn Edges, Water Paper; Chalk & Charcoal, Graphic Pen, Note Paper and Water Paper defaults unverified) | — |
 | Stylize | Glowing Edges | 1/1 | — |
 | Texture | Craquelure, Grain, Mosaic Tiles, Patchwork, Stained Glass, Texturizer | 6/6 | — |
 | Video | De-Interlace, NTSC Colors | 2/2 | — |
@@ -52,7 +52,7 @@ its resolution, PDF export warns once per object with the requested and the lowe
 
 The pixel-filter pipeline (`vectorcraft_effects::pixel`) is in place: each new filter is one function, a
 catalogue row, a menu entry and translations. Measured throughput: 0.7–1.2 agent hours per filter
-(see [calibration](target-app-parity.md#calibration)), so the 3 missing filters are ~2–4 h and the Effect
+(see [calibration](target-app-parity.md#calibration)), so the 2 missing filters are ~2–4 h and the Effect
 Gallery dialog another 4–6 h. These parallelize well across agents.
 
 Film Grain (`artistic.filmGrain`, Effect › Artistic) adds stable monochrome noise to shadows and
@@ -178,6 +178,7 @@ angular cut caps, exact visibility, 3D Classic, Turntable, 3D export) is 25–45
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-21 | minor | G2: Effect › Sketch › Conté Crayon (Foreground Level and Background Level; black conté and white crayon on grainy paper, defaults unverified); measured Photoshop filters 48/57, Sketch 14/14. |
 | 2026-10-21 | minor | 3D: original Standard, Diffuse, Top Left and Right lighting presets; command access, effective-setting recognition and preview/history; scores and estimates unchanged |
 | 2026-10-20 | minor | G2: Effect › Sketch › Water Paper (Fiber Length, Brightness, Contrast; colours flow on damp fibrous paper, defaults unverified, #2955); measured Photoshop filters 47/57, Sketch 12/14. |
 | 2026-10-20 | minor | G2: Effect › Sketch › Note Paper (Image Balance, Graininess, Relief; embossed tones on fibrous paper); Halftone Pattern and Note Paper parameter ranges follow public control names, numeric defaults are unverified VectorCraft choices (public help gives no numbers); measured Photoshop filters 46/57, Sketch 11/14. |
