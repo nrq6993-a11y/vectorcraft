@@ -179,8 +179,9 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         widgets::dim_label(ui, tl!("Limit:"));
         let lim = st.as_ref().map(|s| s.miter_limit).unwrap_or(10.0);
         if !matches!(join, Some(LineJoin::Round | LineJoin::Bevel)) {
-            if let Some(v) = widgets::mixed_field(ui, "stroke-limit", (!mixed.miter_limit).then_some(lim), " x", 0, 50.0) {
-                set(app, json!({"miterLimit": v.clamp(1.0, 500.0)}));
+            if let Some(v) = widgets::mixed_field_bounded(ui, "stroke-limit", (!mixed.miter_limit).then_some(lim), " x", 0, 50.0, Some((1.0, 500.0)))
+            {
+                set(app, json!({"miterLimit": v}));
             }
         } else {
             ui.label(egui::RichText::new(format!("{lim:.0} x")).color(t.text_disabled));

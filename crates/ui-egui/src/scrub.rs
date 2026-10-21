@@ -135,7 +135,7 @@ fn take_label(ui: &Ui, field: Rect) -> Option<Rect> {
 /// started at when Escape cancels the drag. A click on the label (or a press held without
 /// stepping) focuses the field with all of `text` selected. Nothing for a field without a label,
 /// disabled or showing no value (objects that differ).
-pub(crate) fn field(ui: &Ui, field: Id, rect: Rect, text: &str, value: Option<f64>, decimals: i32) -> Option<f64> {
+pub(crate) fn field(ui: &Ui, field: Id, rect: Rect, text: &str, value: Option<f64>, decimals: i32, clamp: Option<(f64, f64)>) -> Option<f64> {
     let label = take_label(ui, rect)?;
     let value = value.filter(|v| v.is_finite())?;
     if !enabled(ui.ctx()) || !ui.is_enabled() {
@@ -143,11 +143,11 @@ pub(crate) fn field(ui: &Ui, field: Id, rect: Rect, text: &str, value: Option<f6
     }
     // On top of the label, which may sense clicks itself (selectable text).
     let resp = ui.interact(label, field.with("scrub-label"), Sense::click_and_drag());
-    drag(ui, &resp, field, text, value, decimals)
+    drag(ui, &resp, field, text, value, decimals, clamp)
 }
 
 /// What a drag on `resp`, the label of field `field`, does this frame.
-fn drag(ui: &Ui, resp: &Response, field: Id, text: &str, value: f64, decimals: i32) -> Option<f64> {
+fn drag(ui: &Ui, resp: &Response, field: Id, text: &str, value: f64, decimals: i32, clamp: Option<(f64, f64)>) -> Option<f64> {
     if resp.hovered() || resp.dragged() {
         ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
     }
@@ -176,14 +176,14 @@ fn drag(ui: &Ui, resp: &Response, field: Id, text: &str, value: f64, decimals: i
         }
         None
     } else {
-        step(ui, resp, &mut s, value, decimals)
+        step(ui, resp, &mut s, value, decimals, clamp)
     };
     ui.data_mut(|d| d.insert_temp(state_id(), s));
     out
 }
 
 /// The value this frame's drag steps `value` to, if it makes a whole step.
-fn step(ui: &Ui, resp: &Response, s: &mut Scrub, value: f64, decimals: i32) -> Option<f64> {
+fn step(ui: &Ui, resp: &Response, s: &mut Scrub, value: f64, decimals: i32, clamp: Option<(f64, f64)>) -> Option<f64> {
     let mods = ui.input(|i| i.modifiers);
     let size = if mods.command {
         0.1
@@ -206,5 +206,5 @@ fn step(ui: &Ui, resp: &Response, s: &mut Scrub, value: f64, decimals: i32) -> O
     }
     s.pending -= n * step;
     s.moved = true;
-    Some(crate::widgets::round_to(value + n * step, decimals))
+    Some(crate::widgets::clamp_bounded(crate::widgets::round_to(value + n * step, decimals), clamp))
 }

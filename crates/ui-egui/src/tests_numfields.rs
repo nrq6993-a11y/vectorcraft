@@ -819,3 +819,39 @@ fn a_press_on_the_canvas_commits_to_the_object_being_edited() {
     f.frame(vec![], &draw);
     assert_eq!((committed.get(), selected.get()), (Some((1, 42.0)), 2));
 }
+
+/// #3370: wheel and arrow keys on bounded panel fields cannot step below their minimum.
+#[test]
+fn bounded_fields_do_not_step_below_the_minimum() {
+    use egui::MouseWheelUnit::Line;
+    let mut f = Field::new();
+    let pt = Cell::new(0.5);
+    let draw =
+        |ui: &mut egui::Ui| widgets::spin_field(ui, "w", Some(pt.get()), Unit::Points, 80.0, 1.0, 0.0, &[0.25, 0.5, 1.0]).inspect(|w| pt.set(*w));
+    f.frame(vec![], &draw);
+    f.frame(f.click(1), &draw);
+    f.frame(vec![], &draw);
+    let at = f.rect.get().center();
+    for _ in 0..5 {
+        f.frame(wheel(at, Line, -1.0, Modifiers::NONE), &draw);
+        f.frame(vec![], &draw);
+    }
+    assert!(pt.get() >= 0.0, "stroke weight: {}", pt.get());
+
+    let mut f = Field::new();
+    let lim = Cell::new(2.0);
+    let miter =
+        |ui: &mut egui::Ui| widgets::mixed_field_bounded(ui, "m", Some(lim.get()), " x", 0, 50.0, Some((1.0, 500.0))).inspect(|v| lim.set(*v));
+    f.frame(vec![], &miter);
+    f.frame(f.click(1), &miter);
+    f.frame(vec![], &miter);
+    let at = f.rect.get().center();
+    lim.set(1.0);
+    f.frame(vec![], &miter);
+    for _ in 0..3 {
+        f.frame(wheel(at, Line, -1.0, Modifiers::NONE), &miter);
+        f.frame(vec![], &miter);
+    }
+    assert_eq!(lim.get(), 1.0);
+    assert_eq!(f.frame(vec![key(Key::ArrowDown, Modifiers::NONE)], &miter), None);
+}
