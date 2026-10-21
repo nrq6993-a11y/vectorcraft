@@ -2029,6 +2029,15 @@ fn release_guides_turns_ruler_guides_into_paths() {
 }
 
 #[test]
+#[test]
+fn guide_move_can_swap_orientation() {
+    let mut s = session();
+    s.execute("guide.add", &json!({"vertical": false, "pos": 50})).unwrap();
+    s.execute("guide.move", &json!({"index": 0, "pos": 120, "vertical": true})).unwrap();
+    assert_eq!((s.doc().unwrap().doc.guides[0].vertical, s.doc().unwrap().doc.guides[0].pos), (true, 120.0));
+}
+
+#[test]
 fn ruler_guides_and_lock() {
     let mut s = session();
     assert_eq!(s.execute("guide.add", &json!({"vertical": false, "pos": 50})).unwrap()["index"], 0);

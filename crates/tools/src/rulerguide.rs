@@ -85,7 +85,12 @@ fn guide_cursor(vertical: bool) -> Cursor {
 #[derive(Clone, Copy, Debug)]
 struct Drag {
     index: usize,
+    /// Orientation when the drag began.
+    source_vertical: bool,
+    /// Effective orientation while dragging (Alt swaps when Alt was not down at press).
     vertical: bool,
+    /// Alt was down when the guide was pressed: the drag copies instead of swapping orientation.
+    alt_down: bool,
     /// Where the guide was, and where it is now (x of a vertical guide, y of a horizontal one).
     from: f64,
     at: f64,
@@ -244,7 +249,9 @@ impl GuideEdit {
         let (shift, selected) = (ev.mods.shift, cx.selection.guides.contains(&index));
         self.drag = Some(Drag {
             index,
+            source_vertical: g.vertical,
             vertical: g.vertical,
+            alt_down: ev.mods.alt,
             from: g.pos,
             at: g.pos,
             start: ev.pos,
@@ -309,15 +316,26 @@ impl GuideEdit {
                 return out;
             }
             d.began = true;
-            out.push(Action::Begin(if ev.mods.alt { "Copy Guide" } else { "Move Guide" }.into()));
+            out.push(Action::Begin(if d.alt_down { "Copy Guide" } else { "Move Guide" }.into()));
             self.snap = GuideSnap::new(cx);
         }
+        let swap = ev.mods.alt && !d.alt_down;
+        let copy = ev.mods.alt && d.alt_down;
+        let vertical = if swap { !d.source_vertical } else { d.source_vertical };
         let moved = p - d.start;
-        let at = self.snap.snap(cx, d.vertical, d.from + if d.vertical { moved.x } else { moved.y }, ev.mods.shift);
-        (d.at, d.pointer) = (at, p);
-        // The other selected guides follow the pointer: vertical ones across, horizontal ones down.
-        let (dx, dy) = if d.vertical { (at - d.from, moved.y) } else { (moved.x, at - d.from) };
-        out.push(Action::Preview("guide.move".into(), json!({ "dx": dx, "dy": dy, "copy": ev.mods.alt })));
+        let at = if swap {
+            self.snap.snap(cx, vertical, if vertical { p.x } else { p.y }, ev.mods.shift)
+        } else {
+            self.snap.snap(cx, d.source_vertical, d.from + if d.source_vertical { moved.x } else { moved.y }, ev.mods.shift)
+        };
+        (d.at, d.pointer, d.vertical) = (at, p, vertical);
+        if swap {
+            out.push(Action::Preview("guide.move".into(), json!({ "index": d.index, "pos": at, "vertical": vertical })));
+        } else {
+            // The other selected guides follow the pointer: vertical ones across, horizontal ones down.
+            let (dx, dy) = if d.source_vertical { (at - d.from, moved.y) } else { (moved.x, at - d.from) };
+            out.push(Action::Preview("guide.move".into(), json!({ "dx": dx, "dy": dy, "copy": copy })));
+        }
         out
     }
 
@@ -632,6 +650,20 @@ mod tests {
         assert_eq!(a[1], Action::Preview("guide.move".into(), json!({"dx": 0.0, "dy": 20.0, "copy": true})));
     }
 
+    #[test]
+    fn alt_during_drag_swaps_orientation_without_copy() {
+        let d = guides_doc();
+        let mut s = Selection::default();
+        s.set_guides([1]);
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let mut g = GuideEdit::default();
+        g.press(&c, &ev(PointerKind::Down, 50.0, 400.0, Mods::default()));
+        let a = g.pointer(&c, &ev(PointerKind::Drag, 80.0, 420.0, Mods { alt: true, ..Default::default() })).unwrap();
+        assert_eq!(a[0], Action::Begin("Move Guide".into()));
+        assert_eq!(a[1], Action::Preview("guide.move".into(), json!({"index": 1, "pos": 80.0, "vertical": true})));
+    }
+
     /// #2143: a click on a guide selected with objects makes it the key; on the key guide again,
     /// no key. Alone (no objects), with Shift, or dragged, it doesn't.
     #[test]
@@ -726,7 +758,7 @@ mod tests {
         };
         if let Some(from) = from {
             assert_eq!(command, "guide.move");
-            from + p[if vertical { "dx" } else { "dy" }].as_f64().unwrap()
+            if p.get("index").is_some() { p["pos"].as_f64().unwrap() } else { from + p[if vertical { "dx" } else { "dy" }].as_f64().unwrap() }
         } else {
             assert_eq!(command, "guide.add");
             assert_eq!(p["vertical"], json!(vertical));
