@@ -338,7 +338,7 @@ fn slider_strip(ctx: &egui::Context) -> (Rect, Pos2, Pos2, Pos2) {
     (r, Pos2::new(r.left() + 8.0 + 14.0, y), Pos2::new(r.left() + 8.0 + 28.0 + 6.0 + 90.0, y), Pos2::new(r.right() - 8.0 - 14.0, y))
 }
 
-/// Object › Path › Simplify opens a slider under the selection that previews the 1 pt result.
+/// Object › Path › Simplify opens a slider under the selection at Auto-Simplify's level.
 /// Dragging it to the right previews more anchor points and to the left fewer, and Enter keeps the
 /// result as one undo step.
 #[test]
@@ -348,8 +348,8 @@ fn simplify_opens_a_slider_whose_drag_previews_fewer_or_more_points() {
     crate::menus::invoke(&mut app, "object.path.simplify", json!({}));
     assert_eq!(app.ui.dialog.as_ref().map(|d| d.kind.as_str()), Some(simplify_slider::KIND));
     settle(&ctx, &mut app);
-    assert_eq!(simplify_preview(&app), json!({"level": 50.0}));
-    assert_eq!(anchor_count(&app), 2, "the 1 pt result");
+    assert_eq!(simplify_preview(&app), json!({"level": 55.0}));
+    assert_eq!(anchor_count(&app), 2, "Auto-Simplify's level for a 285 pt path");
     let (_, _, rail, _) = slider_strip(&ctx);
     drag(&ctx, &mut app, rail, vec2(100.0, 0.0));
     assert_eq!(simplify_preview(&app), json!({"level": 100.0}));
