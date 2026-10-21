@@ -88,7 +88,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Transform on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -651,7 +651,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "distort.transform"));
     st
 }
 
@@ -726,6 +726,34 @@ mod tests {
             let [shadow] = style.effects.as_slice() else { panic!("{dark:?}: {style:?}") };
             assert_eq!((&shadow.params["shade"], &shadow.params["darkness"]), (&json!("darkness"), &json!(want)), "{dark:?}");
         }
+    }
+
+    #[test]
+    fn a_transform_reads_move_scale_copies_and_reference() {
+        let data = b"/KnownStyle :\n(Shifted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Transform) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            50 /Real (scaleH_Percent) ,\n80 /Real (scaleV_Percent) ,\n20 /Real (moveH_Pts) ,\n-5 /Real (moveV_Pts) ,\n\
+            30 /Real (rotate_Degrees) ,\n2 /Int (numCopies) ,\n0 /Int (pinPoint) ,\n1 /Bool (reflectX) ,\n0 /Bool (reflectY) ,\n0 /Bool (randomize) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Shifted"];
+        assert!(style.plain, "{style:?}");
+        let [fx] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(fx.id, "distort.transform");
+        assert_eq!(
+            fx.params,
+            json!({
+                "scaleH": 50.0,
+                "scaleV": 80.0,
+                "moveH": 20.0,
+                "moveV": 5.0,
+                "rotate": 30.0,
+                "copies": 2,
+                "reference": 0,
+                "reflectX": true,
+                "reflectY": false,
+                "random": false,
+            })
+        );
     }
 
     #[test]
