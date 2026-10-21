@@ -88,7 +88,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Offset Path on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -651,7 +651,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "path.offsetPath"));
     st
 }
 
@@ -725,6 +725,32 @@ mod tests {
             assert!(style.plain, "{dark:?}: {style:?}");
             let [shadow] = style.effects.as_slice() else { panic!("{dark:?}: {style:?}") };
             assert_eq!((&shadow.params["shade"], &shadow.params["darkness"]), (&json!("darkness"), &json!(want)), "{dark:?}");
+        }
+    }
+
+    #[test]
+    fn offset_path_style_reads_its_distance_join_and_miter_limit() {
+        let data = b"/KnownStyle :\n(Outset) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Offset Path) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n2 /Int (jntp) ,\n10 /Real (ofst) ,\n6 /Real (mlim) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Outset"];
+        assert!(style.plain, "{style:?}");
+        let [off] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (off.id.as_str(), &off.params["offset"], &off.params["joins"], &off.params["miterLimit"]),
+            ("path.offsetPath", &json!(10.0), &json!("miter"), &json!(6.0))
+        );
+    }
+
+    #[test]
+    fn offset_path_join_type_maps_round_bevel_and_miter() {
+        for (jntp, joins) in [(0.0, "round"), (1.0, "bevel"), (2.0, "miter")] {
+            let data = format!(
+                "/KnownStyle :\n(J) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+                /BasicFilter :\n(Adobe Offset Path) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{jntp} /Int (jntp) ,\n; /Dict ;\n /Part ,\n;\n"
+            );
+            let style = &art_styles(data.as_bytes())["J"];
+            let [off] = style.effects.as_slice() else { panic!("{jntp}: {style:?}") };
+            assert_eq!((&off.params["joins"], &off.params["offset"], &off.params["miterLimit"]), (&json!(joins), &json!(10.0), &json!(4.0)));
         }
     }
 
