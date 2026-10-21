@@ -74,6 +74,32 @@ fn tolerance(mode: Blend) -> i32 {
     if mode == Blend::Exclusion { 2 } else { 1 }
 }
 
+/// #3301: Erase knocks out what is below by the object's coverage. Its colour is ignored, and a
+/// lower opacity leaves that share of the backdrop. A group with the mode does the same.
+#[test]
+fn erase_knocks_out_the_backdrop_by_opacity() {
+    let mut r = Renderer::new();
+    let opts = RenderOptions { artboards: false, background: None, ..Default::default() };
+    let mut sample = |level: Level, opacity: f32| {
+        let mut d = doc(Blend::Erase, level, [255, 0, 0], [0, 255, 0]);
+        let top = d.layers[0].children().unwrap().last().unwrap().id;
+        match level {
+            Level::Fill => d.node_mut(top).unwrap().appearance.fill_mut().unwrap().opacity = opacity,
+            Level::Object | Level::Group => d.node_mut(top).unwrap().opacity = opacity,
+        }
+        r.render(&d, 20, 20, Affine::IDENTITY, &opts).pixel(10, 10)
+    };
+    for level in [Level::Object, Level::Fill, Level::Group] {
+        let gone = sample(level, 1.0);
+        assert_eq!(gone, [0, 0, 0, 0], "{level:?} opaque erase: {gone:?}");
+        let half = sample(level, 0.5);
+        assert!((half[3] as i32 - 128).abs() <= 2 && half[0] >= 250 && half[1] <= 2 && half[2] <= 2, "{level:?} half erase keeps red: {half:?}");
+    }
+    // Outside the erasing shape the backdrop is untouched.
+    let edge = r.render(&doc(Blend::Erase, Level::Object, [255, 0, 0], [0, 255, 0]), 20, 20, Affine::IDENTITY, &opts).pixel(2, 2);
+    assert_eq!(edge, [255, 0, 0, 255], "{edge:?}");
+}
+
 #[test]
 fn every_mode_matches_the_reference_formulas() {
     let mut r = Renderer::new();

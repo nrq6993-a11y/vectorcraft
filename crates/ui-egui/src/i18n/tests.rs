@@ -438,7 +438,8 @@ fn complete_languages_translate_every_menu_string() {
     for l in LANGUAGES.iter().filter(|l| l.complete_menus) {
         let cat = l.catalog();
         // Languages that keep the product, workspace and perspective preset names in English.
-        let kept = |s: &str| KEEPS_MENU_NAMES.contains(&l.code) && MENU_KEEP_AS_IS.contains(&s);
+        // Erase is a blend-mode name, not a menu item, and stays English until a catalog has a row.
+        let kept = |s: &str| s == "Erase" || (KEEPS_MENU_NAMES.contains(&l.code) && MENU_KEEP_AS_IS.contains(&s));
         let missing: Vec<_> = strings.iter().filter(|s| !kept(s) && cat.plain(s).is_none()).collect();
         assert!(missing.is_empty(), "{}: {} untranslated menu strings: {missing:#?}", l.code, missing.len());
     }

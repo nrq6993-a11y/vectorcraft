@@ -1134,18 +1134,18 @@ pub fn strip_scroll<R>(ui: &mut Ui, id: &str, add_contents: impl FnOnce(&mut Ui)
     .inner
 }
 
-/// Whether the blend-mode list draws a separator above `BlendMode::ALL[i]`: where a
+/// Whether the blend-mode list draws a separator above `BlendMode::MENU[i]`: where a
 /// [`BlendMode::group`] starts.
 pub fn blend_separator_before(i: usize) -> bool {
-    i > 0 && i < BlendMode::ALL.len() && BlendMode::ALL[i].group() != BlendMode::ALL[i - 1].group()
+    i > 0 && i < BlendMode::MENU.len() && BlendMode::MENU[i].group() != BlendMode::MENU[i - 1].group()
 }
 
 /// The blend-mode dropdown, its groups separated (Normal | darken | lighten | contrast | inversion
-/// | component modes). `None` (objects that differ) shows blank. Returns the chosen mode.
+/// | component modes | Erase). `None` (objects that differ) shows blank. Returns the chosen mode.
 pub fn blend_dropdown(ui: &mut Ui, id: impl std::hash::Hash + std::fmt::Debug, current: Option<BlendMode>, width: f32) -> Option<BlendMode> {
     combo(ui, id, current.map_or("", |m| tl!(m.label())), width, false, |ui| {
         let mut chosen = None;
-        for (i, m) in BlendMode::ALL.into_iter().enumerate() {
+        for (i, m) in BlendMode::MENU.into_iter().enumerate() {
             if blend_separator_before(i) {
                 ui.separator();
             }

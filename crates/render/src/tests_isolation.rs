@@ -78,6 +78,33 @@ fn assert_near(got: [u8; 4], want: [f32; 3], what: &str) {
 }
 
 #[test]
+fn erase_inside_a_group_punches_the_backdrop_unless_isolate_blending_is_on() {
+    // #3301: Erase reaches the current compositing buffer, as Multiply does, unless the group
+    // isolates. Isolate Blending keeps the hole inside the group, so the art below stays.
+    let opts = RenderOptions { artboards: false, background: None, ..Default::default() };
+    let mut renderer = Renderer::new();
+    let backdrop = {
+        let c = to8(B);
+        [c[0], c[1], c[2], 255]
+    };
+    for isolate in [false, true] {
+        let d = doc(|d| {
+            let mut n = rect(d, Rect::new(20.0, 20.0, 80.0, 80.0), S);
+            n.blend = Blend::Erase;
+            group(d, vec![n], 1.0, Blend::Normal, isolate)
+        });
+        let frame = render_with(&mut renderer, &d, &opts);
+        assert_eq!(frame.pixel(10, 10), backdrop, "outside, isolate {isolate}");
+        let px = frame.pixel(50, 50);
+        if isolate {
+            assert_eq!(px, backdrop, "Isolate Blending keeps the backdrop");
+        } else {
+            assert_eq!(px, [0, 0, 0, 0], "a non-isolated group lets Erase through");
+        }
+    }
+}
+
+#[test]
 fn a_multiply_child_of_a_half_opaque_group_multiplies_with_the_backdrop() {
     let multiplied = blend_rgb(Blend::Multiply, B, S);
     for isolate in [false, true] {

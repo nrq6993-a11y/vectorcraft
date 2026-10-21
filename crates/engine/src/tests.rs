@@ -1896,6 +1896,28 @@ fn inspect_lists_everything() {
     assert!(s.commands().len() > 100);
 }
 
+/// Erase is stored, inspected and written in the native file. Normal and undo put the object back.
+#[test]
+fn erase_blend_is_set_kept_and_undone() {
+    let mut s = session();
+    let a = rect(&mut s, 10.0, 10.0, 40.0, 40.0);
+    s.execute("transparency.set", &json!({"blend": "erase", "opacity": 40})).unwrap();
+    {
+        let n = s.doc().unwrap().doc.node(a).unwrap();
+        assert_eq!((n.blend, n.opacity), (vectorcraft_color::BlendMode::Erase, 0.4));
+    }
+    let v = s.execute("document.inspect", &json!({})).unwrap();
+    assert_eq!(v["layers"][0]["children"][0]["blend"], "Erase");
+    let back = vectorcraft_format::load(&vectorcraft_format::save(&s.doc().unwrap().doc, false)).unwrap();
+    assert_eq!(back.node(a).unwrap().blend, vectorcraft_color::BlendMode::Erase);
+    s.execute("transparency.set", &json!({"blend": "normal"})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.node(a).unwrap().blend, vectorcraft_color::BlendMode::Normal);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.node(a).unwrap().blend, vectorcraft_color::BlendMode::Erase);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.node(a).unwrap().blend, vectorcraft_color::BlendMode::Normal);
+}
+
 /// A compound path reports the paint that lives on it, and any node reports a blend other than Normal.
 #[test]
 fn inspect_reports_compound_paint_and_blend() {

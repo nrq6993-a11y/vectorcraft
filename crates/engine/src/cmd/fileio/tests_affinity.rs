@@ -265,6 +265,38 @@ mod native {
         synth::container(&[("doc.dat", &doc, method)], Some(&png()))
     }
 
+    /// Affinity's Erase (Blnd 25) opens as Erase, with its opacity, instead of falling back to Normal.
+    #[test]
+    fn erase_blend_opens_as_erase() {
+        let shape = F::Def(
+            20,
+            vec![tag(b"ShpN"), tag(b"VNod"), tag(b"Node")],
+            vec![
+                (tag(b"Desc"), F::Str("Eraser".into())),
+                (tag(b"Shpe"), F::Def(21, vec![tag(b"ShNR")], vec![])),
+                (tag(b"ShpB"), F::F64s(vec![0.0, 0.0, 40.0, 20.0])),
+                (tag(b"BFFl"), F::Shared(vec![solid(22, rgba(0.0, 1.0, 0.0, 1.0))])),
+                (tag(b"Blnd"), F::Enum(25, 0)),
+                (tag(b"Opac"), F::F64(0.5)),
+            ],
+        );
+        let spread =
+            F::Def(2, vec![tag(b"Sprd")], vec![(tag(b"SprB"), F::F64s(vec![0.0, 0.0, 100.0, 100.0])), (tag(b"Chld"), F::Shared(vec![shape]))]);
+        let doc = synth::stream(&[
+            (tag(b"UVCn"), F::Obj(tag(b"UVCn"), vec![(tag(b"UPPI"), F::F64(72.0))])),
+            (tag(b"DocR"), F::Def(1, vec![tag(b"DocN")], vec![(tag(b"Chld"), F::Shared(vec![spread]))])),
+        ]);
+        let bytes = synth::container(&[("doc.dat", &doc, Method::Stored)], Some(&png()));
+        let mut s = Session::new();
+        let r = open_bytes(&mut s, "erase.af", &bytes, None).unwrap();
+        assert!(r["warnings"].as_array().unwrap().iter().all(|w| !w.as_str().unwrap_or("").to_ascii_lowercase().contains("erase")), "{r}");
+        let layer = &s.doc().unwrap().doc.layers[0];
+        let NodeKind::Layer { children, .. } = &layer.kind else { panic!("{:?}", layer.kind) };
+        let n = &children[0];
+        assert_eq!(n.name.as_deref(), Some("Eraser"));
+        assert_eq!((n.blend, n.opacity), (vectorcraft_color::BlendMode::Erase, 0.5));
+    }
+
     #[test]
     fn layers_artboards_curves_and_paints_open_as_editable_art() {
         for method in [Method::Stored, Method::Zlib, Method::Zstd] {

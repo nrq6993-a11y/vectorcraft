@@ -883,6 +883,7 @@ fn blend_mode_names() {
     use vectorcraft_doc::color::BlendMode;
     assert_eq!(raster::blend_mode("Color-Burn"), BlendMode::ColorBurn);
     assert_eq!(raster::blend_mode("screen"), BlendMode::Screen);
+    assert_eq!(raster::blend_mode("erase"), BlendMode::Erase);
     assert_eq!(raster::blend_mode("???"), BlendMode::Normal);
 }
 

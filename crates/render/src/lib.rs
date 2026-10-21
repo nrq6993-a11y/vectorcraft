@@ -2533,6 +2533,8 @@ pub(crate) fn blend_mode(b: vectorcraft_color::BlendMode) -> BlendMode {
         B::Saturation => Mix::Saturation,
         B::Color => Mix::Color,
         B::Luminosity => Mix::Luminosity,
+        // Coverage knocks out what is below; the object's colour is not painted.
+        B::Erase => return BlendMode::new(Mix::Normal, Compose::DestOut),
     };
     BlendMode::new(mix, Compose::SrcOver)
 }

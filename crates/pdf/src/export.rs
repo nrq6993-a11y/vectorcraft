@@ -749,6 +749,8 @@ fn blend(b: BlendMode) -> krilla::blend::BlendMode {
         BlendMode::Saturation => K::Saturation,
         BlendMode::Color => K::Color,
         BlendMode::Luminosity => K::Luminosity,
+        // PDF's blend modes have no Erase. The native file keeps it.
+        BlendMode::Erase => K::Normal,
     }
 }
 

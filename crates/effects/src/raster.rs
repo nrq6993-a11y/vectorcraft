@@ -362,7 +362,7 @@ impl Rasterize {
 /// Parse a blend mode name (`"multiply"`, `"Screen"`, `"color-burn"`…).
 pub fn blend_mode(s: &str) -> BlendMode {
     let key: String = s.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_ascii_lowercase();
-    BlendMode::ALL.iter().copied().find(|m| format!("{m:?}").to_ascii_lowercase() == key).unwrap_or(BlendMode::Normal)
+    BlendMode::MENU.iter().copied().find(|m| format!("{m:?}").to_ascii_lowercase() == key).unwrap_or(BlendMode::Normal)
 }
 
 /// An effect's `color` parameter (`"#rrggbb"`, `[r, g, b]` 0..1 or a colour object).

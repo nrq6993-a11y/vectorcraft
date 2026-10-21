@@ -1,4 +1,6 @@
-//! Blend modes (the 16 modes of Illustrator's Transparency panel, same as PDF's).
+//! Blend modes (the 16 modes of Illustrator's Transparency panel, same as PDF's), plus Erase:
+//! the object's coverage knocks out what is already painted below it, and its opacity is how
+//! strongly it does so. The colour of an erasing object is ignored.
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +23,8 @@ pub enum BlendMode {
     Saturation,
     Color,
     Luminosity,
+    /// Knocks out what is below, by this object's coverage. Not one of PDF's 16 modes.
+    Erase,
 }
 
 impl BlendMode {
@@ -44,6 +48,27 @@ impl BlendMode {
         BlendMode::Luminosity,
     ];
 
+    /// Transparency-panel order: [`Self::ALL`], then Erase in a group of its own.
+    pub const MENU: [BlendMode; 17] = [
+        BlendMode::Normal,
+        BlendMode::Darken,
+        BlendMode::Multiply,
+        BlendMode::ColorBurn,
+        BlendMode::Lighten,
+        BlendMode::Screen,
+        BlendMode::ColorDodge,
+        BlendMode::Overlay,
+        BlendMode::SoftLight,
+        BlendMode::HardLight,
+        BlendMode::Difference,
+        BlendMode::Exclusion,
+        BlendMode::Hue,
+        BlendMode::Saturation,
+        BlendMode::Color,
+        BlendMode::Luminosity,
+        BlendMode::Erase,
+    ];
+
     pub fn label(self) -> &'static str {
         match self {
             BlendMode::Normal => "Normal",
@@ -62,6 +87,7 @@ impl BlendMode {
             BlendMode::Saturation => "Saturation",
             BlendMode::Color => "Color",
             BlendMode::Luminosity => "Luminosity",
+            BlendMode::Erase => "Erase",
         }
     }
     /// Index of the separator group (the panel draws a divider between groups).
@@ -72,19 +98,20 @@ impl BlendMode {
             BlendMode::Lighten | BlendMode::Screen | BlendMode::ColorDodge => 2,
             BlendMode::Overlay | BlendMode::SoftLight | BlendMode::HardLight => 3,
             BlendMode::Difference | BlendMode::Exclusion => 4,
+            BlendMode::Erase => 6,
             _ => 5,
         }
     }
-    /// Whether the mode works on each colour channel separately (all but Hue, Saturation, Color
-    /// and Luminosity).
+    /// Whether the mode works on each colour channel separately (all but Hue, Saturation, Color,
+    /// Luminosity and Erase).
     pub fn is_separable(self) -> bool {
-        self.group() != 5
+        self.group() <= 4
     }
     /// Parse a label or identifier, case/space-insensitively.
     pub fn parse(s: &str) -> Option<Self> {
         let norm = |x: &str| x.to_ascii_lowercase().replace([' ', '_', '-'], "");
         let want = norm(s);
-        Self::ALL.into_iter().find(|m| norm(m.label()) == want)
+        Self::MENU.into_iter().find(|m| norm(m.label()) == want)
     }
 }
 
@@ -142,6 +169,8 @@ pub fn blend_rgb(mode: BlendMode, backdrop: [f32; 3], source: [f32; 3]) -> [f32;
         B::Saturation => set_lum(set_sat(backdrop, sat(source)), lum(backdrop)),
         B::Color => set_lum(source, lum(backdrop)),
         B::Luminosity => set_lum(backdrop, lum(source)),
+        // The hole is in the alpha; [`composite`] applies it. Colour stays the backdrop's.
+        B::Erase => backdrop,
     }
 }
 
@@ -149,6 +178,16 @@ pub fn blend_rgb(mode: BlendMode, backdrop: [f32; 3], source: [f32; 3]) -> [f32;
 /// result straight too): the source colour is mixed with B(backdrop, source) by the backdrop's
 /// alpha, then laid over the backdrop by its own alpha.
 pub fn composite(mode: BlendMode, backdrop: [f32; 4], source: [f32; 4]) -> [f32; 4] {
+    if mode == BlendMode::Erase {
+        // Destination-out: the source colour is ignored and its alpha punches the backdrop.
+        let ab = backdrop[3].clamp(0.0, 1.0);
+        let as_ = source[3].clamp(0.0, 1.0);
+        let ao = ab * (1.0 - as_);
+        if ao <= 0.0 {
+            return [0.0; 4];
+        }
+        return [backdrop[0], backdrop[1], backdrop[2], ao];
+    }
     let (ab, as_) = (backdrop[3].clamp(0.0, 1.0), source[3].clamp(0.0, 1.0));
     let ao = as_ + ab * (1.0 - as_);
     if ao <= 0.0 {
@@ -313,8 +352,21 @@ mod tests {
         assert_eq!(BlendMode::parse("ColorBurn"), Some(BlendMode::ColorBurn));
         assert_eq!(BlendMode::parse("soft_light"), Some(BlendMode::SoftLight));
         assert_eq!(BlendMode::parse("nope"), None);
-        for m in BlendMode::ALL {
+        for m in BlendMode::MENU {
             assert_eq!(BlendMode::parse(m.label()), Some(m));
         }
+        assert_eq!(BlendMode::parse("erase"), Some(BlendMode::Erase));
+        assert!(!BlendMode::Erase.is_separable());
+    }
+
+    #[test]
+    fn erase_knocks_out_by_coverage_and_ignores_colour() {
+        let back = [0.2, 0.4, 0.8, 1.0];
+        let gone = composite(BlendMode::Erase, back, [0.1, 0.9, 0.3, 1.0]);
+        assert_eq!(gone, [0.0; 4], "{gone:?}");
+        let half = composite(BlendMode::Erase, back, [1.0, 0.0, 0.0, 0.25]);
+        assert!((half[3] - 0.75).abs() < 1e-6 && near([half[0], half[1], half[2]], [0.2, 0.4, 0.8]), "{half:?}");
+        // Nothing below: nothing to knock out.
+        assert_eq!(composite(BlendMode::Erase, [0.5, 0.5, 0.5, 0.0], [0.0, 1.0, 0.0, 1.0]), [0.0; 4]);
     }
 }

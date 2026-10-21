@@ -47,6 +47,8 @@ pub(crate) fn blend_css(b: BlendMode) -> &'static str {
         BlendMode::Saturation => "saturation",
         BlendMode::Color => "color",
         BlendMode::Luminosity => "luminosity",
+        // CSS has no Erase. The native file keeps it; a bare SVG paints the object normally.
+        BlendMode::Erase => "normal",
     }
 }
 

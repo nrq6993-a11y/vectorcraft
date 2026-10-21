@@ -4066,7 +4066,7 @@ pub fn menu_strings() -> std::collections::BTreeSet<String> {
     out.extend(crate::state::all_panels().map(|(_, label)| label.to_string()));
     out.extend(vectorcraft_tools::catalog::all_tools().map(|t| t.label.to_string()));
     out.extend(crate::toolbar::BASIC.iter().map(|c| c.0.to_string()));
-    out.extend(vectorcraft_color::BlendMode::ALL.iter().map(|m| m.label().to_string()));
+    out.extend(vectorcraft_color::BlendMode::MENU.iter().map(|m| m.label().to_string()));
     out.extend(vectorcraft_effects::effect_catalog().iter().map(|e| e.label.to_string()));
     out.extend(vectorcraft_engine::cmd::prefscmds::PREF_CATEGORIES.iter().map(|c| c.to_string()));
     for sp in vectorcraft_engine::cmd::prefscmds::PREF_SPECS {
