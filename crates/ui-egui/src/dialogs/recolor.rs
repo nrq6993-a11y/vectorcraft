@@ -227,9 +227,12 @@ fn body(app: &mut VectorcraftApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     widgets::divider(ui);
     ui.add_space(4.0);
     let mut rs = rows(d);
-    let top = ui.cursor().top();
-    let changed = if d.str("tab") == "edit" { edit_tab(ui, d, &mut rs) } else { assign_tab(app, ui, d, &mut rs) };
-    ui.add_space((TAB_H - (ui.cursor().top() - top)).max(0.0));
+    let changed = egui::ScrollArea::vertical()
+        .id_salt("recolor-tab")
+        .max_height(TAB_H)
+        .auto_shrink([false, false])
+        .show(ui, |ui| if d.str("tab") == "edit" { edit_tab(ui, d, &mut rs) } else { assign_tab(app, ui, d, &mut rs) })
+        .inner;
     if changed {
         snap(app, d, &mut rs);
         d.fields.insert("rows".into(), Value::Array(rs));
@@ -668,6 +671,53 @@ mod tests {
         let mut r = rows();
         apply_rule(&mut r, Harmony::Triad, 0, Color::rgb(1.0, 0.0, 0.0), &[0, 1, 2]);
         assert_eq!([&r[0]["to"], &r[1]["to"], &r[2]["to"]], ["rgb 255 0 0", "rgb 0 255 0", "rgb 0 0 255"]);
+    }
+
+    /// Many rows used to grow the Assign tab without bound and push the Edit tab's wheel off screen (#3416).
+    #[test]
+    fn many_color_rows_keep_the_dialog_body_height_capped() {
+        use crate::dialogs::show;
+        use crate::state::Dialog;
+        use crate::{VectorcraftApp, theme};
+        use vectorcraft_engine::Session;
+
+        let many: Vec<Value> = (0..48)
+            .map(|i| {
+                let v = 50 + i * 4;
+                json!({"from": [format!("rgb {v} 20 30")], "to": format!("rgb {v} 20 30")})
+            })
+            .collect();
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        app.run("file.new", json!({"width": 400, "height": 400})).unwrap();
+        app.ui.dialog = Some(Dialog::new(
+            KIND,
+            json!({
+                "rows": many,
+                "colors": Value::Null,
+                "method": Method::ScaleTints.id(),
+                "preserveWhite": true,
+                "preserveBlack": true,
+                "preserveGrays": false,
+                "limitTo": "",
+                "tab": "edit",
+                "rule": Harmony::Complementary.id(),
+                "linked": true,
+                "preview": true,
+                "__art": true,
+                "__assign": [],
+                "__newGroup": false,
+            }),
+        ));
+        let ctx = egui::Context::default();
+        theme::install_fonts(&ctx);
+        theme::apply(&ctx, Default::default());
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 700.0));
+        for _ in 0..4 {
+            let input = egui::RawInput { screen_rect: Some(screen), ..Default::default() };
+            ctx.run_ui(input, |ui| show(&mut app, ui.ctx())).textures_delta.clear();
+        }
+        let h = ctx.memory(|m| m.area_rect(egui::Id::new(("dialog", KIND)))).unwrap().height();
+        assert!(h < 620.0, "dialog height {h} pt; tab body should stay near TAB_H ({TAB_H}) plus chrome");
     }
 
     /// In a CMYK document colors opened alone are saved as a new color group in their own model.
