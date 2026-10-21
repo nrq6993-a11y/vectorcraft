@@ -2419,10 +2419,7 @@ fn ramp(w: usize, h: usize) -> Vec<u8> {
 
 #[test]
 fn artistic_params_take_defaults_and_stay_in_range() {
-    assert_eq!(
-        fx("artistic.coloredPencil", json!({})),
-        PixelFx::ColoredPencil { width: 5.0, pressure: 5.0, paper: 25.0 }
-    );
+    assert_eq!(fx("artistic.coloredPencil", json!({})), PixelFx::ColoredPencil { width: 5.0, pressure: 5.0, paper: 25.0 });
     assert_eq!(
         fx("artistic.coloredPencil", json!({"pencilWidth": 0, "strokePressure": 200, "paperBrightness": -5})),
         PixelFx::ColoredPencil { width: 1.0, pressure: 15.0, paper: 0.0 }
@@ -2455,14 +2452,8 @@ fn artistic_params_take_defaults_and_stay_in_range() {
         fx("artistic.plasticWrap", json!({"highlightStrength": -1, "detail": 99, "smoothness": 0})),
         PixelFx::PlasticWrap { highlight: 0.0, detail: 15.0, smoothness: 1.0 }
     );
-    for id in [
-        "artistic.coloredPencil",
-        "artistic.cutout",
-        "artistic.dryBrush",
-        "artistic.neonGlow",
-        "artistic.plasticWrap",
-        "artistic.posterEdges",
-    ] {
+    for id in ["artistic.coloredPencil", "artistic.cutout", "artistic.dryBrush", "artistic.neonGlow", "artistic.plasticWrap", "artistic.posterEdges"]
+    {
         assert_eq!(fx(id, json!({})).outset(Rect::new(0.0, 0.0, 40.0, 30.0)), 0.0, "{id} keeps the object's shape");
     }
 }
