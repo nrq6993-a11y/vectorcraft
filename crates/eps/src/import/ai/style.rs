@@ -21,13 +21,13 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Drop Shadow, Feather, Pucker & Bloat) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::Paint;
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
 
@@ -36,10 +36,20 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 8] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, FEATHER];
+const PLAIN: [&str; 9] = [
+    "Chain Style Filter",
+    "Stack Style Filter",
+    "Stroke Style Filter",
+    "Fill Style Filter",
+    "Conduit Filter",
+    "Blend Style Filter",
+    GLOW,
+    FEATHER,
+    PUCKER,
+];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
+const PUCKER: &str = "Adobe Pucker & Bloat"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -308,7 +318,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == FEATHER || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == FEATHER || f.name == SHADOW || f.name == PUCKER;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -356,10 +366,17 @@ fn style(filters: &[Filter]) -> ArtStyle {
                 }
                 effects.push(Effect { id: "stylize.dropShadow".into(), params, visible: true });
             }
+            PUCKER => effects.push(Effect { id: "distort.puckerBloat".into(), params: pucker_bloat_params(&param), visible: true }),
             _ => {}
         }
     }
     ArtStyle { plain, items, effects }
+}
+
+/// LiveEffect XML for Pucker & Bloat (`amount`; public scripting notes).
+fn pucker_bloat_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let amount = param("amount").filter(|v| v.is_finite()).unwrap_or(0.0).clamp(-200.0, 200.0);
+    json!({"amount": amount})
 }
 
 #[cfg(test)]
@@ -469,6 +486,34 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_pucker_bloat_style_reads_bloat_and_pucker_amounts() {
+        for (amount, want) in [(50.0, 50.0), (-30.0, -30.0)] {
+            let data = format!(
+                "/KnownStyle :\n(Puffy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+                /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{amount} /Real (amount) ,\n; /Dict ;\n /Part ,\n;\n"
+            );
+            let style = art_styles(data.as_bytes()).remove("Puffy").unwrap_or_default();
+            assert!(style.plain, "{amount}: {style:?}");
+            let [pb] = style.effects.as_slice() else { panic!("{amount}") };
+            assert_eq!((pb.id.as_str(), pb.params["amount"].as_f64()), ("distort.puckerBloat", Some(want)));
+        }
+    }
+
+    #[test]
+    fn a_pucker_bloat_style_defaults_to_zero_and_clamps_amount() {
+        let data = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let flat = art_styles(data).remove("Flat").unwrap_or_default();
+        let [zero] = flat.effects.as_slice() else { panic!() };
+        assert_eq!(zero.params["amount"].as_f64(), Some(0.0));
+        let huge = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n500 /Real (amount) ,\n; /Dict ;\n /Part ,\n;\n";
+        let flat = art_styles(huge).remove("Flat").unwrap_or_default();
+        let [clamped] = flat.effects.as_slice() else { panic!() };
+        assert_eq!(clamped.params["amount"].as_f64(), Some(200.0));
     }
 
     #[test]
