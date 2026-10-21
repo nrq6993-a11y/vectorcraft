@@ -50,6 +50,7 @@ use super::paint;
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
+const ZIGZAG: &str = "Adobe Zig Zag"; // brand-ok: the filter's name in the files
 const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
@@ -422,6 +423,15 @@ fn width_profile(arrays: &HashMap<String, Vec<f64>>) -> Option<WidthProfile> {
     (!uniform).then_some(WidthProfile { points })
 }
 
+/// LiveEffect dictionary for Zig Zag (`size`, `ridges`, `absoluteness`, `roundness`; public `applyEffect` XML).
+fn zig_zag_params(param: &dyn Fn(&str) -> Option<f64>) -> serde_json::Value {
+    let size = param("size").or_else(|| param("asiz")).filter(|v| v.is_finite()).unwrap_or(10.0);
+    let relative = param("absoluteness").unwrap_or(1.0) == 0.0;
+    let ridges = param("ridges").filter(|v| v.is_finite()).map(|v| v.clamp(0.0, 100.0)).unwrap_or(4.0);
+    let points = if param("roundness").unwrap_or(1.0) <= 0.0 { "corner" } else { "smooth" };
+    json!({"size": size, "relative": relative, "ridges": ridges, "points": points})
+}
+
 /// The live effect filter `f` is, when it is one read here.
 fn effect(f: &Filter) -> Option<Effect> {
     let param = |k: &str| f.params.get(k).copied().filter(|v| v.is_finite());
@@ -455,6 +465,7 @@ fn effect(f: &Filter) -> Option<Effect> {
             }
             ("stylize.dropShadow", params)
         }
+        ZIGZAG => ("distort.zigZag", zig_zag_params(&param)),
         // Effect › Warp: `DeformStyle` numbers the styles from 1 as the dialog lists them, `Rotate`
         // is Vertical, and the bend and distortions are fractions.
         DEFORM => {
@@ -651,7 +662,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "distort.zigZag"));
     st
 }
 
@@ -738,6 +749,30 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_zig_zag_style_reads_its_size_ridges_and_points() {
+        let data = b"/KnownStyle :\n(Wavy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Zig Zag) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n12 /Real (size) ,\n6 /Real (ridges) ,\n1 /Int (absoluteness) ,\n0 /Int (roundness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Wavy").unwrap_or_default();
+        let [zig] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (zig.id.as_str(), &zig.params["size"], &zig.params["ridges"], &zig.params["relative"], &zig.params["points"]),
+            ("distort.zigZag", &json!(12.0), &json!(6.0), &json!(false), &json!("corner"))
+        );
+    }
+
+    #[test]
+    fn a_zig_zag_style_defaults_and_reads_relative_size() {
+        let data = b"/KnownStyle :\n(Wavy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Zig Zag) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n8 /Real (asiz) ,\n0 /Int (absoluteness) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Wavy").unwrap_or_default();
+        let [zig] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (zig.params["size"].as_f64(), zig.params["ridges"].as_f64(), zig.params["relative"].as_bool(), zig.params["points"].as_str()),
+            (Some(8.0), Some(4.0), Some(true), Some("smooth"))
+        );
     }
 
     #[test]
