@@ -3256,6 +3256,19 @@ pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
         if any(|k| matches!(k, NodeKind::Compound { .. })) {
             v.push(c("Release Compound Path", "object.compoundPath.release"));
         }
+        let graph_in_selection = st.selection.objects.iter().any(|id| {
+            let mut cur = Some(*id);
+            while let Some(c) = cur {
+                if st.doc.node(c).is_some_and(|n| n.extras().graph.is_some()) {
+                    return true;
+                }
+                cur = st.doc.parent_of(c);
+            }
+            false
+        });
+        if graph_in_selection {
+            v.push(c("Data…", "graph.setData"));
+        }
         v.extend([
             c("Make Guides", "view.guides.make"),
             Sep,
@@ -4070,6 +4083,7 @@ pub const CONTEXT_LABELS: &[&str] = &[
     "Make Compound Path",
     "Release Compound Path",
     "Select All",
+    "Data…",
 ];
 
 /// The labels [`dynamic_label`] can show in place of an item's own (Show/Hide pairs and the like),

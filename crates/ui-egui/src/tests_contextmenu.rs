@@ -242,7 +242,24 @@ fn every_context_label_is_a_menu_string() {
     shown.extend(labels(&menus::context_items(&app)));
     let missing: Vec<_> = shown.iter().filter(|l| !strings.contains(**l)).collect();
     assert!(missing.is_empty(), "context menu labels missing from menu_strings: {missing:?}");
+    app.run("graph.create", json!({"type": "column", "x": 10.0, "y": 10.0, "width": 200.0, "height": 150.0})).unwrap();
+    shown.extend(labels(&menus::context_items(&app)));
     for label in menus::CONTEXT_LABELS {
         assert!(shown.contains(label), "`{label}` is listed but the context menu never shows it");
     }
+}
+
+#[test]
+fn graph_selection_offers_graph_data_in_the_context_menu() {
+    let mut app = app();
+    let id = NodeId(
+        app.run("graph.create", json!({"type": "column", "x": 50.0, "y": 50.0, "width": 200.0, "height": 150.0})).unwrap()["id"].as_u64().unwrap(),
+    );
+    app.run("select.set", json!({"ids": [id.0]})).unwrap();
+    let l = labels(&menus::context_items(&app));
+    assert!(l.contains(&"Data…"), "{l:?}");
+    assert!(menus::enabled(&app, "graph.setData"));
+    let rect_id = rect(&mut app, 300.0, 50.0);
+    app.run("select.set", json!({"ids": [rect_id.0]})).unwrap();
+    assert!(!labels(&menus::context_items(&app)).contains(&"Data…"));
 }
