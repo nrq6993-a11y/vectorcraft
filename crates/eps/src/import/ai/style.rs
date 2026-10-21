@@ -39,9 +39,10 @@
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::{BlendMode, Paint};
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
+use vectorcraft_effects::merged_params;
 
 use super::lex::{Lexer, Tok};
 use super::obj::V;
@@ -50,6 +51,7 @@ use super::paint;
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
+const FREE_DISTORT: &str = "Adobe Free Distort"; // brand-ok: the filter's name in the files
 const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
@@ -422,6 +424,23 @@ fn width_profile(arrays: &HashMap<String, Vec<f64>>) -> Option<WidthProfile> {
     (!uniform).then_some(WidthProfile { points })
 }
 
+/// LiveEffect keys for Free Distort (`dst0h`…`dst3v`; public `applyEffect` XML). Corners are TL, TR, BL, BR;
+/// `v` is negated when mapped into the unit box (y down), then reordered to TL, TR, BR, BL for `distort.freeDistort`.
+fn free_distort_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let corner = |h: &str, v: &str, default: (f64, f64)| {
+        let x = param(h).filter(|n| n.is_finite()).unwrap_or(default.0);
+        let y = param(v).filter(|n| n.is_finite()).map(|n| -n).unwrap_or(default.1);
+        [x, y]
+    };
+    let corners = json!([
+        corner("dst0h", "dst0v", (0.0, 0.0)),
+        corner("dst1h", "dst1v", (1.0, 0.0)),
+        corner("dst3h", "dst3v", (1.0, 1.0)),
+        corner("dst2h", "dst2v", (0.0, 1.0)),
+    ]);
+    merged_params("distort.freeDistort", &json!({"corners": corners}))
+}
+
 /// The live effect filter `f` is, when it is one read here.
 fn effect(f: &Filter) -> Option<Effect> {
     let param = |k: &str| f.params.get(k).copied().filter(|v| v.is_finite());
@@ -455,6 +474,7 @@ fn effect(f: &Filter) -> Option<Effect> {
             }
             ("stylize.dropShadow", params)
         }
+        FREE_DISTORT => ("distort.freeDistort", free_distort_params(&param)),
         // Effect › Warp: `DeformStyle` numbers the styles from 1 as the dialog lists them, `Rotate`
         // is Vertical, and the bend and distortions are fractions.
         DEFORM => {
@@ -651,7 +671,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "distort.freeDistort"));
     st
 }
 
@@ -738,6 +758,29 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_free_distort_style_reads_corner_handles() {
+        let data = b"/KnownStyle :\n(Warped) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            0 /Real (dst0h) ,\n0 /Real (dst0v) ,\n1.1 /Real (dst1h) ,\n0 /Real (dst1v) ,\n0 /Real (dst2h) ,\n-1 /Real (dst2v) ,\n1 /Real (dst3h) ,\n-0.9 /Real (dst3v) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Warped"];
+        assert!(style.plain, "{style:?}");
+        let [fx] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(fx.id, "distort.freeDistort");
+        assert_eq!(fx.params["corners"], json!([[0.0, 0.0], [1.1, 0.0], [1.0, 0.9], [0.0, 1.0]]));
+    }
+
+    #[test]
+    fn a_free_distort_style_without_corners_is_identity() {
+        let data = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Flat"];
+        assert!(style.plain);
+        let [fx] = style.effects.as_slice() else { panic!() };
+        assert_eq!(fx.params["corners"], json!([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]));
     }
 
     #[test]
