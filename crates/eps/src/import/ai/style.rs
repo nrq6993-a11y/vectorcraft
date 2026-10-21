@@ -39,9 +39,10 @@
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Map, Value, json};
 use vectorcraft_color::{BlendMode, Paint};
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
+use vectorcraft_effects::merged_params;
 
 use super::lex::{Lexer, Tok};
 use super::obj::V;
@@ -54,6 +55,7 @@ const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
+const SCRIBBLE: &str = "Adobe Scribble"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
 
 const CHAIN: &str = "Chain Style Filter";
@@ -88,7 +90,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Scribble on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -497,11 +499,30 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
+        SCRIBBLE => ("stylize.scribble", scribble_params(&param)),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
+}
+
+/// LiveEffect dictionary for Scribble (`angle`, `overlap`, `strokeWidth`, …; public `applyEffect` XML).
+fn scribble_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let mut overrides: Map<String, Value> = Map::new();
+    for key in
+        ["angle", "overlap", "strokeWidth", "curviness", "curvinessVariation", "spacing", "overlapVariation", "spacingVariation", "variation", "seed"]
+    {
+        if let Some(v) = param(key).filter(|v| v.is_finite()) {
+            overrides.insert(key.into(), json!(v));
+        }
+    }
+    if !overrides.contains_key("strokeWidth")
+        && let Some(v) = param("strk").filter(|v| v.is_finite())
+    {
+        overrides.insert("strokeWidth".into(), json!(v));
+    }
+    merged_params("stylize.scribble", &Value::Object(overrides))
 }
 
 /// The fill or stroke basic filter `f` paints, `Ok(None)` when it paints nothing, `Err` when it
@@ -651,7 +672,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "stylize.scribble"));
     st
 }
 
@@ -683,6 +704,65 @@ mod tests {
             /Dictionary : /NotRecorded ,\n1 /Bool (BSDashAdj) ,\n; (kAIBeautifulStrokesParamsDictKey) ,\n\
             /StrokeStyle : 0 R\n0 0 0 0 0 0 1 XA\n1 J 0 j 2 w 10 M [5 10 ]0 d\n0 XR\n1 0 Xd\n/Def ;\n (StrokeStyle) ,\n; /Dict ;\n /Part ,\n;\n";
         assert!(!art_styles(data)["Stitches"].plain);
+    }
+
+    #[test]
+    fn a_scribble_style_reads_its_dialog_parameters() {
+        let data = b"/KnownStyle :\n(Sketch) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Scribble) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n45 /Real (angle) ,\n2 /Real (overlap) ,\n\
+            4 /Real (strokeWidth) ,\n10 /Real (curviness) ,\n1 /Real (curvinessVariation) ,\n6 /Real (spacing) ,\n0.25 /Real (overlapVariation) ,\n\
+            0.75 /Real (spacingVariation) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Sketch").unwrap_or_default();
+        assert!(style.plain, "{style:?}");
+        let [scribble] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (
+                scribble.id.as_str(),
+                scribble.params["angle"].as_f64(),
+                scribble.params["overlap"].as_f64(),
+                scribble.params["strokeWidth"].as_f64(),
+                scribble.params["curviness"].as_f64(),
+                scribble.params["spacing"].as_f64(),
+            ),
+            ("stylize.scribble", Some(45.0), Some(2.0), Some(4.0), Some(10.0), Some(6.0))
+        );
+        assert_eq!(
+            (
+                scribble.params["overlapVariation"].as_f64(),
+                scribble.params["spacingVariation"].as_f64(),
+                scribble.params["curvinessVariation"].as_f64(),
+            ),
+            (Some(0.25), Some(0.75), Some(1.0))
+        );
+    }
+
+    #[test]
+    fn a_scribble_style_wraps_angles_and_reads_an_earlier_variation() {
+        let data = b"/KnownStyle :\n(Sketch) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Scribble) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n270 /Real (angle) ,\n2 /Real (variation) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Sketch").unwrap_or_default();
+        let [scribble] = style.effects.as_slice() else { panic!() };
+        assert_eq!(scribble.params["angle"].as_f64(), Some(-90.0));
+        assert_eq!((scribble.params["overlapVariation"].as_f64(), scribble.params["spacingVariation"].as_f64()), (Some(2.0), Some(2.0)));
+        assert!(scribble.params.get("variation").is_none());
+    }
+
+    #[test]
+    fn a_scribble_style_defaults_and_reads_strk_as_stroke_width() {
+        let data = b"/KnownStyle :\n(Sketch) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Scribble) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Sketch").unwrap_or_default();
+        let [scribble] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (scribble.params["angle"].as_f64(), scribble.params["strokeWidth"].as_f64(), scribble.params["spacing"].as_f64(),),
+            (Some(30.0), Some(3.0), Some(5.0))
+        );
+        let data = b"/KnownStyle :\n(Sketch) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Scribble) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n5 /Real (strk) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = art_styles(data).remove("Sketch").unwrap_or_default();
+        let [scribble] = style.effects.as_slice() else { panic!() };
+        assert_eq!(scribble.params["strokeWidth"].as_f64(), Some(5.0));
     }
 
     #[test]
