@@ -49,6 +49,10 @@ pub struct Selection {
     /// with `key`; [`Self::prune`] clears it when no object is selected to align to it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_guide: Option<usize>,
+    /// A direct-selected anchor that is the key for Align when several anchor points are selected
+    /// (the path id and a subpath/anchor index). Never set with [`Self::key`] or [`Self::key_guide`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_anchor: Option<(NodeId, AnchorRef)>,
     /// The new art on a locked artboard that this selection keeps editable
     /// ([`Document::new_art`]). Undo, Redo and a failed batch restore it with the selection, and
     /// the engine then sets the document's from it. Editing state, never saved.
@@ -79,10 +83,20 @@ impl Selection {
         self.slices.clear();
         self.guides.clear();
         self.key_guide = None;
+        self.key_anchor = None;
     }
-    /// Is there a key for Align: an object or a guide?
+    /// Is there a key for Align: an object, a guide or a direct-selected anchor?
     pub fn has_key(&self) -> bool {
-        self.key.is_some() || self.key_guide.is_some()
+        self.key.is_some() || self.key_guide.is_some() || self.key_anchor.is_some()
+    }
+    /// How many anchor points Direct Selection has in scope (explicit picks, or every anchor of a
+    /// path selected whole).
+    pub fn direct_anchor_count(&self, doc: &Document) -> usize {
+        self.objects
+            .iter()
+            .filter_map(|id| doc.node(*id).and_then(|n| n.path_data()).map(|path| (id, path)))
+            .map(|(id, path)| self.anchors.get(id).map(|s| s.len()).unwrap_or_else(|| path.subpaths.iter().map(|sp| sp.anchors.len()).sum()))
+            .sum()
     }
     pub fn set(&mut self, ids: impl IntoIterator<Item = NodeId>) {
         self.clear();
@@ -105,6 +119,9 @@ impl Selection {
         self.segments.remove(&id);
         if self.key == Some(id) {
             self.key = None;
+        }
+        if self.key_anchor.is_some_and(|(k, _)| k == id) {
+            self.key_anchor = None;
         }
     }
     /// Select slices `ids` (see [`Selection::slices`]) and nothing else.
@@ -207,6 +224,19 @@ impl Selection {
         if self.key.is_some() || self.objects.is_empty() || self.key_guide.is_some_and(|k| !self.guides.contains(&k)) {
             self.key_guide = None;
         }
+        if let Some((id, (si, ai))) = self.key_anchor {
+            let ok = self.objects.contains(&id)
+                && doc.node(id).and_then(|n| n.path_data()).is_some_and(|path| {
+                    path.subpaths.get(si).is_some_and(|sp| ai < sp.anchors.len())
+                        && match self.anchors.get(&id) {
+                            Some(set) => set.contains(&(si, ai)),
+                            None => !self.segments.contains_key(&id),
+                        }
+                });
+            if !ok {
+                self.key_anchor = None;
+            }
+        }
     }
     /// Deselect the objects that are hidden or locked, themselves or through a group or layer
     /// around them (and so the key object when it is one): hidden or locked art can't stay
@@ -243,6 +273,9 @@ impl Selection {
         self.segments.retain(|id, _| !gone.contains(id));
         if self.key.is_some_and(|k| gone.contains(&k)) {
             self.key = None;
+        }
+        if self.key_anchor.is_some_and(|(k, _)| gone.contains(&k)) {
+            self.key_anchor = None;
         }
     }
     /// Target `id` (see [`Selection::target`]): a layer gets its visible, unlocked art selected

@@ -3034,6 +3034,24 @@ fn align_moves_selected_anchor_points() {
     assert_eq!(anchors(&s)[2].1 - anchors(&s)[0].1, 120.0, "its shape kept");
 }
 
+/// #1636: with several anchor points selected, Align To Key Object lines them up on the key anchor.
+#[test]
+fn align_moves_selected_anchors_to_a_key_anchor() {
+    let mut s = session();
+    let id = NodeId(s.execute("path.create", &json!({"d": "M100 40 L200 60 L150 160 Z"})).unwrap()["id"].as_u64().unwrap());
+    let anchors = |s: &Session| -> Vec<(f64, f64)> {
+        s.doc().unwrap().doc.node(id).unwrap().path_data().unwrap().anchors().map(|(_, _, a)| (a.p.x, a.p.y)).collect()
+    };
+    s.execute("select.anchors", &json!({"id": id.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("select.key", &json!({"id": id.0, "anchor": [0, 0]})).unwrap();
+    s.execute("object.align", &json!({"horizontal": "left", "to": "key"})).unwrap();
+    assert_eq!(anchors(&s), [(100.0, 40.0), (100.0, 60.0), (150.0, 160.0)]);
+    s.execute("object.align", &json!({"vertical": "top", "to": "key"})).unwrap();
+    assert_eq!(anchors(&s), [(100.0, 40.0), (100.0, 40.0), (150.0, 160.0)]);
+    s.execute("select.key", &json!({})).unwrap();
+    assert!(s.doc().unwrap().selection.key_anchor.is_none());
+}
+
 /// #1636: with anchor points selected, the Distribute commands space those points, on one path
 /// or across paths, and leave the other points and the paths' objects where they are.
 #[test]

@@ -790,7 +790,16 @@ impl Tool for DirectSelectionTool {
                     (true, ..) => vec![Action::Commit],
                     (false, Some(id), _, _) => vec![Action::Exec("select.toggle".into(), json!({"id": id.0}))],
                     (false, None, Some((id, si, ai)), _) => {
-                        vec![Action::Exec("select.anchors".into(), json!({"id": id.0, "anchors": [[si, ai]], "mode": "set"}))]
+                        if cx.selection.direct_anchor_count(cx.doc) >= 2 {
+                            let key = cx.selection.key_anchor == Some((id, (si, ai)));
+                            if key {
+                                vec![Action::Exec("select.key".into(), json!({}))]
+                            } else {
+                                vec![Action::Exec("select.key".into(), json!({"id": id.0, "anchor": [si, ai]}))]
+                            }
+                        } else {
+                            vec![Action::Exec("select.anchors".into(), json!({"id": id.0, "anchors": [[si, ai]], "mode": "set"}))]
+                        }
                     }
                     (false, None, None, Some((id, si, seg))) => {
                         vec![Action::Exec("select.segments".into(), json!({"id": id.0, "segments": [[si, seg]]}))]

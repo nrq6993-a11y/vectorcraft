@@ -1341,6 +1341,21 @@ fn align_to<'a>(s: &Session, p: &'a Value) -> Option<&'a str> {
 
 /// The key guide `object.align` lines the objects up on (aligning to the key with one set,
 /// [`vectorcraft_doc::Selection::key_guide`]): its position, and whether it is vertical.
+/// The position of the direct-selected key anchor, when [`vectorcraft_doc::Selection::key_anchor`] is set.
+fn key_anchor_point(s: &Session) -> Result<Option<Point>> {
+    let st = s.doc()?;
+    let Some((id, (si, ai))) = st.selection.key_anchor else { return Ok(None) };
+    let pt = st
+        .doc
+        .node(id)
+        .and_then(|n| n.path_data())
+        .and_then(|path| path.subpaths.get(si))
+        .and_then(|sp| sp.anchors.get(ai))
+        .map(|a| a.p)
+        .ok_or(EngineError::NoNode(id))?;
+    Ok(Some(pt))
+}
+
 fn key_guide(s: &Session, p: &Value) -> Option<(f64, bool)> {
     let st = s.doc().ok()?;
     let g = st.doc.guides.get(st.selection.key_guide?)?;
@@ -1482,9 +1497,17 @@ fn align_anchors(s: &mut Session, p: &Value, ids: &[NodeId], (h, v): (Option<&st
     let Some(bounds) = pts.iter().skip(1).fold(pts.first().map(|q| Rect::from_points(*q, *q)), |b, q| b.map(|b| b.union_pt(*q))) else {
         return ok();
     };
-    // shortcut: no key anchor yet, so Align To Key Object aligns to the points' bounds as Selection does
-    // (or to a key guide).
-    let (r, along_x, along_y) = align_reference(s, p, ids, false, Some(bounds))?;
+    // With a key anchor, Align To Key Object lines the other selected points up on it (Illustrator).
+    let (r, along_x, along_y) = if align_to(s, p) == Some("key") {
+        if let Some(pt) = key_anchor_point(s)? {
+            let r = Rect::new(pt.x, pt.y, pt.x, pt.y);
+            (r, true, true)
+        } else {
+            align_reference(s, p, ids, false, Some(bounds))?
+        }
+    } else {
+        align_reference(s, p, ids, false, Some(bounds))?
+    };
     let (h, v) = (h.filter(|_| along_x), v.filter(|_| along_y));
     let target = |q: Point| {
         let x = match h {

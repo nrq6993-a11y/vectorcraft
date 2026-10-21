@@ -66,7 +66,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Cancel Key Object",
             [],
             None,
-            "{id?: a selected top-level object (not a layer, a compound-path member or an object inside another selected object); one of two or more or the only one with ruler guides selected (the Selection tool: a click on one object of a selection of several, or of one with guides; on the key again: no id), guide?: index (a selected ruler guide, guide.list, with one or more objects selected: the Selection tool's click on a selected guide; Align lines the objects up on it and the guide stays put)} the key object Align aligns to and Distribute Spacing spaces from; without `id` or `guide` it cancels the key, as does a selection that holds only the key and objects inside it (one object, or a group key and its own members) and no ruler guide, or a key guide with no object selected or taken out of the selection; any other id or guide is an error that leaves the key as it was → {key, guide?} (the resulting key object, or null; guide: the key guide, left out without one)",
+            "{id?: a selected top-level object (not a layer, a compound-path member or an object inside another selected object); one of two or more or the only one with ruler guides selected (the Selection tool: a click on one object of a selection of several, or of one with guides; on the key again: no id), guide?: index (a selected ruler guide, guide.list, with one or more objects selected: the Selection tool's click on a selected guide; Align lines the objects up on it and the guide stays put), anchor?: [subpath, anchor] (with `id`: a direct-selected anchor on that path when two or more anchor points are selected; the Direct Selection tool: a click on one of them; on the key anchor again: no `anchor`)} the key object Align aligns to and Distribute Spacing spaces from; without `id`, `guide` or `anchor` it cancels the key, as does a selection that holds only the key and objects inside it (one object, or a group key and its own members) and no ruler guide, or a key guide with no object selected or taken out of the selection; any other id or guide is an error that leaves the key as it was → {key, guide?, keyAnchor?} (the resulting key object, or null; guide: the key guide; keyAnchor: the key anchor, left out without one)",
             has_doc,
             key
         ),
@@ -368,15 +368,39 @@ fn selection_result(s: &Session) -> Result<Value> {
 
 fn key(s: &mut Session, p: &Value) -> Result<Value> {
     let id = p.get("id").map(|value| checked_id(s, value, "select.key")).transpose()?;
+    let anchor = p
+        .get("anchor")
+        .filter(|v| !v.is_null())
+        .map(|v| {
+            if let Some(vals) = v.as_array()
+                && vals.len() == 2
+            {
+                let coordinate = |n: &Value| {
+                    n.as_u64()
+                        .and_then(|x| usize::try_from(x).ok())
+                        .ok_or_else(|| bad("select.key", "invalid anchor index: expected a non-negative integer"))
+                };
+                return Ok((coordinate(&vals[0])?, coordinate(&vals[1])?));
+            }
+            let refs = checked_refs(Some(v), "select.key")?;
+            let Some((si, ai)) = refs.first().copied() else {
+                return Err(bad("select.key", "`anchor` must be [subpath, anchor]"));
+            };
+            Ok((si, ai))
+        })
+        .transpose()?;
     let guide = match p.get("guide").filter(|v| !v.is_null()) {
         Some(v) => {
             Some(v.as_u64().and_then(|i| usize::try_from(i).ok()).ok_or_else(|| bad("select.key", "`guide` must be a guide index (guide.list)"))?)
         }
         None => None,
     };
+    if anchor.is_some() && (guide.is_some() || id.is_none()) {
+        return Err(bad("select.key", "`anchor` needs `id` and cannot be combined with `guide`"));
+    }
     if let Some(g) = guide {
         let sel = &s.doc()?.selection;
-        if id.is_some() {
+        if id.is_some() || anchor.is_some() {
             return Err(bad("select.key", "give `id` or `guide`, not both"));
         }
         if !sel.guides.contains(&g) {
@@ -387,7 +411,31 @@ fn key(s: &mut Session, p: &Value) -> Result<Value> {
         }
         s.select(|_, sel| {
             sel.key = None;
+            sel.key_anchor = None;
             sel.key_guide = Some(g);
+        })?;
+        return key_result(s);
+    }
+    if let (Some(id), Some((si, ai))) = (id, anchor) {
+        let st = s.doc()?;
+        let path = st.doc.node(id).and_then(|n| n.path_data()).ok_or_else(|| bad("select.key", "object is not a path"))?;
+        if path.subpaths.get(si).is_none_or(|sp| ai >= sp.anchors.len()) {
+            return Err(bad("select.key", "anchor does not exist"));
+        }
+        let picked = match st.selection.anchors.get(&id) {
+            Some(set) => set.contains(&(si, ai)),
+            None => st.selection.contains(id) && !st.selection.segments.contains_key(&id),
+        };
+        if !picked {
+            return Err(bad("select.key", "anchor is not selected"));
+        }
+        if st.selection.direct_anchor_count(&st.doc) < 2 {
+            return Err(bad("select.key", "select two or more anchor points"));
+        }
+        s.select(|_, sel| {
+            sel.key = None;
+            sel.key_guide = None;
+            sel.key_anchor = Some((id, (si, ai)));
         })?;
         return key_result(s);
     }
@@ -403,16 +451,20 @@ fn key(s: &mut Session, p: &Value) -> Result<Value> {
     s.select(|_, sel| {
         sel.key = id;
         sel.key_guide = None;
+        sel.key_anchor = None;
     })?;
     key_result(s)
 }
 
-/// `{key}`, with `guide` when a guide is the key.
+/// `{key}`, with `guide` when a guide is the key and `keyAnchor` when an anchor is.
 fn key_result(s: &Session) -> Result<Value> {
     let sel = &s.doc()?.selection;
     let mut out = json!({ "key": sel.key });
     if let Some(g) = sel.key_guide {
         out["guide"] = json!(g);
+    }
+    if let Some((id, (si, ai))) = sel.key_anchor {
+        out["keyAnchor"] = json!({"id": id.0, "anchor": [si, ai]});
     }
     Ok(out)
 }
