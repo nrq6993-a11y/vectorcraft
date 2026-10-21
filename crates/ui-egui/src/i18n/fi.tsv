@@ -1435,6 +1435,7 @@ lighting	Light	Valo
 	{count} more rules: Export writes every one.	{count} sääntöä lisää: vienti kirjoittaa ne kaikki.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	{count} nimetöntä objektia jätetty pois: nimeä ne tai ota Nimettömät objektit käyttöön paneelin valikosta.
 	All Categories	Kaikki luokat
+	Repeat Objects	Toisto-objektit
 	Save…	Tallenna…
 	Selection Only	Vain valinta
 	{title} (selection)	{title} (valinta)
@@ -2860,6 +2861,13 @@ lighting	Light	Valo
 	Soft Light	Pehmeä valo
 	Crosshatch	Ristiviivoitus
 	Fine Dots	Hienot pisteet
+
+	Simple	Yksinkertainen
+	Light Rough	Vaalea karkea
+	Dark Rough	Tumma karkea
+	Wide Sharp	Leveä terävä
+	Wide Blurry	Leveä sumea
+	Sparkle	Kimallus
 	Medium Dots	Keskikokoiset pisteet
 	Grainy Dots	Rakeiset pisteet
 	Coarse Dots	Karkeat pisteet
@@ -4505,6 +4513,7 @@ imageTrace	Outline	Ääriviiva
 @msg	unknown workspace (one of {_1})	tuntematon työtila (jokin seuraavista: {_1})
 @msg	unsupported: {0}	ei tuettu: {0}
 @msg	variables are locked	muuttujat on lukittu
+@msg	variables that aren't text were left out: {kinds}	muut kuin tekstimuuttujat jätettiin pois: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	version {0} tiedostoja ei voi pakata: pakattuja tiedostoja voi avata vain versiosta {COMPRESSED_SINCE} alkaen
 @msg	width and height are at least 1 pixel	leveys ja korkeus ovat vähintään 1 pikseli
 @msg	workspace name can't be empty	työtilan nimi ei voi olla tyhjä
@@ -4949,9 +4958,17 @@ imageTrace	Outline	Ääriviiva
 	Dry Brush…	Kuiva sivellin…
 	Dry Brush	Kuiva sivellin
 	Neon Glow…	Neonhehku…
+	Palette Knife…	Palettiveitsi…
 	Neon Glow	Neonhehku
+	Paint Daubs…	Maalitahrat…
+	Paint Daubs	Maalitahrat
+	Palette Knife	Palettiveitsi
 	Poster Edges…	Julisteen reunat…
+	Rough Pastels…	Karkeat pastellit…
 	Poster Edges	Julisteen reunat
+	Rough Pastels	Karkeat pastellit
+	Underpainting…	Alapinta…
+	Underpainting	Alapinta
 	Levels	Tasot
 	Edge Simplicity	Reunojen yksinkertaisuus
 	Edge Fidelity	Reunojen tarkkuus
@@ -5055,6 +5072,9 @@ mark-style	Japanese	Japanilainen
 	Softness	Pehmeys
 	Ambient Light	Ympäristövalo
 	Light behind the object	Valo objektin takana
+	3D Lighting Preset	3D-valaistuksen esiasetus
+	Standard	Vakio
+	Diffuse	Hajavalo
 # 3D light management.
 	Lights	Valot
 	Add Light	Lisää valo
@@ -5105,6 +5125,7 @@ mark-style	Japanese	Japanilainen
 	Drawing : real size — 1:10 labels 1 unit on the page as 10.	Piirustus : todellinen koko — 1:10 merkitsee sivun 1 yksikön arvoksi 10.
 	Editable	Muokattava
 	Export Data Sets…	Vie tietojoukot…
+	Load Variable Library…	Lataa muuttujakirjasto…
 	Filter	Suodata
 	Filter Layers Panel Rows	Suodata Tasot-paneelin rivit
 	Flatten	Litistä
@@ -5232,6 +5253,7 @@ mark-style	Japanese	Japanilainen
 	Watercolor…	Vesiväri…
 	Watercolor	Vesiväri
 	Brush Size	Siveltimen koko
+	Texture Coverage	Tekstuurin peitto
 	Definition	Terävyys
 	Brush Detail	Siveltimen yksityiskohta
 	Shadow Intensity	Varjojen voimakkuus
@@ -5373,3 +5395,5 @@ swatch	Bright Violet	Kirkas violetti
 	Note Paper	Kirjepaperi
 	Water Paper…	Märkä paperi…
 	Water Paper	Märkä paperi
+	Ruby…	Ruby…
+	Ruby	Ruby

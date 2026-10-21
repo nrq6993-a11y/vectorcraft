@@ -942,6 +942,13 @@ missing one does.
 `` `columns` must be a number, not "4" ``. Each message names the key that was given, and the command then changes
 nothing.
 
+These Object menu commands refuse a string, a number or another value that is not true or false with
+`` `copy` must be true or false ``, naming the key, and change nothing: `reflectX`, `reflectY`, `random` and `copy` in
+`object.transformEach`; `gray` and `deleteRaster` in `object.createObjectMosaic`; `trim` in `object.cropImage`;
+`allArtboards` in `object.createTrimMarks`; and `byColumn` and `moveArtwork` in `artboard.rearrange`. A null is read as
+a key left out. `object.createTrimMarks` refuses a `style` that is not a string, such as `5`, with
+`` `style` must be roman or japanese ``, the message it gives for a string that names no style.
+
 A whole number that is larger than the build's `usize` can hold (4294967295 on a 32-bit build, such as the
 `wasm32-unknown-unknown` web build) counts as larger than any index, place, byte offset or count. An index, such as
 a `subpath`, `anchor`, `segment`, document `index`, `artboard`, appearance `item` or `index`, gradient `stop` or
@@ -951,7 +958,6 @@ commands fail and change nothing, and `appearance.removeItem` removes nothing. A
 the item last. A text `start` or `end` is past the end of the text. `object.slice.divide` refuses such a `rows` or
 `columns`, `recolor.reduce` keeps each color in its own row for such a `colors`, and `layer.setProps` refuses such a
 `color`. `object.setBounds` reads a `reference` past 8 as 8, as `object.transformEach` does.
-
 The blend, envelope and gradient mesh commands refuse a string or another value that is not a number with the same
 message, as in `` `steps` must be a number, not "8" ``, and change nothing: `steps`, `distance` and `value` in
 `object.blend.make` and `object.blend.options`; `bend`, `h`, `v`, `horizontalDistortion` and `verticalDistortion` in
@@ -959,6 +965,24 @@ message, as in `` `steps` must be a number, not "8" ``, and change nothing: `ste
 `object.envelope.makeWithMesh`, `resetWithMesh` and `object.mesh.create`; `fidelity` in `object.envelope.options`;
 `highlight` in `object.mesh.create`; and `opacity` in `object.mesh.setPointColor`. A null is read as a key left out.
 `object.mesh.create` refuses an `at` that is not two numbers with `` `at` must be [x, y] ``.
+
+The transform, Align, Object Properties and Live Shape Properties commands refuse a string, a number or another value
+that is not true or false with `` `strokes` must be true or false ``, naming the key, and leave the document and its
+undo history as they were: the options `copy`, `strokes`, `corners`, `patterns`, `objects` and `typeAreas` in
+`object.transform`, `object.move`, `object.nudge`, `object.rotate`, `object.scale`, `object.reflect`, `object.shear`,
+`object.transformAgain` and `object.setBounds`; `anchors` in `object.transform`; `big` in `object.nudge`;
+`absolute` in `object.rotate`; `proportional` in `object.setBounds`; `patterns` in `object.align`, `object.distribute`
+and `object.distributeSpacing`; `visible`, `locked`, `isolate` and `knockoutShape` in `object.setProps`; and
+`invertPie` and `makeSidesEqual` in `object.setLiveShape`. A null is read as a key left out.
+
+The blend and envelope commands refuse a string, a number or another value that is not true or false with
+`` `smooth` must be true or false ``, naming the key, and leave the document, its undo history and the options new
+blends and envelopes start with as they were: `smooth` in `object.blend.make` and `object.blend.options`;
+`independent` in `object.blend.spine.moveAnchor`; `perpendicular` in `object.blend.spine.reshapeSegment`; `horizontal`
+in `object.envelope.makeWithWarp`, `resetWithWarp` and `options`, also when an `orientation` is given; `maintainShape`
+in `object.envelope.resetWithMesh`; `antiAlias`, `distortAppearance`, `distortLinearGradients` and
+`distortPatternFills` in `object.envelope.options`; and `editing` in `object.envelope.editContents`. A null is read as
+a key left out.
 
 A step can use an earlier step's result, in `run` as in the `command_batch` tool. A parameter string that is exactly
 `$N` or `$N.path` takes that value from the result of step `N` (counting from 0, in the order they ran; `run --in`'s
@@ -1264,9 +1288,10 @@ already walks Image Trace. Short agent entry points:
   `variable.unbind`, `variable.rename`, `variable.delete`, `variable.highlight` (image values are file paths, graph
   values CSV as `graph.setData`). `variable.lock {locked?}` (Lock Variables) locks or unlocks the variables;
   without `locked` it toggles, and the lock is saved with the document. While the variables are locked,
-  `variable.define`, `variable.delete`, `variable.rename` and the four `variable.make…Dynamic` commands fail with
-  "variables are locked"; `variable.bind`, `variable.unbind` and the `dataset.*` commands still run (except a
-  `dataset.import` whose header would define a variable, below), and `variable.list` reports `locked`.
+  `variable.define`, `variable.delete`, `variable.rename`, the four `variable.make…Dynamic` commands and a
+  `variable.loadLibrary` that would delete or define a variable (below) fail with "variables are locked";
+  `variable.bind`, `variable.unbind` and the `dataset.*` commands still run (except a `dataset.import` whose header
+  would define a variable, below), and `variable.list` reports `locked`.
 - Data sets: `dataset.list`, `dataset.new {name, values?}`, `dataset.set {name, values?}`, `dataset.rename`,
   `dataset.delete`, `dataset.capture`, `dataset.update`, `dataset.select {name}`, `dataset.next` /
   `dataset.prev` (each `dataset.select` / next / prev is one undo step over every bound object), `dataset.import {path|data|dataBase64|csv}` /
@@ -1279,6 +1304,22 @@ already walks Image Trace. Short agent entry points:
   one whose name is a variable of another kind fails the import. A `%` cell that isn't a variable's exact name (graph
   data files) is refused. The reply's `defined` lists the variables the import defined. While the variables are
   locked, an import whose header would define a variable fails with "variables are locked".
+- Variable libraries: `variable.loadLibrary {path|xml|dataBase64}` (the Variables panel menu's Load Variable
+  Library…) replaces the document's variables and data sets with a variable library's in one undo step. The library
+  is XML whose `variableSets` element holds `variableSet` elements, each with a `variables` element of `variable`
+  elements (`varName`, `trait`) and a `sampleDataSets` element of `sampleDataSet` elements (`dataSetName`). Every
+  variable of the document is deleted with its bindings and values, and every data set is deleted. Then the library's
+  variables whose `trait` is `textcontent` are defined as text variables, unbound. In each data set, the element named
+  after a text variable gives its value: the text of its `p` elements, one paragraph each. An element without a `p`
+  element gives no value. Variables of other kinds are left out with their values: the reply lists them in `skipped`
+  (`name`, `trait`), and its `warning` names each `trait` with its count. The reply's `deleted` and `deletedDataSets`
+  list the variables and data sets the load deleted. While the variables are locked, a library that would delete or
+  define a variable fails with "variables are locked". The reply is `{variables, deleted, deletedDataSets, names,
+  skipped, warning?}`. A library larger than 8 MiB, one whose elements nest more than 256 deep, and one with more
+  than 256 variables or 1,000 data sets are refused. Its document type declaration may hold an external identifier,
+  comments, processing instructions and up to 64 entity declarations whose values are plain text (no `<`, `&` or
+  `%`). A declaration that holds anything else, and entity references that expand the library past 8 MiB, are
+  refused. So are a variable or data set declared twice and a value for a variable the library doesn't declare.
 - Batch: `action.batch {commands, source?: folder|datasets, folder?, destination?: none|saveAndClose|folder,
   destinationFolder?, overrideOpen?, overrideSave?, overrideExport?, includeSubdirs?, stopOnError?}` plays an
   action on every file in a folder or every data set (the Actions panel menu's Batch…). Override Save and Override
@@ -1438,6 +1479,24 @@ See [Revolve](revolve.md) for the scope and limitations.
 {"name":"run_command","arguments":{"command":"effect.setParams","params":{"index":0,"item":null,"params":{"angle":180,"lightRotation":30,"lightColor":"#ff8040","cap":true}}}}
 {"name":"run_command","arguments":{"command":"effect.setParams","params":{"index":0,"item":null,"params":{"expandVisibleOnly":true}}}}
 {"name":"run_command","arguments":{"command":"effect.expandAppearance","params":{}}}
+```
+
+## 3D lighting presets
+
+`effect.lightingPreset {index: int, preset: "standard" | "diffuse" | "topLeft" | "right", item?, ids?, target?}`
+replaces the lighting rig and ambient of an existing Revolve, Extrude & Bevel, Inflate or Rotate
+effect. `item: null` addresses object-level effects; an item index addresses a fill/stroke's
+effects. All targets must have a 3D effect at `index`, otherwise nothing changes. The operation
+is one undo step and preserves Shading, geometry, source paint and the view.
+
+The four original rigs use one white front light at 80% intensity. Standard keeps the existing
+default; Diffuse uses 100% Softness and 35% Ambient Light, Top Left uses Rotation 135 and Height
+45, and Right uses Rotation 0 and Height 30. Full values and the public behavior reference are in
+[3D lighting presets](three-d.md#presets). These are original settings, not imported preset files.
+The document stores their numeric settings; manual edits remain possible through `effect.setParams`.
+
+```json
+{"name":"run_command","arguments":{"command":"effect.lightingPreset","params":{"index":0,"item":null,"preset":"topLeft"}}}
 ```
 
 ## Extrude & Bevel, Inflate and Rotate
@@ -2104,6 +2163,20 @@ the canvas (coordinates out of range)".
 `path.setHandle`, `path.moveAnchor` and `path.insertAnchor` edit subpath 0 when `subpath` is absent or null, and refuse a `subpath` that
 is not a whole number of 0 or more, such as 1.5, -1 or "1" ("missing integer `subpath`"); `path.split` refuses such
 an `anchor` or `segment` in the same way. The document does not change and no undo step is recorded.
+
+These commands refuse a string or another value that is not a number with `` `dy` must be a number, not "10" ``,
+naming the key; the document does not change and no undo step is recorded: `t`, `dx` and `dy` in
+`path.reshapeSegment` and `object.blend.spine.reshapeSegment`; `x`, `y` and `t` in `path.curvatureEdit`; `x` and `y`
+in `path.convertAnchor`; `t` in `path.insertAnchor`; `fidelity` and the `within` of `redraw` in `path.freehand` (and in
+`brush.freehand`, which runs it); `size` in `path.eraseRegion` and `path.blob`; `width` in `path.eraseSegments`;
+`radius` and `fidelity` in `path.smoothRegion`; `tolerance` in `path.joinScrub`; `dx` and `dy` in `path.moveAnchors`;
+and `dx`, `dy`, `tol` and `radius` in `path.reshape`. A null is read as a key left out. `path.convertAnchor` refuses
+an `x` without a `y`, or a `y` without an `x`, with "x and y must be given together". `path.freehand`,
+`path.curvature`, `path.knife`, `path.eraseRegion`, `path.eraseSegments`, `path.smoothRegion`, `path.joinScrub` and
+`path.blob` refuse a point in `points` whose x or y is not a number, such as `["10", 10]` or a point written as a
+string, with "x and y must both be numbers". All of them except `path.curvature` refuse a pen pressure that is neither
+a number nor null with `` `pressure` must be a number, not "0.5" ``. `path.close` refuses an `in` that is not `[x, y]`
+with `` `in` must be [x, y] ``.
 
 A `pointer_gesture` with `mods: {cmd: true}` held at the press, with any tool but the selection tools (Command on
 macOS, Ctrl elsewhere), drags with the selection tool chosen last (`select_tool`), or Direct Selection with the Pen,
@@ -3196,8 +3269,11 @@ result carries the same files as a zip (`{name: "<name>.zip", dataBase64}`, entr
 
 `document.info {selectionOnly?, category?, format?: "text"}` adds `sections` (`[{id, title, rows: [[label, value]]}]`:
 document, objects, graphicStyles, brushes, spotColors, patterns, gradients, symbols, fonts, fontDetails, linkedImages,
-embeddedImages), `brushNames` (the Brushes panel's brushes; with `selectionOnly`, the brushes the selected objects'
-strokes use) and `pathLength` (pt: the total length of the paths, compound paths' pieces included and guides left
+embeddedImages, repeats), `brushNames` (the Brushes panel's brushes; with `selectionOnly`, the brushes the selected
+objects' strokes use), `repeatObjects` (`[{id, name, type, instances, rows?, cols?}]`: every Repeat object, those in
+groups and in other repeats included, with its type `radial`, `grid` or `mirror` and the number of instances it makes,
+and a grid's `rows` and `cols`; with `selectionOnly`, the Repeat objects in the selection)
+and `pathLength` (pt: the total length of the paths, compound paths' pieces included and guides left
 out, which objects lists as Path Length in the document's units, say for a cut line or an LED strip along the letters);
 `format: "text"` returns the plain-text report Document Info › Save… (`docInfo.save {path?}`) and the package report
 write.
@@ -4467,6 +4543,17 @@ stroke at once, so the journal entry replays it exactly.
 {"name":"pointer_gesture","arguments":{"tool":"twirl","events":[{"kind":"down","x":300,"y":200,"holdMs":800},{"kind":"up","x":300,"y":200}]}}
 ```
 
+The Liquify, Puppet Warp and perspective commands refuse a string or another value that is not a number with
+`` `diameter` must be a number, not "40" ``, naming the key, and leave the document and its undo history as they
+were: `diameter`, `width`, `height`, `angle`, `intensity`, `detail`, `simplify`, `rate`, `complexity`, `horizontal`
+and `vertical` in `object.liquify`, with any `tool`; `expand` in `object.puppetWarp` and `object.puppetWarp.pins`;
+`depth` in `perspective.transform`; `dx` and `dy` in `perspective.nudge`; and `offset` and `by` in
+`perspective.plane.move`. A null is read as a key left out. `object.puppetWarp` refuses an `angles` entry that is not
+a number or null with "angles must be a list as long as pins (degrees or null)", `perspective.draw` refuses an `at`
+that is not two numbers, such as `["450", 380]`, with "`at` must be [x, y]", and `stroke.widthProfile.set` refuses a
+point that is not three numbers, such as `[0.5, "1", 2, 2]`, with "points must be [t, left, right] with non-negative
+widths".
+
 ## Perspective Selection
 
 Objects in perspective keep their attachment themselves (`perspective` on the object: `plane` and `depth`, the
@@ -4484,6 +4571,14 @@ copies). Object › Transform › Transform Again repeats the last perspective m
 {"name":"run_command","arguments":{"command":"perspective.transform","params":{"matrix":[1.5,0,0,1.5,0,0],"copy":true}}}
 {"name":"run_command","arguments":{"command":"object.transformAgain","params":{}}}
 ```
+
+The perspective, width point, Liquify and Puppet Warp commands refuse a string, a number or another value that is not
+true or false with `` `copy` must be true or false ``, naming the key, and leave the document and its undo history as
+they were: `copy`, `perpendicular` and `snap` in `perspective.move`; `copy` in `perspective.transform`; `big` and
+`copy` in `perspective.nudge`; `snap` in `perspective.draw`; `reproject` in `perspective.grid.set`; `visible` in
+`perspective.grid.show`; `adjustAdjoining` in `stroke.widthPoint.set`; `usePressure`, `simplifyOn`, `affectAnchors`,
+`affectIn` and `affectOut` in `object.liquify`, with any `tool`; and `rest` in `object.puppetWarp`. A null is read as
+a key left out.
 
 Planes move along their normals: `perspective.plane.move {plane, offset | by, objects}` (`leftOffset`,
 `rightOffset`, `groundOffset` in the grid). The plane widgets (a diamond on each plane, drawn while the grid shows)

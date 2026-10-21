@@ -1378,6 +1378,7 @@ lighting	Light	Cahaya
 	{count} more rules: Export writes every one.	{count} aturan lagi: Ekspor menuliskan semuanya.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	{count} objek tanpa nama tidak disertakan: beri nama, atau aktifkan Objek Tanpa Nama di menu panel.
 	All Categories	Semua kategori
+	Repeat Objects	Objek pengulangan
 	Save…	Simpan…
 	Selection Only	Hanya seleksi
 	{title} (selection)	{title} (seleksi)
@@ -2687,6 +2688,13 @@ lighting	Light	Cahaya
 	Soft Light	Cahaya lembut
 	Crosshatch	Arsir silang
 	Fine Dots	Titik halus
+
+	Simple	Sederhana
+	Light Rough	Kasar terang
+	Dark Rough	Kasar gelap
+	Wide Sharp	Lebar tajam
+	Wide Blurry	Lebar buram
+	Sparkle	Kilau
 	Medium Dots	Titik sedang
 	Grainy Dots	Titik berbutir
 	Coarse Dots	Titik kasar
@@ -4827,6 +4835,9 @@ mark-style	Japanese	Jepang
 	Softness	Kelembutan
 	Ambient Light	Cahaya ambient
 	Light behind the object	Cahaya di belakang objek
+	3D Lighting Preset	Preset Pencahayaan 3D
+	Standard	Standar
+	Diffuse	Difus
 # 3D light management.
 	Lights	Lampu
 	Add Light	Tambah Lampu
@@ -4965,6 +4976,8 @@ mark-style	Japanese	Jepang
 	Make Image Dynamic	Jadikan gambar dinamis
 	Import Data Sets…	Impor himpunan data…
 	Export Data Sets…	Ekspor himpunan data…
+	Load Variable Library…	Muat pustaka variabel…
+@msg	variables that aren't text were left out: {kinds}	variabel yang bukan teks dihilangkan: {kinds}
 	Make Graph Dynamic	Jadikan grafik dinamis
 	Batch…	Batch…
 	Source Folder:	Folder sumber:
@@ -5174,11 +5187,19 @@ swatch	Bright Violet	Violet cerah
 	Cutout…	Potongan…
 	Dry Brush…	Kuas kering…
 	Neon Glow…	Pendar neon…
+	Palette Knife…	Pisau palet…
 	Poster Edges…	Tepi poster…
+	Rough Pastels…	Pastel kasar…
 	Cutout	Potongan
 	Dry Brush	Kuas kering
 	Neon Glow	Pendar neon
+	Paint Daubs…	Coretan cat…
+	Paint Daubs	Coretan cat
+	Palette Knife	Pisau palet
 	Poster Edges	Tepi poster
+	Rough Pastels	Pastel kasar
+	Underpainting…	Underpainting…
+	Underpainting	Underpainting
 	Apply Data Set	Terapkan set data
 	Cancel Pattern Editing	Batalkan pengeditan pola
 	Copy Appearance	Salin tampilan
@@ -5282,6 +5303,7 @@ swatch	Bright Violet	Violet cerah
 	Watercolor…	Cat air…
 	Watercolor	Cat air
 	Brush Size	Ukuran kuas
+	Texture Coverage	Cakupan tekstur
 	Definition	Definisi
 	Brush Detail	Detail kuas
 	Shadow Intensity	Intensitas bayangan
@@ -5315,3 +5337,5 @@ swatch	Bright Violet	Violet cerah
 	Note Paper	Kertas Catatan
 	Water Paper…	Kertas Basah…
 	Water Paper	Kertas Basah
+	Ruby…	Ruby…
+	Ruby	Ruby

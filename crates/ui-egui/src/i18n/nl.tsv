@@ -1392,6 +1392,7 @@ lighting	Light	Licht
 	{count} more rules: Export writes every one.	{count} regels meer: Export schrijft ze allemaal.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	{count} naamloze objecten weggelaten: geef ze een naam, of zet Naamloze objecten aan in het paneelmenu.
 	All Categories	Alle categorieën
+	Repeat Objects	Herhalingsobjecten
 	Save…	Opslaan…
 	Selection Only	Alleen selectie
 	{title} (selection)	{title} (selectie)
@@ -2701,6 +2702,13 @@ lighting	Light	Licht
 	Soft Light	Zacht licht
 	Crosshatch	Kruisarcering
 	Fine Dots	Fijne stippen
+
+	Simple	Eenvoudig
+	Light Rough	Licht ruw
+	Dark Rough	Donker ruw
+	Wide Sharp	Breed scherp
+	Wide Blurry	Breed wazig
+	Sparkle	Fonkel
 	Medium Dots	Middelgrote stippen
 	Grainy Dots	Korrelige stippen
 	Coarse Dots	Grove stippen
@@ -4839,6 +4847,9 @@ mark-style	Japanese	Japans
 	Softness	Zachtheid
 	Ambient Light	Omgevingslicht
 	Light behind the object	Licht achter het object
+	3D Lighting Preset	Voorinstelling 3D-belichting
+	Standard	Standaard
+	Diffuse	Diffuus
 # 3D light management.
 	Lights	Lichtbronnen
 	Add Light	Lichtbron toevoegen
@@ -4977,6 +4988,7 @@ mark-style	Japanese	Japans
 	Make Image Dynamic	Afbeelding dynamisch maken
 	Import Data Sets…	Gegevenssets importeren…
 	Export Data Sets…	Gegevenssets exporteren…
+	Load Variable Library…	Variabelenbibliotheek laden…
 	Make Graph Dynamic	Grafiek dynamisch maken
 	Batch…	Batch…
 	Source Folder:	Bronmap:
@@ -5186,11 +5198,19 @@ swatch	Bright Violet	Felviolet
 	Cutout…	Knipsel…
 	Dry Brush…	Droog penseel…
 	Neon Glow…	Neongloed…
+	Palette Knife…	Paletmes…
 	Poster Edges…	Posterranden…
+	Rough Pastels…	Ruwe pastels…
 	Cutout	Knipsel
 	Dry Brush	Droog penseel
 	Neon Glow	Neongloed
+	Paint Daubs…	Verfstipjes…
+	Paint Daubs	Verfstipjes
+	Palette Knife	Paletmes
 	Poster Edges	Posterranden
+	Rough Pastels	Ruwe pastels
+	Underpainting…	Onderlaag…
+	Underpainting	Onderlaag
 	Apply Data Set	Gegevensset toepassen
 	Cancel Pattern Editing	Patroon bewerken annuleren
 	Copy Appearance	Uiterlijk kopiëren
@@ -5292,6 +5312,7 @@ swatch	Bright Violet	Felviolet
 @msg	the image's pixels can't be read	de pixels van de afbeelding kunnen niet worden gelezen
 @msg	the spine has no segments	de as heeft geen segmenten
 @msg	variables are locked	variabelen zijn vergrendeld
+@msg	variables that aren't text were left out: {kinds}	variabelen die geen tekst zijn, zijn weggelaten: {kinds}
 @msg	x and y must be finite	x en y moeten eindig zijn
 @msg	Persistent libraries not found: {files}	Permanente bibliotheken niet gevonden: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` is geen bibliotheekpaneel (zie window.swatchLibrary)
@@ -5324,6 +5345,7 @@ swatch	Bright Violet	Felviolet
 	Watercolor…	Aquarel…
 	Watercolor	Aquarel
 	Brush Size	Penseelgrootte
+	Texture Coverage	Textuurdekking
 	Definition	Definitie
 	Brush Detail	Penseeldetail
 	Shadow Intensity	Schaduwintensiteit
@@ -5357,3 +5379,5 @@ swatch	Bright Violet	Felviolet
 	Note Paper	Notitiepapier
 	Water Paper…	Nat papier…
 	Water Paper	Nat papier
+	Ruby…	Ruby…
+	Ruby	Ruby

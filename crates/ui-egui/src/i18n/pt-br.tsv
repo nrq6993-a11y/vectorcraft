@@ -908,6 +908,7 @@
 	Export CSS	Exportar CSS
 	Export CSS…	Exportar CSS…
 	Export Data Sets…	Exportar Conjuntos de Dados…
+	Load Variable Library…	Carregar Biblioteca de Variáveis…
 	Export DXF	Exportar DXF
 	Export Document	Exportar Documento
 	Export EPS	Exportar EPS
@@ -2139,6 +2140,7 @@
 	Reorder	Reordenar
 	Reorder Appearance Item	Reordenar Item de Aparência
 	Repeat	Repetir
+	Repeat Objects	Objetos de Repetição
 	Repeat Pathfinder	Repetir Localizador de Caminhos
 	Repeat Tab	Repetir Parada de Tabulação
 	Repeat {name}	Repetir {name}
@@ -3873,6 +3875,7 @@ axis	Both	Ambos
 @msg	unknown workspace (one of {_1})	espaço de trabalho desconhecido (um de {_1})
 @msg	unsupported: {0}	não suportado: {0}
 @msg	variables are locked	as variáveis estão bloqueadas
+@msg	variables that aren't text were left out: {kinds}	as variáveis que não são de texto foram omitidas: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	arquivos da versão {0} não podem ser compactados: somente a versão {COMPRESSED_SINCE} e posteriores abrem arquivos compactados
 @msg	width and height are at least 1 pixel	largura e altura têm pelo menos 1 pixel
 @msg	workspace name can't be empty	o nome do espaço de trabalho não pode estar vazio
@@ -4043,9 +4046,17 @@ axis	Both	Ambos
 	Dry Brush…	Pincel seco…
 	Dry Brush	Pincel seco
 	Neon Glow…	Brilho neon…
+	Palette Knife…	Espátula…
 	Neon Glow	Brilho neon
+	Paint Daubs…	Manchas de tinta…
+	Paint Daubs	Manchas de tinta
+	Palette Knife	Espátula
 	Poster Edges…	Bordas de pôster…
+	Rough Pastels…	Pastéis ásperos…
 	Poster Edges	Bordas de pôster
+	Rough Pastels	Pastéis ásperos
+	Underpainting…	Subpintura…
+	Underpainting	Subpintura
 	Levels	Níveis
 	Edge Simplicity	Simplicidade das bordas
 	Edge Fidelity	Fidelidade das bordas
@@ -4083,6 +4094,9 @@ axis	Both	Ambos
 	Softness	Suavidade
 	Ambient Light	Luz ambiente
 	Light behind the object	Luz atrás do objeto
+	3D Lighting Preset	Predefinição de iluminação 3D
+	Standard	Padrão
+	Diffuse	Difusa
 # 3D light management.
 	Lights	Luzes
 	Add Light	Adicionar luz
@@ -4105,6 +4119,13 @@ axis	Both	Ambos
 	Channel 4	Canal 4
 	Cell Size	Tamanho da Célula
 	Fine Dots	Pontos Finos
+
+	Simple	Simples
+	Light Rough	Áspero claro
+	Dark Rough	Áspero escuro
+	Wide Sharp	Largo nítido
+	Wide Blurry	Largo borrado
+	Sparkle	Brilho
 	Medium Dots	Pontos Médios
 	Grainy Dots	Pontos Granulados
 	Coarse Dots	Pontos Grossos
@@ -5185,6 +5206,7 @@ mark-style	Japanese	Japonesas
 	Watercolor…	Aquarela…
 	Watercolor	Aquarela
 	Brush Size	Tamanho do pincel
+	Texture Coverage	Cobertura da textura
 	Definition	Definição
 	Brush Detail	Detalhe do pincel
 	Shadow Intensity	Intensidade da sombra
@@ -5259,3 +5281,5 @@ mark-style	Japanese	Japonesas
 	Note Paper	Papel de carta
 	Water Paper…	Papel molhado…
 	Water Paper	Papel molhado
+	Ruby…	Ruby…
+	Ruby	Ruby

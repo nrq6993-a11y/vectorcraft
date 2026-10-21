@@ -209,6 +209,8 @@ fn edit_range(s: &mut Session, p: &Value) -> Result<Value> {
             Some(r) => edit::replace_range_styled(&mut t.runs, a, b, r),
             None => edit::replace_range(&mut t.runs, a, b, &insert),
         };
+        // Ruby over the edited text moves with it (its ranges are plain-text bytes).
+        t.ruby_after_replace(a, b, inserted.len());
         refresh_bounds(t);
         Ok(caret)
     })?;
@@ -617,6 +619,7 @@ fn set_range_style(s: &mut Session, p: &Value) -> Result<Value> {
         },
     };
     let mut change = CharChange::parse(p, C, &s.doc()?.doc.setup)?;
+    super::paint::check_keep_model(p, C)?;
     change.store_colors(s, p);
     if change.is_empty() {
         return Err(bad(C, "nothing to change"));
@@ -837,6 +840,7 @@ fn create_in_path(s: &mut Session, p: &Value) -> Result<Value> {
     if !on_path && !path.is_closed() && path.bounds().is_none_or(|b| b.width() < 1.0 || b.height() < 1.0) {
         return Err(bad(C, "area type needs a path that encloses an area"));
     }
+    super::paint::check_keep_model(p, C)?;
     let style = super::create::new_type_style(s, p);
     let text = str_param(p, "text").unwrap_or("").to_string();
     let start = match point_param(p, "at") {
@@ -849,6 +853,7 @@ fn create_in_path(s: &mut Session, p: &Value) -> Result<Value> {
         kind,
         xf: Affine::IDENTITY,
         runs: vec![TextRun { text, style, inline: None }],
+        ruby: Vec::new(),
         para: super::create::new_type_para(),
         paras: Vec::new(),
         area: Default::default(),
@@ -1070,6 +1075,8 @@ fn headline_tracking(t: &TextObject, target: f64) -> Option<f64> {
             kind: TextKind::Point,
             xf: Affine::IDENTITY,
             runs: head.clone(),
+            // Ruby over the counted part; the layout clamps it to `head`.
+            ruby: t.ruby.clone(),
             para: Default::default(),
             paras: Vec::new(),
             area: Default::default(),

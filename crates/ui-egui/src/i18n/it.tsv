@@ -37,6 +37,13 @@
 	Channel 4	Canale 4
 	Cell Size	Dimensione cella
 	Fine Dots	Punti fini
+
+	Simple	Semplice
+	Light Rough	Ruvido chiaro
+	Dark Rough	Ruvido scuro
+	Wide Sharp	Ampio nitido
+	Wide Blurry	Ampio sfocato
+	Sparkle	Scintillio
 	Medium Dots	Punti medi
 	Grainy Dots	Punti granulosi
 	Coarse Dots	Punti grossi
@@ -2612,6 +2619,7 @@ mark-style	Japanese	Giapponese
 	Reorder	Riordina
 	Reorder Appearance Item	Riordina elemento aspetto
 	Repeat	Ripetizione
+	Repeat Objects	Oggetti di ripetizione
 	Repeat Options	Opzioni di ripetizione
 	Repeat Pathfinder	Ripeti Elaborazione tracciati
 	Repeat Tab	Ripeti tabulazione
@@ -4335,6 +4343,7 @@ axis	Both	Entrambi
 @msg	unknown workspace (one of {_1})	area di lavoro sconosciuta (una delle seguenti: {_1})
 @msg	unsupported: {0}	non supportato: {0}
 @msg	variables are locked	le variabili sono bloccate
+@msg	variables that aren't text were left out: {kinds}	le variabili che non sono di testo sono state escluse: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	i file della versione {0} non possono essere compressi: solo la versione {COMPRESSED_SINCE} e successive aprono file compressi
 @msg	width and height are at least 1 pixel	larghezza e altezza sono di almeno 1 pixel
 @msg	workspace name can't be empty	il nome dell'area di lavoro non può essere vuoto
@@ -4684,9 +4693,17 @@ lighting	Light	Luce
 	Dry Brush…	Pennello secco…
 	Dry Brush	Pennello secco
 	Neon Glow…	Bagliore neon…
+	Palette Knife…	Spatola…
 	Neon Glow	Bagliore neon
+	Paint Daubs…	Pennellate…
+	Paint Daubs	Pennellate
+	Palette Knife	Spatola
 	Poster Edges…	Bordi poster…
+	Rough Pastels…	Pastelli grezzi…
 	Poster Edges	Bordi poster
+	Rough Pastels	Pastelli grezzi
+	Underpainting…	Sottopittura…
+	Underpainting	Sottopittura
 	Levels	Livelli
 	Edge Simplicity	Semplicità dei bordi
 	Edge Fidelity	Fedeltà dei bordi
@@ -4776,6 +4793,9 @@ lighting	Light	Luce
 	Softness	Morbidezza
 	Ambient Light	Luce ambientale
 	Light behind the object	Luce dietro l'oggetto
+	3D Lighting Preset	Predefinito illuminazione 3D
+	Standard	Standard
+	Diffuse	Diffusa
 # 3D light management.
 	Lights	Luci
 	Add Light	Aggiungi luce
@@ -4841,6 +4861,7 @@ lighting	Light	Luce
 	Make Image Dynamic	Rendi immagine dinamica
 	Import Data Sets…	Importa set di dati…
 	Export Data Sets…	Esporta set di dati…
+	Load Variable Library…	Carica libreria di variabili…
 	Make Graph Dynamic	Rendi grafico dinamico
 	Batch…	Elaborazione batch…
 	Source Folder:	Cartella di origine:
@@ -4882,6 +4903,7 @@ lighting	Light	Luce
 	Watercolor…	Acquerello…
 	Watercolor	Acquerello
 	Brush Size	Dimensione pennello
+	Texture Coverage	Copertura texture
 	Definition	Definizione
 	Brush Detail	Dettaglio pennello
 	Shadow Intensity	Intensità ombre
@@ -4957,3 +4979,5 @@ lighting	Light	Luce
 	Note Paper	Carta da lettere
 	Water Paper…	Carta bagnata…
 	Water Paper	Carta bagnata
+	Ruby…	Ruby…
+	Ruby	Ruby

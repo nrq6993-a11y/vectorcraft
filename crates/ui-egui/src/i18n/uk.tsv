@@ -36,6 +36,13 @@
 	Channel 4	Канал 4
 	Cell Size	Розмір комірки
 	Fine Dots	Дрібні точки
+
+	Simple	Простий
+	Light Rough	Світла грубість
+	Dark Rough	Темна грубість
+	Wide Sharp	Широкий різкий
+	Wide Blurry	Широкий розмитий
+	Sparkle	Іскра
 	Medium Dots	Середні точки
 	Grainy Dots	Зернисті точки
 	Coarse Dots	Великі точки
@@ -2604,6 +2611,7 @@ mark-style	Japanese	Японський
 	Reorder	Змінити порядок
 	Reorder Appearance Item	Змінити порядок елемента оформлення
 	Repeat	Повторити
+	Repeat Objects	Об’єкти повтору
 	Repeat Options	Параметри повтору
 	Repeat Pathfinder	Повторити обробку контурів
 	Repeat Tab	Повторити табуляцію
@@ -4319,6 +4327,7 @@ axis	Both	Обидві
 @msg	unknown workspace (one of {_1})	невідоме робоче середовище (одна з: {_1})
 @msg	unsupported: {0}	не підтримується: {0}
 @msg	variables are locked	змінні заблоковані
+@msg	variables that aren't text were left out: {kinds}	змінні, що не є текстовими, пропущено: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	файли версії {0} не можуть бути стиснуті: тільки версія {COMPRESSED_SINCE} і новіші відкривають стислі файли
 @msg	width and height are at least 1 pixel	ширина та висота повинні бути не менше 1 пікселя
 @msg	workspace name can't be empty	ім’я робочого середовища не може бути порожнім
@@ -4664,9 +4673,17 @@ lighting	Light	Світло
 	Dry Brush…	Суха кисть…
 	Dry Brush	Суха кисть
 	Neon Glow…	Неонове сяйво…
+	Palette Knife…	Ніж палітри…
 	Neon Glow	Неонове сяйво
+	Paint Daubs…	Мазки фарби…
+	Paint Daubs	Мазки фарби
+	Palette Knife	Ніж палітри
 	Poster Edges…	Плакатні краї…
+	Rough Pastels…	Грубі пастелі…
 	Poster Edges	Плакатні краї
+	Rough Pastels	Грубі пастелі
+	Underpainting…	Підмалювання…
+	Underpainting	Підмалювання
 	Levels	Рівні
 	Edge Simplicity	Простота країв
 	Edge Fidelity	Точність країв
@@ -4756,6 +4773,9 @@ lighting	Light	Світло
 	Softness	М'якість
 	Ambient Light	Навколишнє світло
 	Light behind the object	Світло позаду об'єкта
+	3D Lighting Preset	Попереднє налаштування 3D освітлення
+	Standard	Стандартне
+	Diffuse	Розсіяне
 # 3D light management.
 	Lights	Джерела світла
 	Add Light	Додати світло
@@ -4821,6 +4841,7 @@ lighting	Light	Світло
 	Make Image Dynamic	Зробити зображення динамічним
 	Import Data Sets…	Імпортувати набори даних…
 	Export Data Sets…	Експортувати набори даних…
+	Load Variable Library…	Завантажити бібліотеку змінних…
 	Make Graph Dynamic	Зробити діаграму динамічною
 	Batch…	Пакетна обробка…
 	Source Folder:	Вихідна папка:
@@ -4862,6 +4883,7 @@ lighting	Light	Світло
 	Watercolor…	Акварель…
 	Watercolor	Акварель
 	Brush Size	Розмір пензля
+	Texture Coverage	Покриття текстурою
 	Definition	Чіткість
 	Brush Detail	Деталізація пензля
 	Shadow Intensity	Інтенсивність тіней
@@ -4937,3 +4959,5 @@ lighting	Light	Світло
 	Note Paper	Поштовий папір
 	Water Paper…	Мокрий папір…
 	Water Paper	Мокрий папір
+	Ruby…	Рубі…
+	Ruby	Рубі

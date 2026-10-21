@@ -1461,6 +1461,7 @@ lighting	Light	Světlo
 	{count} more rules: Export writes every one.	Další pravidla ({count}): Export zapíše všechna.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	Vynecháno nepojmenovaných objektů: {count}. Pojmenujte je, nebo v nabídce panelu zapněte Nepojmenované objekty.
 	All Categories	Všechny kategorie
+	Repeat Objects	Objekty opakování
 	Save…	Uložit…
 	Selection Only	Pouze výběr
 	{title} (selection)	{title} (výběr)
@@ -2914,6 +2915,13 @@ lighting	Light	Světlo
 	Soft Light	Měkké světlo
 	Crosshatch	Křížové šrafování
 	Fine Dots	Jemné tečky
+
+	Simple	Jednoduchý
+	Light Rough	Světle hrubý
+	Dark Rough	Tmavě hrubý
+	Wide Sharp	Široce ostrý
+	Wide Blurry	Široce rozmazaný
+	Sparkle	Jiskra
 	Medium Dots	Střední tečky
 	Grainy Dots	Zrnité tečky
 	Coarse Dots	Hrubé tečky
@@ -4596,6 +4604,7 @@ imageTrace	Outline	Obrys
 @msg	unknown workspace (one of {_1})	neznámý pracovní prostor (jeden z {_1})
 @msg	unsupported: {0}	nepodporováno: {0}
 @msg	variables are locked	proměnné jsou zamčené
+@msg	variables that aren't text were left out: {kinds}	proměnné, které nejsou textové, byly vynechány: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	soubory verze {0} nelze komprimovat: komprimované soubory otevírá až verze {COMPRESSED_SINCE} a novější
 @msg	width and height are at least 1 pixel	šířka i výška jsou alespoň 1 obrazový bod
 @msg	workspace name can't be empty	název pracovního prostoru nesmí být prázdný
@@ -5054,9 +5063,17 @@ imageTrace	Outline	Obrys
 	Dry Brush…	Suchý štětec…
 	Dry Brush	Suchý štětec
 	Neon Glow…	Neonová záře…
+	Palette Knife…	Špachtle…
 	Neon Glow	Neonová záře
+	Paint Daubs…	Malířské tahy…
+	Paint Daubs	Malířské tahy
+	Palette Knife	Špachtle
 	Poster Edges…	Plakátové okraje…
+	Rough Pastels…	Hrubé pastely…
 	Poster Edges	Plakátové okraje
+	Rough Pastels	Hrubé pastely
+	Underpainting…	Podmalba…
+	Underpainting	Podmalba
 	Levels	Úrovně
 	Edge Simplicity	Jednoduchost okrajů
 	Edge Fidelity	Věrnost okrajů
@@ -5166,6 +5183,9 @@ mark-style	Japanese	Japonské
 	Softness	Měkkost
 	Ambient Light	Okolní světlo
 	Light behind the object	Světlo za objektem
+	3D Lighting Preset	Předvolba 3D osvětlení
+	Standard	Standardní
+	Diffuse	Rozptýlené
 # 3D light management.
 	Lights	Světla
 	Add Light	Přidat světlo
@@ -5228,6 +5248,7 @@ mark-style	Japanese	Japonské
 	Make Image Dynamic	Nastavit obraz jako dynamický
 	Import Data Sets…	Importovat sady dat…
 	Export Data Sets…	Exportovat sady dat…
+	Load Variable Library…	Načíst knihovnu proměnných…
 	Make Graph Dynamic	Nastavit graf jako dynamický
 	Batch…	Dávka…
 	Source Folder:	Zdrojová složka:
@@ -5268,6 +5289,7 @@ mark-style	Japanese	Japonské
 	Watercolor…	Akvarel…
 	Watercolor	Akvarel
 	Brush Size	Velikost štětce
+	Texture Coverage	Krytí textury
 	Definition	Definice
 	Brush Detail	Detail štětce
 	Shadow Intensity	Intenzita stínů
@@ -5342,3 +5364,5 @@ mark-style	Japanese	Japonské
 	Note Paper	Dopisní papír
 	Water Paper…	Mokrý papír…
 	Water Paper	Mokrý papír
+	Ruby…	Ruby…
+	Ruby	Ruby

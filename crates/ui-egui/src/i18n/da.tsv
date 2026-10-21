@@ -1378,6 +1378,7 @@ lighting	Light	Lys
 	{count} more rules: Export writes every one.	{count} flere regler: Eksport skriver hver enkelt.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	{count} unavngivne objekter udeladt: giv dem navne, eller aktivér Unavngivne objekter i panelmenuen.
 	All Categories	Alle kategorier
+	Repeat Objects	Gentagelsesobjekter
 	Save…	Gem…
 	Selection Only	Kun markering
 	{title} (selection)	{title} (markering)
@@ -2687,6 +2688,13 @@ lighting	Light	Lys
 	Soft Light	Blødt lys
 	Crosshatch	Krydsskravering
 	Fine Dots	Fine prikker
+
+	Simple	Enkel
+	Light Rough	Lys ru
+	Dark Rough	Mørk ru
+	Wide Sharp	Bred skarp
+	Wide Blurry	Bred sløret
+	Sparkle	Glimt
 	Medium Dots	Mellemstore prikker
 	Grainy Dots	Kornede prikker
 	Coarse Dots	Grove prikker
@@ -4827,6 +4835,9 @@ mark-style	Japanese	Japansk
 	Softness	Blødhed
 	Ambient Light	Omgivelseslys
 	Light behind the object	Lys bag objektet
+	3D Lighting Preset	Forudindstilling for 3D-belysning
+	Standard	Standard
+	Diffuse	Diffust
 # 3D light management.
 	Lights	Lyskilder
 	Add Light	Tilføj lyskilde
@@ -4965,6 +4976,8 @@ mark-style	Japanese	Japansk
 	Make Image Dynamic	Gør billede dynamisk
 	Import Data Sets…	Importér datasæt…
 	Export Data Sets…	Eksportér datasæt…
+	Load Variable Library…	Indlæs variabelbibliotek…
+@msg	variables that aren't text were left out: {kinds}	variabler, der ikke er tekst, blev udeladt: {kinds}
 	Make Graph Dynamic	Gør diagram dynamisk
 	Batch…	Batch…
 	Source Folder:	Kildemappe:
@@ -5174,11 +5187,19 @@ swatch	Bright Violet	Kraftig violet
 	Cutout…	Udklip…
 	Dry Brush…	Tør pensel…
 	Neon Glow…	Neonglød…
+	Palette Knife…	Paletkniv…
 	Poster Edges…	Plakatkanter…
+	Rough Pastels…	Grove pasteller…
 	Cutout	Udklip
 	Dry Brush	Tør pensel
 	Neon Glow	Neonglød
+	Paint Daubs…	Malerklatter…
+	Paint Daubs	Malerklatter
+	Palette Knife	Paletkniv
 	Poster Edges	Plakatkanter
+	Rough Pastels	Grove pasteller
+	Underpainting…	Undermaling…
+	Underpainting	Undermaling
 	Apply Data Set	Anvend datasæt
 	Cancel Pattern Editing	Annullér redigering af mønster
 	Copy Appearance	Kopiér udseende
@@ -5282,6 +5303,7 @@ swatch	Bright Violet	Kraftig violet
 	Watercolor…	Akvarel…
 	Watercolor	Akvarel
 	Brush Size	Penselstørrelse
+	Texture Coverage	Teksturdækning
 	Definition	Definition
 	Brush Detail	Penseldetalje
 	Shadow Intensity	Skyggeintensitet
@@ -5315,3 +5337,5 @@ swatch	Bright Violet	Kraftig violet
 	Note Paper	Notatpapir
 	Water Paper…	Vådt papir…
 	Water Paper	Vådt papir
+	Ruby…	Ruby…
+	Ruby	Ruby

@@ -3360,6 +3360,7 @@ font-script	Japanese	漢字
 	Reorder	重新排序
 	Reorder Appearance Item	重新排序外觀項目
 	Repeat	重複
+	Repeat Objects	重複物件
 	Repeat Options	重複選項
 	Repeat Pathfinder	重複路徑管理員
 	Repeat Tab	重複定位點
@@ -4248,6 +4249,7 @@ font-script	Japanese	漢字
 	Lock Variables	鎖定變數
 	Unlock Variables	解除鎖定變數
 @msg	variables are locked	變數已鎖定
+@msg	variables that aren't text were left out: {kinds}	已略過非文字變數：{kinds}
 	List Variables	列出變數
 	Bind Variable	綁定變數
 	Unbind Variable	解除變數綁定
@@ -4565,6 +4567,13 @@ axis	Both	兩者
 	Channel 4	色版 4
 	Cell Size	單元大小
 	Fine Dots	細點
+
+	Simple	簡單
+	Light Rough	淺色粗糙
+	Dark Rough	深色粗糙
+	Wide Sharp	寬銳
+	Wide Blurry	寬模糊
+	Sparkle	閃光
 	Medium Dots	中等點
 	Grainy Dots	顆粒點
 	Coarse Dots	粗點
@@ -4754,9 +4763,17 @@ lighting	Light	光源
 	Cutout	剪紙
 	Dry Brush	乾畫筆
 	Neon Glow…	霓虹光…
+	Palette Knife…	調色刀…
 	Neon Glow	霓虹光
+	Paint Daubs…	繪畫塗抹…
+	Paint Daubs	繪畫塗抹
+	Palette Knife	調色刀
 	Poster Edges…	海報邊緣…
+	Rough Pastels…	粗糙粉彩…
 	Poster Edges	海報邊緣
+	Rough Pastels	粗糙粉彩
+	Underpainting…	底紋效果…
+	Underpainting	底紋效果
 	Levels	色階數
 	Edge Simplicity	邊緣簡化度
 	Edge Fidelity	邊緣逼真度
@@ -4838,6 +4855,9 @@ lighting	Light	光源
 	Softness	柔和度
 	Ambient Light	環境光
 	Light behind the object	光源位於物件後方
+	3D Lighting Preset	3D 光照預設
+	Standard	標準
+	Diffuse	漫射
 # 3D light management.
 	Lights	光源清單
 	Add Light	新增光源
@@ -4877,6 +4897,7 @@ lighting	Light	光源
 	Make Image Dynamic	使影像動態化
 	Import Data Sets…	匯入資料集…
 	Export Data Sets…	匯出資料集…
+	Load Variable Library…	載入變數資料庫…
 	Make Graph Dynamic	使圖表動態化
 	Batch…	批次處理…
 	Source Folder:	來源資料夾：
@@ -4913,6 +4934,7 @@ lighting	Light	光源
 	Watercolor…	水彩…
 	Watercolor	水彩
 	Brush Size	筆刷大小
+	Texture Coverage	紋理覆蓋
 	Definition	清晰度
 	Brush Detail	筆刷細節
 	Shadow Intensity	陰影強度
@@ -4976,3 +4998,5 @@ lighting	Light	光源
 	Note Paper	便條紙
 	Water Paper…	水彩畫紙…
 	Water Paper	水彩畫紙
+	Ruby…	注音…
+	Ruby	注音

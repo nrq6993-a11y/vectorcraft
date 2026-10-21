@@ -32,6 +32,13 @@
 	Channel 4	Канал 4
 	Cell Size	Размер на клетката
 	Fine Dots	Финни точки
+
+	Simple	Прост
+	Light Rough	Светъл груб
+	Dark Rough	Тъмен груб
+	Wide Sharp	Широк остър
+	Wide Blurry	Широк размазан
+	Sparkle	Блясък
 	Medium Dots	Средни точки
 	Grainy Dots	Зърнести точки
 	Coarse Dots	Едри точки
@@ -2528,6 +2535,7 @@
 	Reorder	Пренареждане
 	Reorder Appearance Item	Пренареждане на елемент от външния вид
 	Repeat	Повтаряне
+	Repeat Objects	Обекти с повтаряне
 	Repeat Options	Опции за повтаряне
 	Repeat Pathfinder	Повтаряне на Pathfinder
 	Repeat Tab	Повтаряне на табулатора
@@ -4201,6 +4209,7 @@ axis	Both	И двете
 @msg	unknown workspace (one of {_1})	непознато работно пространство (едно от {_1})
 @msg	unsupported: {0}	не се поддържа: {0}
 @msg	variables are locked	променливите са заключени
+@msg	variables that aren't text were left out: {kinds}	променливите, които не са текстови, бяха пропуснати: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	файловете от версия {0} не могат да бъдат компресирани: само версия {COMPRESSED_SINCE} и по-нови отварят компресирани файлове
 @msg	width and height are at least 1 pixel	ширината и височината са най-малко 1 пиксел
 @msg	workspace name can't be empty	името на работното пространство не може да бъде празно
@@ -4555,9 +4564,17 @@ lighting	Light	Светлина
 	Dry Brush…	Суха четка…
 	Dry Brush	Суха четка
 	Neon Glow…	Неоново сияние…
+	Palette Knife…	Нож за палитра…
 	Neon Glow	Неоново сияние
+	Paint Daubs…	Мазки с боя…
+	Paint Daubs	Мазки с боя
+	Palette Knife	Нож за палитра
 	Poster Edges…	Плакатни ръбове…
+	Rough Pastels…	Груби пастели…
 	Poster Edges	Плакатни ръбове
+	Rough Pastels	Груби пастели
+	Underpainting…	Подбоя…
+	Underpainting	Подбоя
 	Levels	Нива
 	Edge Simplicity	Простота на ръбовете
 	Edge Fidelity	Точност на ръбовете
@@ -5066,6 +5083,9 @@ theme	Appearance	Външен вид
 	Softness	Мекота
 	Ambient Light	Околна светлина
 	Light behind the object	Светлина зад обекта
+	3D Lighting Preset	Предварителна настройка за 3D осветление
+	Standard	Стандартно
+	Diffuse	Дифузно
 # 3D light management.
 	Lights	Светлини
 	Add Light	Добавяне на светлина
@@ -5182,6 +5202,7 @@ theme	Appearance	Външен вид
 	Make Image Dynamic	Динамично изображение
 	Import Data Sets…	Импортиране на набори от данни…
 	Export Data Sets…	Експортиране на набори от данни…
+	Load Variable Library…	Зареждане на библиотека с променливи…
 	Make Graph Dynamic	Динамична диаграма
 	Batch…	Пакет…
 	Source Folder:	Изходна папка:
@@ -5237,6 +5258,7 @@ theme	Appearance	Външен вид
 	Watercolor…	Акварел…
 	Watercolor	Акварел
 	Brush Size	Размер на четката
+	Texture Coverage	Покритие на текстура
 	Definition	Дефиниция
 	Brush Detail	Детайл на четката
 	Shadow Intensity	Интензивност на сенките
@@ -5299,3 +5321,5 @@ theme	Appearance	Външен вид
 	Note Paper	Хартия за писма
 	Water Paper…	Мокра хартия…
 	Water Paper	Мокра хартия
+	Ruby…	Руби…
+	Ruby	Руби

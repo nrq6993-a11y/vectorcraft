@@ -3511,6 +3511,7 @@ file-filter	Templates	テンプレート
 	Relinked {n} image(s)	{n} 個の画像を再リンクしました
 	Relinked {n} image(s); not in that folder: {}	{n} 個の画像を再リンクしました。そのフォルダーに無いもの：{}
 	Relinked {} image(s)	{} 個の画像を再リンクしました
+	Repeat Objects	リピートオブジェクト
 	Repeat Options	リピートオプション
 	Reset with Mesh	メッシュでリセット
 	Reset with Warp	ワープでリセット
@@ -3759,6 +3760,13 @@ theme	Appearance	外観
 	Channel 4	チャンネル 4
 	Cell Size	セルの大きさ
 	Fine Dots	細かい点
+
+	Simple	シンプル
+	Light Rough	ライトラフ
+	Dark Rough	ダークラフ
+	Wide Sharp	ワイドシャープ
+	Wide Blurry	ワイドブラー
+	Sparkle	スパークル
 	Medium Dots	中程度の点
 	Grainy Dots	粒状の点
 	Coarse Dots	粗い点
@@ -3923,6 +3931,7 @@ swatch	Bright Violet	ビビッドバイオレット
 @msg	Make Guides: select paths	ガイドを作成: パスを選択してください
 @msg	Release Guides: no guides	ガイドを解除: ガイドがありません
 @msg	variables are locked	変数がロックされています
+@msg	variables that aren't text were left out: {kinds}	テキスト以外の変数は除外されました: {kinds}
 @msg	guides are locked	ガイドがロックされています
 @msg	handle must be in or out	handle には in または out を指定してください
 @msg	no saved selection recalled	保存した選択範囲を呼び出していません
@@ -4723,9 +4732,17 @@ lighting	Light	ライト
 	Dry Brush…	ドライブラシ…
 	Dry Brush	ドライブラシ
 	Neon Glow…	ネオングロー…
+	Palette Knife…	パレットナイフ…
 	Neon Glow	ネオングロー
+	Paint Daubs…	ペイントダブ…
+	Paint Daubs	ペイントダブ
+	Palette Knife	パレットナイフ
 	Poster Edges…	ポスターエッジ…
+	Rough Pastels…	ラフパステル…
 	Poster Edges	ポスターエッジ
+	Rough Pastels	ラフパステル
+	Underpainting…	アンダーペインティング…
+	Underpainting	アンダーペインティング
 	Levels	レベル数
 	Edge Simplicity	エッジの単純さ
 	Edge Fidelity	エッジの正確さ
@@ -4815,6 +4832,9 @@ lighting	Light	ライト
 	Softness	柔らかさ
 	Ambient Light	環境光
 	Light behind the object	オブジェクトの背後のライト
+	3D Lighting Preset	3D ライティングプリセット
+	Standard	標準
+	Diffuse	拡散
 # 3D light management.
 	Lights	ライト一覧
 	Add Light	ライトを追加
@@ -4881,6 +4901,7 @@ lighting	Light	ライト
 	Make Image Dynamic	画像を動的にする
 	Import Data Sets…	データセットを読み込み…
 	Export Data Sets…	データセットを書き出し…
+	Load Variable Library…	変数ライブラリを読み込み…
 	Make Graph Dynamic	グラフを動的にする
 	Batch…	バッチ…
 	Source Folder:	ソースフォルダー:
@@ -4922,6 +4943,7 @@ lighting	Light	ライト
 	Watercolor…	水彩…
 	Watercolor	水彩
 	Brush Size	ブラシサイズ
+	Texture Coverage	テクスチャのかかり具合
 	Definition	精細度
 	Brush Detail	ブラシの細かさ
 	Shadow Intensity	シャドウの強さ
@@ -5004,3 +5026,5 @@ lighting	Light	ライト
 	Kaku #2	角形2号
 	Kaku #3	角形3号
 	Yonroku-ban	四六判
+	Ruby…	ルビ…
+	Ruby	ルビ

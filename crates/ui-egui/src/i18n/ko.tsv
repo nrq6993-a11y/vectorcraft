@@ -3504,6 +3504,7 @@ file-filter	Templates	템플릿
 	Relinked {n} image(s)	이미지 {n}개를 다시 연결했습니다
 	Relinked {n} image(s); not in that folder: {}	이미지 {n}개를 다시 연결했습니다. 해당 폴더에 없음: {}
 	Relinked {} image(s)	이미지 {}개를 다시 연결했습니다
+	Repeat Objects	반복 개체
 	Repeat Options	반복 옵션
 	Reset with Mesh	메시로 재설정
 	Reset with Warp	왜곡으로 재설정
@@ -3744,6 +3745,13 @@ theme	Appearance	외관
 	Channel 4	채널 4
 	Cell Size	셀 크기
 	Fine Dots	고운 점
+
+	Simple	단순
+	Light Rough	밝은 거칠기
+	Dark Rough	어두운 거칠기
+	Wide Sharp	넓고 선명
+	Wide Blurry	넓고 흐림
+	Sparkle	반짝임
 	Medium Dots	중간 점
 	Grainy Dots	거친 입자 점
 	Coarse Dots	굵은 점
@@ -3855,6 +3863,7 @@ theme	Appearance	외관
 @msg	Make Guides: select paths	안내선 만들기: 패스를 선택하세요
 @msg	Release Guides: no guides	안내선 해제: 안내선이 없습니다
 @msg	variables are locked	변수가 잠겨 있습니다
+@msg	variables that aren't text were left out: {kinds}	텍스트가 아닌 변수는 제외되었습니다: {kinds}
 @msg	guides are locked	안내선이 잠겨 있습니다
 @msg	handle must be in or out	handle은 in 또는 out이어야 합니다
 @msg	no saved selection recalled	불러온 저장된 선택 영역이 없습니다
@@ -4647,9 +4656,17 @@ lighting	Light	광원
 	Dry Brush…	드라이 브러시…
 	Dry Brush	드라이 브러시
 	Neon Glow…	네온 글로…
+	Palette Knife…	팔레트 나이프…
 	Neon Glow	네온 글로
+	Paint Daubs…	페인트 다브…
+	Paint Daubs	페인트 다브
+	Palette Knife	팔레트 나이프
 	Poster Edges…	포스터 가장자리…
+	Rough Pastels…	거친 파스텔…
 	Poster Edges	포스터 가장자리
+	Rough Pastels	거친 파스텔
+	Underpainting…	언더페인팅…
+	Underpainting	언더페인팅
 	Levels	레벨 수
 	Edge Simplicity	가장자리 단순화
 	Edge Fidelity	가장자리 충실도
@@ -4739,6 +4756,9 @@ lighting	Light	광원
 	Softness	부드러움
 	Ambient Light	주변광
 	Light behind the object	개체 뒤의 조명
+	3D Lighting Preset	3D 조명 사전 설정
+	Standard	표준
+	Diffuse	확산
 # 3D light management.
 	Lights	광원 목록
 	Add Light	광원 추가
@@ -4804,6 +4824,7 @@ lighting	Light	광원
 	Make Image Dynamic	이미지를 동적으로 만들기
 	Import Data Sets…	데이터 세트 가져오기…
 	Export Data Sets…	데이터 세트 내보내기…
+	Load Variable Library…	변수 라이브러리 불러오기…
 	Make Graph Dynamic	그래프를 동적으로 만들기
 	Batch…	일괄 처리…
 	Source Folder:	소스 폴더:
@@ -4845,6 +4866,7 @@ lighting	Light	광원
 	Watercolor…	수채화…
 	Watercolor	수채화
 	Brush Size	브러시 크기
+	Texture Coverage	텍스처 적용 범위
 	Definition	선명도
 	Brush Detail	브러시 세부 묘사
 	Shadow Intensity	그림자 강도
@@ -4920,3 +4942,5 @@ lighting	Light	광원
 	Note Paper	메모지
 	Water Paper…	물 종이…
 	Water Paper	물 종이
+	Ruby…	루비…
+	Ruby	루비

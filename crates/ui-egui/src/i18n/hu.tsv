@@ -1401,6 +1401,13 @@
 	Find Next	Következő keresése
 	Find Objects	Objektumok keresése
 	Fine Dots	Finom pontok
+
+	Simple	Egyszerű
+	Light Rough	Világos durva
+	Dark Rough	Sötét durva
+	Wide Sharp	Széles éles
+	Wide Blurry	Széles elmosott
+	Sparkle	Csillogás
 	First	Első
 	First Baseline	Első alapvonal
 	First commit	Első commit
@@ -1587,9 +1594,17 @@ file-filter	Templates	Sablonok
 	Dry Brush…	Száraz ecset…
 	Dry Brush	Száraz ecset
 	Neon Glow…	Neonfény…
+	Palette Knife…	Palettakés…
 	Neon Glow	Neonfény
+	Paint Daubs…	Festékpaca…
+	Paint Daubs	Festékpaca
+	Palette Knife	Palettakés
 	Poster Edges…	Poszterszélek…
+	Rough Pastels…	Durva pasztell…
 	Poster Edges	Poszterszélek
+	Rough Pastels	Durva pasztell
+	Underpainting…	Alapozás…
+	Underpainting	Alapozás
 	Levels	Szintek
 	Edge Simplicity	Élek egyszerűsége
 	Edge Fidelity	Élek hűsége
@@ -3106,6 +3121,7 @@ mark-style	Japanese	Japán
 	Reorder	Átrendezés
 	Reorder Appearance Item	Megjelenési elem átrendezése
 	Repeat	Ismétlés
+	Repeat Objects	Ismétlésobjektumok
 	Repeat Options	Ismétlés beállításai
 	Repeat Pathfinder	Útvonalkezelő-művelet ismétlése
 	Repeat Tab	Tabulátor ismétlése
@@ -5024,6 +5040,7 @@ imageTrace	Outline	Körvonal
 @msg	Updated {_1} image(s)	Frissített képek: {_1}
 @msg	Updated {_1} linked file(s) changed on disk	Frissített, a lemezen módosult csatolt fájlok: {_1}
 @msg	variables are locked	a változók zárolva vannak
+@msg	variables that aren't text were left out: {kinds}	a nem szöveges változók kimaradtak: {kinds}
 @msg	VectorCraft doesn't search other apps' or the system's folders: {path}	a VectorCraft nem keres más alkalmazások és a rendszer mappáiban: {path}
 @msg	VectorCraft doesn't search the Shared or Public folder in Users: {path}	a VectorCraft nem keres a Users alatti Shared és Public mappában: {path}
 @msg	VectorCraft failed to start: {e}	A VectorCraft nem tudott elindulni: {e}
@@ -5152,6 +5169,9 @@ imageTrace	Outline	Körvonal
 	Softness	Lágyság
 	Ambient Light	Környezeti fény
 	Light behind the object	Fény az objektum mögött
+	3D Lighting Preset	3D világítási készlet
+	Standard	Normál
+	Diffuse	Szórt
 # 3D light management.
 	Lights	Fények
 	Add Light	Fény hozzáadása
@@ -5214,6 +5234,7 @@ imageTrace	Outline	Körvonal
 	Make Image Dynamic	Kép dinamikussá tétele
 	Import Data Sets…	Adatkészletek importálása…
 	Export Data Sets…	Adatkészletek exportálása…
+	Load Variable Library…	Változókönyvtár betöltése…
 	Make Graph Dynamic	Diagram dinamikussá tétele
 	Batch…	Kötegelt feldolgozás…
 	Source Folder:	Forrásmappa:
@@ -5254,6 +5275,7 @@ imageTrace	Outline	Körvonal
 	Watercolor…	Akvarell…
 	Watercolor	Akvarell
 	Brush Size	Ecsetméret
+	Texture Coverage	Textúra fedettség
 	Definition	Kidolgozottság
 	Brush Detail	Ecsetrészletesség
 	Shadow Intensity	Árnyék intenzitása
@@ -5328,3 +5350,5 @@ imageTrace	Outline	Körvonal
 	Note Paper	Jegyzetpapír
 	Water Paper…	Nedves papír…
 	Water Paper	Nedves papír
+	Ruby…	Ruby…
+	Ruby	Ruby

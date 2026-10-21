@@ -29,6 +29,13 @@
 	Channel 4	Κανάλι 4
 	Cell Size	Μέγεθος κελιού
 	Fine Dots	Λεπτές κουκκίδες
+
+	Simple	Απλό
+	Light Rough	Ελαφρύ τραχύ
+	Dark Rough	Σκούρο τραχύ
+	Wide Sharp	Ευρύ οξύ
+	Wide Blurry	Ευρύ θολό
+	Sparkle	Λάμψη
 	Medium Dots	Μεσαίες κουκκίδες
 	Grainy Dots	Κοκκώδεις κουκκίδες
 	Coarse Dots	Χοντρές κουκκίδες
@@ -2266,9 +2273,17 @@ lighting	Light	Φως
 	Dry Brush…	Ξηρό πινέλο…
 	Dry Brush	Ξηρό πινέλο
 	Neon Glow…	Λάμψη νέον…
+	Palette Knife…	Μαχαίρι παλέτας…
 	Neon Glow	Λάμψη νέον
+	Paint Daubs…	Πινελιές βαφής…
+	Paint Daubs	Πινελιές βαφής
+	Palette Knife	Μαχαίρι παλέτας
 	Poster Edges…	Άκρες αφίσας…
+	Rough Pastels…	Χοντρά παστέλ…
 	Poster Edges	Άκρες αφίσας
+	Rough Pastels	Χοντρά παστέλ
+	Underpainting…	Υποζωγραφία…
+	Underpainting	Υποζωγραφία
 	Levels	Επίπεδα
 	Edge Simplicity	Απλότητα άκρων
 	Edge Fidelity	Πιστότητα άκρων
@@ -3098,6 +3113,7 @@ theme	Appearance	Εμφάνιση
 	Rendering intent:	Σκοπός απόδοσης:
 	Reorder	Αναδιάταξη
 	Reorder Appearance Item	Αναδιάταξη στοιχείου εμφάνισης
+	Repeat Objects	Αντικείμενα επανάληψης
 	Repeat Options	Επιλογές επανάληψης
 	Repeat Pathfinder	Επανάληψη Pathfinder
 	Repeat Tab	Επανάληψη στηλοθέτη
@@ -4261,6 +4277,7 @@ theme	Appearance	Εμφάνιση
 @msg	unknown workspace (one of {_1})	άγνωστος χώρος εργασίας (ένας από τους {_1})
 @msg	unsupported: {0}	δεν υποστηρίζεται: {0}
 @msg	variables are locked	οι μεταβλητές είναι κλειδωμένες
+@msg	variables that aren't text were left out: {kinds}	οι μεταβλητές που δεν είναι κειμένου παραλείφθηκαν: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	τα αρχεία έκδοσης {0} δεν μπορούν να συμπιεστούν: μόνο η έκδοση {COMPRESSED_SINCE} και νεότερες ανοίγουν συμπιεσμένα αρχεία
 @msg	width and height are at least 1 pixel	το πλάτος και το ύψος πρέπει να είναι τουλάχιστον 1 εικονοστοιχείο
 @msg	workspace name can't be empty	το όνομα χώρου εργασίας δεν μπορεί να είναι κενό
@@ -4873,6 +4890,9 @@ theme	Appearance	Εμφάνιση
 	 to set spacing and orientation	 για ορισμό απόστασης και προσανατολισμού
 	:	:
 	Light behind the object	Φως πίσω από το αντικείμενο
+	3D Lighting Preset	Προεπιλογή φωτισμού 3D
+	Standard	Τυπικός
+	Diffuse	Διάχυτος
 # 3D light management.
 	Lights	Φώτα
 	Add Light	Προσθήκη φωτός
@@ -5093,6 +5113,7 @@ effect	Points	Σημεία
 	Drawing : real size — 1:10 labels 1 unit on the page as 10.	Σχέδιο : πραγματικό μέγεθος — με 1:10 η 1 μονάδα στη σελίδα εμφανίζεται ως 10.
 	Editable	Επεξεργάσιμο
 	Export Data Sets…	Εξαγωγή συνόλων δεδομένων…
+	Load Variable Library…	Φόρτωση βιβλιοθήκης μεταβλητών…
 	Filter	Φίλτρο
 	Filter Layers Panel Rows	Φιλτράρισμα γραμμών πίνακα επιπέδων
 	Flatten	Ισοπέδωση
@@ -5220,6 +5241,7 @@ effect	Points	Σημεία
 	Watercolor…	Υδατογραφία…
 	Watercolor	Υδατογραφία
 	Brush Size	Μέγεθος πινέλου
+	Texture Coverage	Κάλυψη υφής
 	Definition	Ευκρίνεια
 	Brush Detail	Λεπτομέρεια πινέλου
 	Shadow Intensity	Ένταση σκιών
@@ -5294,3 +5316,5 @@ effect	Points	Σημεία
 	Note Paper	Χαρτί σημειώσεων
 	Water Paper…	Βρεγμένο χαρτί…
 	Water Paper	Βρεγμένο χαρτί
+	Ruby…	Ruby…
+	Ruby	Ruby

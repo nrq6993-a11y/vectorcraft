@@ -1275,9 +1275,17 @@
 	Dry Brush…	Cọ khô…
 	Dry Brush	Cọ khô
 	Neon Glow…	Ánh neon…
+	Palette Knife…	Dao palette…
 	Neon Glow	Ánh neon
+	Paint Daubs…	Vệt sơn…
+	Paint Daubs	Vệt sơn
+	Palette Knife	Dao palette
 	Poster Edges…	Viền áp phích…
+	Rough Pastels…	Pastel thô…
 	Poster Edges	Viền áp phích
+	Rough Pastels	Pastel thô
+	Underpainting…	Lớp sơn nền…
+	Underpainting	Lớp sơn nền
 	Levels	Số mức
 	Edge Simplicity	Độ đơn giản của cạnh
 	Edge Fidelity	Độ trung thực của cạnh
@@ -1299,6 +1307,13 @@
 	Find Next	Tìm tiếp
 	Find Objects	Tìm đối tượng
 	Fine Dots	Chấm mịn
+
+	Simple	Đơn giản
+	Light Rough	Thô sáng
+	Dark Rough	Thô tối
+	Wide Sharp	Rộng sắc
+	Wide Blurry	Rộng mờ
+	Sparkle	Lấp lánh
 	First	Đầu tiên
 	First commit	Commit đầu tiên
 	First Page	Trang đầu
@@ -2873,6 +2888,7 @@ mark-style	Japanese	Kiểu Nhật
 	Reorder	Sắp xếp lại
 	Reorder Appearance Item	Sắp xếp lại mục diện mạo
 	Repeat	Lặp lại
+	Repeat Objects	Đối tượng lặp lại
 	Repeat Options	Tùy chọn lặp lại
 	Repeat Pathfinder	Lặp lại Pathfinder
 	Repeat Tab	Tab lặp lại
@@ -4683,6 +4699,7 @@ theme	Appearance	Giao diện
 @msg	Updated {_1} image(s)	Đã cập nhật {_1} ảnh
 @msg	Updated {_1} linked file(s) changed on disk	Đã cập nhật {_1} tệp liên kết đã thay đổi trên đĩa
 @msg	variables are locked	biến số bị khóa
+@msg	variables that aren't text were left out: {kinds}	các biến số không phải văn bản đã bị bỏ qua: {kinds}
 @msg	VectorCraft doesn't search other apps' or the system's folders: {path}	VectorCraft không tìm kiếm trong thư mục của ứng dụng khác hoặc hệ thống: {path}
 @msg	VectorCraft doesn't search the Shared or Public folder in Users: {path}	VectorCraft không tìm kiếm thư mục Shared hoặc Public trong Users: {path}
 @msg	VectorCraft failed to start: {e}	VectorCraft khởi động thất bại: {e}
@@ -4758,6 +4775,9 @@ theme	Appearance	Giao diện
 	Softness	Độ mềm
 	Ambient Light	Ánh sáng môi trường
 	Light behind the object	Ánh sáng phía sau đối tượng
+	3D Lighting Preset	Thiết lập sẵn ánh sáng 3D
+	Standard	Tiêu chuẩn
+	Diffuse	Khuếch tán
 # 3D light management.
 	Lights	Danh sách đèn
 	Add Light	Thêm đèn
@@ -4821,6 +4841,7 @@ theme	Appearance	Giao diện
 	Make Image Dynamic	Tạo hình ảnh động
 	Import Data Sets…	Nhập tập dữ liệu…
 	Export Data Sets…	Xuất tập dữ liệu…
+	Load Variable Library…	Tải thư viện biến số…
 	Make Graph Dynamic	Tạo biểu đồ động
 	Batch…	Hàng loạt…
 	Source Folder:	Thư mục nguồn:
@@ -4862,6 +4883,7 @@ theme	Appearance	Giao diện
 	Watercolor…	Màu nước…
 	Watercolor	Màu nước
 	Brush Size	Kích thước cọ
+	Texture Coverage	Độ phủ kết cấu
 	Definition	Độ nét
 	Brush Detail	Chi tiết cọ
 	Shadow Intensity	Cường độ bóng
@@ -4937,3 +4959,5 @@ theme	Appearance	Giao diện
 	Note Paper	Giấy ghi chú
 	Water Paper…	Giấy ướt…
 	Water Paper	Giấy ướt
+	Ruby…	Ruby…
+	Ruby	Ruby

@@ -40,6 +40,7 @@ mod clip;
 mod distort;
 mod group;
 mod lighting;
+mod lighting_presets;
 mod live;
 mod marks;
 pub mod pixel;
@@ -72,6 +73,7 @@ pub use group::{
     OutlineHook, PATHFINDER_EFFECTS, evaluate_container, has_container_appearance, has_pathfinder, is_pathfinder, member_shapes, paints,
     pathfinder_children,
 };
+pub use lighting_presets::{LIGHTING_PRESETS, LightingPreset, lighting_preset_params, matching_lighting_preset};
 pub use live::{expand_live, expand_live_deep, expanded_live_group, text_outliner};
 pub use marks::{CROP_MARKS, crop_marks_art, has_crop_marks};
 pub use pixel::{PIXEL_EFFECTS, PixelFx, PixelSpace};
@@ -146,6 +148,7 @@ fn lengths_of(id: &str) -> Lengths {
         "stylize.innerGlow" | "stylize.outerGlow" => always(&["blur"]),
         "stylize.glowingEdges" => always(&["edgeWidth", "smoothness"]),
         "brushStrokes.accentedEdges" => always(&["edgeWidth"]),
+        "artistic.paletteKnife" => always(&["strokeSize"]),
         "brushStrokes.angledStrokes" | "brushStrokes.crosshatch" | "brushStrokes.inkOutlines" => always(&["strokeLength"]),
         "brushStrokes.spatter" => always(&["sprayRadius"]),
         "brushStrokes.sprayedStrokes" => always(&["strokeLength", "sprayRadius"]),
@@ -383,6 +386,20 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             json!({"glowSize": 5.0, "glowBrightness": 15.0, "color": "#4da6ff"}),
         ),
         r(
+            "artistic.paintDaubs",
+            "Paint Daubs…",
+            ARTISTIC,
+            "{brushSize: 1..50 (10; dab centres farther apart), sharpness: 0..40 (25; harder dab edges), brushType: \"simple\"|\"lightRough\"|\"darkRough\"|\"wideSharp\"|\"wideBlurry\"|\"sparkle\" (\"simple\")} repaints the object with thick round brush dabs in the local colours, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"brushSize": 10.0, "sharpness": 25.0, "brushType": "simple"}),
+        ),
+        r(
+            "artistic.paletteKnife",
+            "Palette Knife…",
+            ARTISTIC,
+            "{strokeSize: 1..50 (10; length of the knife strokes in document units), strokeDetail: 1..3 (2; more detail keeps more of the original), softness: 0..10 (3; softens the strokes)} smears the object's colours with short angled knife strokes, keeping its coverage. Original visual approximation; chosen VectorCraft defaults.",
+            json!({"strokeSize": 10.0, "strokeDetail": 2.0, "softness": 3.0}),
+        ),
+        r(
             "artistic.plasticWrap",
             "Plastic Wrap…",
             ARTISTIC,
@@ -397,6 +414,21 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             json!({"edgeThickness": 2.0, "edgeIntensity": 1.0, "posterization": 2.0}),
         ),
         r(
+            "artistic.roughPastels",
+            "Rough Pastels…",
+            ARTISTIC,
+            "{strokeLength: 0..40 (6; longer pastel strokes), strokeDetail: 1..20 (10; bristle texture along the strokes), texture: \"brick\"|\"burlap\"|\"canvas\"|\"sandstone\" (\"canvas\"), scaling: % 50..200 (100), relief: 0..50 (4), lightDirection: \"bottom\"|\"bottomLeft\"|\"left\"|\"topLeft\"|\"top\"|\"topRight\"|\"right\"|\"bottomRight\" (\"top\"), invert: bool (false)} repaints the object in soft diagonal pastel strokes over a textured surface, keeping its coverage. Slider ranges follow the documented controls; numeric defaults are chosen for VectorCraft and are not verified against proprietary defaults.",
+            json!({
+                "strokeLength": 6.0,
+                "strokeDetail": 10.0,
+                "texture": "canvas",
+                "scaling": 100.0,
+                "relief": 4.0,
+                "lightDirection": "top",
+                "invert": false
+            }),
+        ),
+        r(
             "artistic.smudgeStick",
             "Smudge Stick…",
             ARTISTIC,
@@ -409,6 +441,21 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             ARTISTIC,
             "{brushSize: 0..10 (2; size of the sponge's pores), definition: 0..25 (12; how strongly lighter and darker blobs contrast), smoothness: 1..15 (5; softer blob edges)} paints the object as if dabbed with a sponge, in highly textured areas of contrasting colour. Coverage is kept. Original visual approximation; chosen VectorCraft defaults.",
             json!({"brushSize": 2.0, "definition": 12.0, "smoothness": 5.0}),
+        ),
+        r(
+            "artistic.underpainting",
+            "Underpainting…",
+            ARTISTIC,
+            "{brushSize: 0..40 (6; wider, softer strokes), textureCoverage: 0..40 (16; more of the relief texture on the strokes), texture: \"brick\"|\"burlap\"|\"canvas\"|\"sandstone\" (\"canvas\"; surfaces made in code), scaling: % 50..200 (100), relief: 0..50 (4), lightDirection: \"bottom\"|\"bottomLeft\"|\"left\"|\"topLeft\"|\"top\"|\"topRight\"|\"right\"|\"bottomRight\" (\"top\"), invert: bool (false; turns the surface's heights over)} paints the object with broad strokes over a textured ground, keeping its coverage. Slider ranges follow the documented controls; numeric defaults are chosen for VectorCraft and are not verified against proprietary defaults. Original visual approximation.",
+            json!({
+                "brushSize": 6.0,
+                "textureCoverage": 16.0,
+                "texture": "canvas",
+                "scaling": 100.0,
+                "relief": 4.0,
+                "lightDirection": "top",
+                "invert": false
+            }),
         ),
         r(
             "artistic.watercolor",

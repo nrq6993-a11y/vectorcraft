@@ -35,6 +35,13 @@
 	Channel 4	Канал 4
 	Cell Size	Размер ячейки
 	Fine Dots	Мелкие точки
+
+	Simple	Простой
+	Light Rough	Светлая грубость
+	Dark Rough	Тёмная грубость
+	Wide Sharp	Широкий резкий
+	Wide Blurry	Широкий размытый
+	Sparkle	Блеск
 	Medium Dots	Средние точки
 	Grainy Dots	Зернистые точки
 	Coarse Dots	Крупные точки
@@ -2608,6 +2615,7 @@ mark-style	Japanese	Японский
 	Reorder	Изменить порядок
 	Reorder Appearance Item	Изменить порядок элемента оформления
 	Repeat	Повторить
+	Repeat Objects	Объекты повтора
 	Repeat Options	Параметры повтора
 	Repeat Pathfinder	Повторить обработку контуров
 	Repeat Tab	Повторить табуляцию
@@ -4331,6 +4339,7 @@ axis	Both	Оба
 @msg	unknown workspace (one of {_1})	неизвестная рабочая среда (одна из: {_1})
 @msg	unsupported: {0}	не поддерживается: {0}
 @msg	variables are locked	переменные заблокированы
+@msg	variables that aren't text were left out: {kinds}	переменные, которые не являются текстовыми, пропущены: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	файлы версии {0} не могут быть сжаты: только версия {COMPRESSED_SINCE} и новее открывают сжатые файлы
 @msg	width and height are at least 1 pixel	ширина и высота должны быть не менее 1 пикселя
 @msg	workspace name can't be empty	имя рабочей среды не может быть пустым
@@ -4680,9 +4689,17 @@ lighting	Light	Свет
 	Dry Brush…	Сухая кисть…
 	Dry Brush	Сухая кисть
 	Neon Glow…	Неоновое свечение…
+	Palette Knife…	Нож для палитры…
 	Neon Glow	Неоновое свечение
+	Paint Daubs…	Мазки кисти…
+	Paint Daubs	Мазки кисти
+	Palette Knife	Нож для палитры
 	Poster Edges…	Края плаката…
+	Rough Pastels…	Грубые пастели…
 	Poster Edges	Края плаката
+	Rough Pastels	Грубые пастели
+	Underpainting…	Подмалёвка…
+	Underpainting	Подмалёвка
 	Levels	Уровни
 	Edge Simplicity	Простота краёв
 	Edge Fidelity	Точность краёв
@@ -4772,6 +4789,9 @@ lighting	Light	Свет
 	Softness	Мягкость
 	Ambient Light	Окружающий свет
 	Light behind the object	Свет позади объекта
+	3D Lighting Preset	Предустановка 3D освещения
+	Standard	Стандартное
+	Diffuse	Рассеянное
 # 3D light management.
 	Lights	Источники света
 	Add Light	Добавить свет
@@ -4837,6 +4857,7 @@ lighting	Light	Свет
 	Make Image Dynamic	Сделать изображение динамическим
 	Import Data Sets…	Импортировать наборы данных…
 	Export Data Sets…	Экспортировать наборы данных…
+	Load Variable Library…	Загрузить библиотеку переменных…
 	Make Graph Dynamic	Сделать диаграмму динамической
 	Batch…	Пакетная обработка…
 	Source Folder:	Исходная папка:
@@ -4878,6 +4899,7 @@ lighting	Light	Свет
 	Watercolor…	Акварель…
 	Watercolor	Акварель
 	Brush Size	Размер кисти
+	Texture Coverage	Покрытие текстурой
 	Definition	Чёткость
 	Brush Detail	Детализация кисти
 	Shadow Intensity	Интенсивность теней
@@ -4953,3 +4975,5 @@ lighting	Light	Свет
 	Note Paper	Почтовая бумага
 	Water Paper…	Мокрая бумага…
 	Water Paper	Мокрая бумага
+	Ruby…	Руби…
+	Ruby	Руби

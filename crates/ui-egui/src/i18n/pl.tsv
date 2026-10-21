@@ -1375,6 +1375,7 @@ lighting	Light	Światło
 	{count} more rules: Export writes every one.	Więcej reguł: {count}. Eksport zapisze wszystkie.
 	{count} unnamed objects left out: name them, or turn on Unnamed Objects in the panel menu.	Pominięto obiekty bez nazwy: {count}. Nadaj im nazwy lub włącz Obiekty bez nazwy w menu panelu.
 	All Categories	Wszystkie kategorie
+	Repeat Objects	Obiekty powtórzenia
 	Save…	Zapisz…
 	Selection Only	Tylko zaznaczenie
 	{title} (selection)	{title} (zaznaczenie)
@@ -2792,6 +2793,13 @@ lighting	Light	Światło
 	Soft Light	Łagodne światło
 	Crosshatch	Kreskowanie krzyżowe
 	Fine Dots	Drobne kropki
+
+	Simple	Prosty
+	Light Rough	Jasny szorstki
+	Dark Rough	Ciemny szorstki
+	Wide Sharp	Szeroki ostry
+	Wide Blurry	Szeroki rozmyty
+	Sparkle	Iskra
 	Medium Dots	Średnie kropki
 	Grainy Dots	Ziarniste kropki
 	Coarse Dots	Grube kropki
@@ -4421,6 +4429,7 @@ imageTrace	Outline	Kontur
 @msg	unknown workspace (one of {_1})	nieznany obszar roboczy (jeden z: {_1})
 @msg	unsupported: {0}	nieobsługiwane: {0}
 @msg	variables are locked	zmienne są zablokowane
+@msg	variables that aren't text were left out: {kinds}	pominięto zmienne, które nie są tekstowe: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	plików w wersji {0} nie można kompresować: skompresowane pliki otwierają tylko wersje {COMPRESSED_SINCE} i nowsze
 @msg	width and height are at least 1 pixel	szerokość i wysokość muszą wynosić co najmniej 1 piksel
 @msg	workspace name can't be empty	nazwa obszaru roboczego nie może być pusta
@@ -4887,9 +4896,17 @@ imageTrace	Outline	Kontur
 	Dry Brush…	Suchy pędzel…
 	Dry Brush	Suchy pędzel
 	Neon Glow…	Neonowa poświata…
+	Palette Knife…	Szpachel…
 	Neon Glow	Neonowa poświata
+	Paint Daubs…	Plamy farby…
+	Paint Daubs	Plamy farby
+	Palette Knife	Szpachel
 	Poster Edges…	Krawędzie plakatu…
+	Rough Pastels…	Suche pastele…
 	Poster Edges	Krawędzie plakatu
+	Rough Pastels	Suche pastele
+	Underpainting…	Podmalówka…
+	Underpainting	Podmalówka
 	Levels	Poziomy
 	Edge Simplicity	Prostota krawędzi
 	Edge Fidelity	Wierność krawędzi
@@ -5003,6 +5020,9 @@ mark-style	Japanese	Japońskie
 	Softness	Miękkość
 	Ambient Light	Światło otoczenia
 	Light behind the object	Światło za obiektem
+	3D Lighting Preset	Ustawienie oświetlenia 3D
+	Standard	Standardowe
+	Diffuse	Rozproszone
 # 3D light management.
 	Lights	Światła
 	Add Light	Dodaj światło
@@ -5079,6 +5099,7 @@ mark-style	Japanese	Japońskie
 	Make Image Dynamic	Uczyń obraz dynamicznym
 	Import Data Sets…	Importuj zestawy danych…
 	Export Data Sets…	Eksportuj zestawy danych…
+	Load Variable Library…	Wczytaj bibliotekę zmiennych…
 	Make Graph Dynamic	Uczyń wykres dynamicznym
 	Batch…	Przetwarzanie wsadowe…
 	Source Folder:	Folder źródłowy:
@@ -5120,6 +5141,7 @@ mark-style	Japanese	Japońskie
 	Watercolor…	Akwarela…
 	Watercolor	Akwarela
 	Brush Size	Rozmiar pędzla
+	Texture Coverage	Pokrycie teksturą
 	Definition	Wyrazistość
 	Brush Detail	Szczegółowość pędzla
 	Shadow Intensity	Intensywność cieni
@@ -5194,3 +5216,5 @@ mark-style	Japanese	Japońskie
 	Note Paper	Papier listowy
 	Water Paper…	Mokry papier…
 	Water Paper	Mokry papier
+	Ruby…	Ruby…
+	Ruby	Ruby

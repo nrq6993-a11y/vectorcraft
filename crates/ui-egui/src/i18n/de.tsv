@@ -2554,6 +2554,7 @@ mark-style	Japanese	Japanisch
 	Reorder	Neu anordnen
 	Reorder Appearance Item	Aussehenselement neu anordnen
 	Repeat	Wiederholung
+	Repeat Objects	Wiederholungsobjekte
 	Repeat Options	Wiederholungsoptionen
 	Repeat Pathfinder	Pathfinder wiederholen
 	Repeat Tab	Tabulator wiederholen
@@ -4227,6 +4228,7 @@ theme	Appearance	Erscheinungsbild
 @msg	unknown workspace (one of {_1})	unbekannter Arbeitsbereich (einer von {_1})
 @msg	unsupported: {0}	nicht unterstützt: {0}
 @msg	variables are locked	die Variablen sind gesperrt
+@msg	variables that aren't text were left out: {kinds}	die Variablen, die kein Text sind, wurden ausgelassen: {kinds}
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	Dateien der Version {0} können nicht komprimiert werden: Erst Version {COMPRESSED_SINCE} und neuer öffnen komprimierte Dateien
 @msg	width and height are at least 1 pixel	Breite und Höhe betragen mindestens 1 Pixel
 @msg	workspace name can't be empty	der Name des Arbeitsbereichs darf nicht leer sein
@@ -4637,14 +4639,28 @@ lighting	Light	Licht
 	Film Grain…	Filmkörnung…
 	Colored Pencil…	Buntstift…
 	Colored Pencil	Buntstift
+	Simple	Einfach
+	Light Rough	Leicht rau
+	Dark Rough	Dunkel rau
+	Wide Sharp	Breit scharf
+	Wide Blurry	Breit unscharf
+	Sparkle	Funkeln
 	Cutout…	Ausschnitt…
 	Cutout	Ausschnitt
 	Dry Brush…	Trockenpinsel…
 	Dry Brush	Trockenpinsel
 	Neon Glow…	Neonglühen…
+	Palette Knife…	Palettenmesser…
 	Neon Glow	Neonglühen
+	Paint Daubs…	Tupfer…
+	Paint Daubs	Tupfer
+	Palette Knife	Palettenmesser
 	Poster Edges…	Posterkanten…
+	Rough Pastels…	Pastellkreide…
 	Poster Edges	Posterkanten
+	Rough Pastels	Pastellkreide
+	Underpainting…	Untermalung…
+	Underpainting	Untermalung
 	Levels	Stufen
 	Edge Simplicity	Kantenvereinfachung
 	Edge Fidelity	Kantentreue
@@ -4742,6 +4758,9 @@ effect	Soft	Weich
 	Softness	Weichheit
 	Ambient Light	Umgebungslicht
 	Light behind the object	Licht hinter dem Objekt
+	3D Lighting Preset	3D-Beleuchtungsvorgabe
+	Standard	Standard
+	Diffuse	Diffus
 # 3D light management.
 	Lights	Lichter
 	Add Light	Licht hinzufügen
@@ -4807,6 +4826,7 @@ effect	Soft	Weich
 	Make Image Dynamic	Bild dynamisch machen
 	Import Data Sets…	Datensätze importieren…
 	Export Data Sets…	Datensätze exportieren…
+	Load Variable Library…	Variablenbibliothek laden…
 	Make Graph Dynamic	Diagramm dynamisch machen
 	Batch…	Stapelverarbeitung…
 	Source Folder:	Quellordner:
@@ -4848,6 +4868,7 @@ effect	Soft	Weich
 	Watercolor…	Aquarell…
 	Watercolor	Aquarell
 	Brush Size	Pinselgröße
+	Texture Coverage	Texturabdeckung
 	Definition	Definition
 	Brush Detail	Pinseldetail
 	Shadow Intensity	Schattenintensität
@@ -4924,3 +4945,5 @@ effect	Soft	Weich
 	Note Paper	Prägepapier
 	Water Paper…	Feuchtes Papier…
 	Water Paper	Feuchtes Papier
+	Ruby…	Ruby…
+	Ruby	Ruby
