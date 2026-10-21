@@ -467,6 +467,7 @@ fn shapes_alike(a: &CharStyle, b: &CharStyle) -> bool {
         small_caps,
         char_align: _,
         proportional_metrics,
+        standard_vertical_roman,
         digits,
     } = a;
     *font_family == b.font_family
@@ -481,6 +482,7 @@ fn shapes_alike(a: &CharStyle, b: &CharStyle) -> bool {
         && *position == b.position
         && *small_caps == b.small_caps
         && *proportional_metrics == b.proportional_metrics
+        && *standard_vertical_roman == b.standard_vertical_roman
         && *digits == b.digits
         && ligatures_suppressed_by(*tracking) == ligatures_suppressed_by(b.tracking)
 }

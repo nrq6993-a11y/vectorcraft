@@ -109,6 +109,13 @@ pub struct CharStyle {
     /// its proportional heights, `vpal`.
     #[serde(default, rename = "proportionalMetrics", skip_serializing_if = "crate::skip::is_default")]
     pub proportional_metrics: bool,
+    /// Standard Vertical Roman Alignment (Character panel menu): in vertical type these half-width
+    /// characters stand upright, centred on the column, instead of rotating one by one. Horizontal
+    /// type keeps the mark and does not move them. Characters that already stand upright, and marks
+    /// that need a vertical form the font does not have, are unchanged.
+    /// <https://helpx.adobe.com/illustrator/using/formatting-asian-characters.html>
+    #[serde(default, rename = "standardVerticalRoman", skip_serializing_if = "crate::skip::is_default")]
+    pub standard_vertical_roman: bool,
     /// Digits (Character panel menu, Middle Eastern options): the numeral system the digits of
     /// these characters are drawn in, whatever digits were typed.
     #[serde(default, skip_serializing_if = "crate::skip::is_default")]
@@ -283,6 +290,7 @@ impl Default for CharStyle {
             position: CharPosition::Normal,
             char_align: CharAlign::RomanBaseline,
             proportional_metrics: false,
+            standard_vertical_roman: false,
             small_caps: None,
             digits: Digits::Default,
         }

@@ -1346,6 +1346,34 @@ mod area_tests {
         assert!(!serde_json::from_value::<vectorcraft_doc::CharStyle>(old).unwrap().proportional_metrics);
     }
 
+    /// Standard Vertical Roman Alignment is a character attribute, saved only when on.
+    #[test]
+    fn standard_vertical_roman_alignment_is_a_character_attribute_saved_only_when_on() {
+        let mut s = Session::new();
+        s.execute("file.new", &json!({"width": 400, "height": 400})).unwrap();
+        let id = s.execute("text.create", &json!({"x": 10, "y": 50, "text": "Ab"})).unwrap()["id"].as_u64().unwrap();
+        let runs = |s: &Session| match &s.doc().unwrap().doc.node(NodeId(id)).unwrap().kind {
+            NodeKind::Text(t) => t.runs.clone(),
+            _ => panic!("text"),
+        };
+        assert!(!runs(&s)[0].style.standard_vertical_roman);
+        assert!(serde_json::to_value(&runs(&s)[0].style).unwrap().get("standardVerticalRoman").is_none());
+        s.execute("select.set", &json!({"ids": [id]})).unwrap();
+        s.execute("text.setFormat", &json!({"standardVerticalRoman": true})).unwrap();
+        assert!(runs(&s).iter().all(|r| r.style.standard_vertical_roman));
+        assert_eq!(serde_json::to_value(&runs(&s)[0].style).unwrap()["standardVerticalRoman"], true);
+        s.execute("edit.undo", &json!({})).unwrap();
+        assert!(!runs(&s)[0].style.standard_vertical_roman);
+        s.execute("text.setRangeStyle", &json!({"id": id, "start": 0, "end": 1, "standardVerticalRoman": true})).unwrap();
+        let on: Vec<_> = runs(&s).iter().map(|r| (r.text.clone(), r.style.standard_vertical_roman)).collect();
+        assert_eq!(on, [("A".to_string(), true), ("b".to_string(), false)]);
+        let old = serde_json::to_value(&runs(&s)[1].style).unwrap();
+        assert!(old.get("standardVerticalRoman").is_none());
+        assert!(!serde_json::from_value::<vectorcraft_doc::CharStyle>(old).unwrap().standard_vertical_roman);
+        s.execute("text.setFormat", &json!({"standardVerticalRoman": false})).unwrap();
+        assert!(runs(&s).iter().all(|r| !r.style.standard_vertical_roman));
+    }
+
     /// Digits (Character panel menu, Middle Eastern options): a character attribute, saved only
     /// when set; the text keeps the digits that were typed.
     #[test]

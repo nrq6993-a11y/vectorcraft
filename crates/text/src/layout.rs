@@ -56,7 +56,7 @@ impl Ctx<'_> {
             // An upright glyph advances down the column by its vertical advance (the font's vertical
             // metrics; without them at least one em, as CJK fonts' is), centred across it: a narrow
             // mark like § must not overlap its neighbours.
-            for g in v.iter_mut().filter(|g| g.adv > 0.0 && stands_upright(g)) {
+            for g in v.iter_mut().filter(|g| g.adv > 0.0 && g.tcy.is_none() && stands_upright(g, self.style_at(g.byte).standard_vertical_roman)) {
                 let extra = upright_cell(g) - g.face.advance(g.gid) * g.sx;
                 g.dx += extra * 0.5;
                 g.adv += extra;
@@ -78,7 +78,8 @@ impl Ctx<'_> {
         let src = if g.inline.is_some() { std::sync::Arc::new(BezPath::new()) } else { self.db.outline(&g.face, g.gid) };
         // A glyph whose leading space was taken off (mojikumi) is drawn that much earlier: an
         // upright one in vertical type by moving it up the column once it stands upright.
-        let upright = self.vertical && !self.on_path && g.tcy.is_none() && stands_upright(g);
+        let roman = self.style_at(g.byte).standard_vertical_roman;
+        let upright = self.vertical && !self.on_path && g.tcy.is_none() && stands_upright(g, roman);
         let lead = if upright { 0.0 } else { g.lead };
         let local = match &g.inline {
             // Inline graphics: art space to glyph space (no font outline).
@@ -99,7 +100,7 @@ impl Ctx<'_> {
             let across = Affine::translate((centre.x - t.width * 0.5 + t.ink - origin.x, 0.0));
             let squeeze = Affine::translate((centre.x, 0.0)) * Affine::scale_non_uniform(t.squeeze, 1.0) * Affine::translate((-centre.x, 0.0));
             m = Affine::rotate_about(-std::f64::consts::FRAC_PI_2, centre) * squeeze * across * m;
-        } else if self.vertical && stands_upright(g) {
+        } else if self.vertical && stands_upright(g, roman) {
             // Turned about the centre of its cell, which the column's centre line runs through: the
             // middle of its own cell, not of its advance (tracking and justification add space
             // after the cell, and must not push the glyph off the centre line).
@@ -607,7 +608,11 @@ const QUARTER_TURN: Affine = Affine::new([0.0, 1.0, -1.0, 0.0, 0.0, 0.0]);
 /// their side when the font has none (Unicode's Vertical_Orientation Tr).
 /// Fullwidth !/? instead keep the nominal glyph upright (Tu fallback, UAX #50 §3.1):
 /// <https://www.unicode.org/reports/tr50/#vo>.
-fn stands_upright(g: &SGlyph) -> bool {
+///
+/// `roman_align` is Standard Vertical Roman Alignment: half-width characters (those outside the
+/// upright set below, other than controls) stand upright instead of rotating one by one.
+/// <https://helpx.adobe.com/illustrator/using/formatting-asian-characters.html>
+fn stands_upright(g: &SGlyph, roman_align: bool) -> bool {
     let c = g.ch as u32;
     let upright = matches!(c,
         0x00A7 | 0x00A9 | 0x00AE | 0x00B1 | 0x00BC..=0x00BE | 0x00D7 | 0x00F7
@@ -618,6 +623,9 @@ fn stands_upright(g: &SGlyph) -> bool {
         | 0x1100..=0x11FF | 0x2E80..=0x303F | 0x3040..=0xA4CF | 0xA960..=0xA97F | 0xAC00..=0xD7FF
         | 0xE000..=0xFAFF | 0xFE10..=0xFE1F | 0xFE30..=0xFE4F | 0xFE50..=0xFE6F | 0xFF00..=0xFFE7
         | 0x1F000..=0x1FAFF | 0x20000..=0x3FFFF);
+    if roman_align && g.inline.is_none() && !g.ch.is_control() && !upright {
+        return true;
+    }
     if !upright {
         return false;
     }

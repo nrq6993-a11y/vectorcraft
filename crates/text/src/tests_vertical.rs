@@ -2,7 +2,7 @@
 //! Japanese text only with craft-fonts' faces, skipped without them).
 use super::*;
 use kurbo::Shape;
-use vectorcraft_doc::{CharStyle, Justify, TextKind};
+use vectorcraft_doc::{CharStyle, Justify, TextKind, TextRun};
 use vectorcraft_geom::PathData;
 
 fn vertical(text: &str) -> TextObject {
@@ -41,6 +41,65 @@ fn upright_marks_stand_and_letters_lie_on_their_side() {
     assert!((vs.width() - hs.width()).abs() < 0.01 && (vs.height() - hs.height()).abs() < 0.01, "§ upright: {hs:?} {vs:?}");
     assert!((vl.width() - hl.height()).abs() < 0.01 && (vl.height() - hl.width()).abs() < 0.01, "l turned: {hl:?} {vl:?}");
     assert!(vl.width() > vl.height(), "a tall l lies across the column");
+}
+
+/// Standard Vertical Roman Alignment: half-width characters stand upright in an em of the column.
+/// A two-digit run still uses automatic tate-chu-yoko, and a mark that needs a missing vertical
+/// form still lies on its side.
+#[test]
+fn standard_vertical_roman_alignment_stands_half_width_characters_upright() {
+    let aligned = CharStyle { size: 20.0, standard_vertical_roman: true, ..CharStyle::default() };
+    let flat = layout(FontDb::global(), &TextObject::point(Point::ZERO, "l", CharStyle { size: 20.0, ..CharStyle::default() }));
+    let stood = layout(FontDb::global(), &vertical_styled("l", aligned.clone()));
+    let (hl, vl) = (ink(&flat, 0), ink(&stood, 0));
+    assert!((vl.width() - hl.width()).abs() < 0.01 && (vl.height() - hl.height()).abs() < 0.01, "l stands: {hl:?} {vl:?}");
+    assert!(vl.height() > vl.width(), "a tall l stays tall");
+    assert!((stood.glyphs[0].advance - 20.0).abs() < 1e-6, "one em: {:?}", stood.glyphs[0].advance);
+    assert!(vl.center().x.abs() < 1.5, "centred on the column: {vl:?}");
+
+    let side = layout(FontDb::global(), &vertical("l"));
+    assert!(ink(&side, 0).width() > ink(&side, 0).height(), "without the mark, l lies across the column");
+    assert!(side.glyphs[0].advance < 20.0, "sideways l is narrower than an em: {:?}", side.glyphs[0].advance);
+
+    let mut row = TextObject::point(Point::ZERO, "ll", aligned.clone());
+    row.xf = Affine::IDENTITY;
+    let horizontal = layout(FontDb::global(), &row);
+    assert!(ink(&horizontal, 1).center().x > ink(&horizontal, 0).center().x + 5.0, "horizontal type stays a row");
+    assert!(horizontal.glyphs.iter().all(|g| g.advance > 0.0 && g.advance < 20.0));
+
+    // One digit stands; two digits stay one automatic tate-chu-yoko block.
+    let one = layout(FontDb::global(), &vertical_styled("5", aligned.clone()));
+    assert!((one.glyphs[0].advance - 20.0).abs() < 1e-6 && ink(&one, 0).height() >= ink(&one, 0).width());
+    let two = layout(FontDb::global(), &vertical_styled("10", aligned.clone()));
+    assert!((two.glyphs[0].advance - 20.0).abs() < 1e-6 && two.glyphs[1].advance == 0.0, "10 stays tate-chu-yoko");
+    assert!((ink(&two, 0).center().y - ink(&two, 1).center().y).abs() < 1.0, "the digits share a row");
+
+    let mut mixed = vertical_styled("", CharStyle { size: 20.0, ..CharStyle::default() });
+    mixed.runs = vec![TextRun::new("A", CharStyle { size: 20.0, ..CharStyle::default() }), TextRun::new("B", aligned.clone())];
+    let mix = layout(FontDb::global(), &mixed);
+    assert!(mix.glyphs[0].advance < 20.0, "unmarked A stays on its side");
+    assert!((mix.glyphs[1].advance - 20.0).abs() < 1e-6, "marked B stands");
+
+    let mark = layout(FontDb::global(), &vertical_styled("§", aligned));
+    let plain = layout(FontDb::global(), &vertical("§"));
+    assert!((ink(&mark, 0).width() - ink(&plain, 0).width()).abs() < 0.01);
+    assert!((mark.glyphs[0].advance - plain.glyphs[0].advance).abs() < 1e-6, "a mark that already stands is unchanged");
+}
+
+/// A bracket that needs a vertical form the font does not have still rotates when Standard
+/// Vertical Roman Alignment is on.
+#[test]
+fn standard_vertical_roman_alignment_leaves_missing_vertical_forms_on_their_side() {
+    use crate::test_fonts::{VERTICAL_PUNCTUATION_FAMILY, vertical_punctuation_font};
+    let db = FontDb::with_font_dirs(vec![]);
+    db.add_font(vertical_punctuation_font(false).unwrap());
+    let style = CharStyle { font_family: VERTICAL_PUNCTUATION_FAMILY.into(), size: 20.0, standard_vertical_roman: true, ..CharStyle::default() };
+    let h = layout(&db, &TextObject::point(Point::ZERO, "L", style.clone()));
+    let v = layout(&db, &vertical_styled("「", style));
+    let reference = Affine::rotate(std::f64::consts::FRAC_PI_2) * h.glyphs[0].xf;
+    for (actual, expected) in v.glyphs[0].xf.as_coeffs().iter().zip(reference.as_coeffs().iter()).take(4) {
+        assert!((actual - expected).abs() < 1e-9, "「 still rotated: {:?} vs {reference:?}", v.glyphs[0].xf);
+    }
 }
 
 /// Unicode Vertical_Orientation Tu: without a vertical alternate, fullwidth !/? stay upright.
