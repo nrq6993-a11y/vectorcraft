@@ -1084,7 +1084,7 @@ mod tests {
         assert_eq!(cmd, "effect.dialog");
         assert_eq!(params.get("effect").and_then(|v| v.as_str()), Some("distort.transform"));
         let mut ov = BTreeMap::new();
-        assign(&mut ov, "effect:distort.transform", Some("Cmd+Alt+Shift+T"), false).unwrap();
-        assert_eq!(effective_in(&ov, "effect:distort.transform").as_deref(), Some("Cmd+Alt+Shift+T"));
+        assign(&mut ov, "effect:distort.transform", Some("Cmd+Alt+Shift+F12"), false).unwrap();
+        assert_eq!(effective_in(&ov, "effect:distort.transform").as_deref(), Some("Cmd+Alt+Shift+F12"));
     }
 }
