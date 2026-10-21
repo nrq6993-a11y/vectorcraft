@@ -1,12 +1,13 @@
 //! Edit → Keyboard Shortcuts: user overrides of tool and command shortcuts, conflict detection,
 //! presets, import/export, and the dialog.
 //!
-//! Overrides live in [`UiState::shortcut_overrides`] (persisted) keyed by command id or
-//! `tool:<id>`; an empty string removes a shortcut. A process-wide mirror (synced every frame by
-//! [`sync`]) lets `menus::shortcut_of`, the egui dispatcher, the native menu and tooltips consult
-//! them without threading the app state through.
+//! Overrides live in [`UiState::shortcut_overrides`] (persisted) keyed by command id, `tool:<id>`,
+//! `panel:<id>` or `effect:<id>` (an Effect menu item; they share `effect.dialog` / `effect.apply`,
+//! so the effect id is what tells them apart). An empty string removes a shortcut. A process-wide
+//! mirror (synced every frame by [`sync`]) lets `menus::shortcut_of`, the egui dispatcher, the
+//! native menu and tooltips consult them without threading the app state through.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
@@ -123,7 +124,7 @@ pub const PANEL_SHORTCUTS: &[(&str, &str)] = &[
     ("openType", "Cmd+Alt+Shift+T"),
 ];
 
-/// Default shortcut of an entry key (`tool:<id>`, `panel:<id>` or a command id).
+/// Default shortcut of an entry key (`tool:<id>`, `panel:<id>`, `effect:<id>` or a command id).
 pub fn default_of(key: &str) -> Option<&'static str> {
     if let Some(t) = key.strip_prefix("tool:") {
         return vectorcraft_tools::tool_info(t).and_then(|t| t.shortcut);
@@ -165,6 +166,32 @@ pub fn tool_shortcut(tool: &str) -> Option<&'static str> {
 /// Effective shortcut of the Window menu item showing `panel` (`window.panel {panel}`).
 pub fn panel_shortcut(panel: &str) -> Option<&'static str> {
     effective(&format!("panel:{panel}"))
+}
+
+/// Effective shortcut of an Effect menu item (`effect.dialog` or `effect.apply` with `{effect}`).
+pub fn effect_shortcut(effect: &str) -> Option<&'static str> {
+    effective(&format!("effect:{effect}"))
+}
+
+/// `(command, effect id)` whose effective shortcut is `key`.
+pub fn effect_for_key(key: &str) -> Option<(&'static str, &'static str)> {
+    let n = normalize(key)?;
+    effect_commands().iter().find(|(id, _)| effect_shortcut(id).and_then(normalize).as_deref() == Some(n.as_str())).map(|(id, cmd)| (*cmd, *id))
+}
+
+/// Effect id → the command a shortcut runs (`effect.dialog` when the effect has options).
+pub fn effect_commands() -> &'static HashMap<&'static str, &'static str> {
+    static M: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+    M.get_or_init(|| {
+        vectorcraft_effects::effect_catalog()
+            .into_iter()
+            .filter(|e| e.menu.first() == Some(&"Effect"))
+            .map(|e| {
+                let cmd = if e.defaults.as_object().is_some_and(|o| o.is_empty()) { "effect.apply" } else { "effect.dialog" };
+                (e.id, cmd)
+            })
+            .collect()
+    })
 }
 
 /// Tool whose (effective) shortcut is `key` ("V", "Shift+M").
@@ -241,7 +268,7 @@ pub fn chord_from_event(key: Key, m: Modifiers) -> Option<String> {
 
 #[derive(Clone, Debug)]
 pub struct Entry {
-    /// `tool:<id>` or a command id.
+    /// `tool:<id>`, `panel:<id>`, `effect:<id>` or a command id.
     pub key: String,
     pub label: String,
     /// Menu path ("Object › Arrange") or "Tools".
@@ -283,6 +310,18 @@ pub fn entries() -> &'static [Entry] {
             }
             v.push(Entry { key: id.to_string(), label: label.to_string(), group: id_group(id), is_tool: false });
         }
+        // Effect menu items share two command ids, so each is its own row (`effect:<id>`).
+        // Illustrator's Keyboard Shortcuts dialog lists menu commands the same way
+        // (https://helpx.adobe.com/illustrator/using/customizing-keyboard-shortcuts.html).
+        let mut effects = Vec::new();
+        let mut effect_seen = HashSet::new();
+        for e in vectorcraft_effects::effect_catalog() {
+            if e.menu.first() != Some(&"Effect") || !effect_seen.insert(e.id) {
+                continue;
+            }
+            effects.push(Entry { key: format!("effect:{}", e.id), label: e.label.to_string(), group: e.menu.join(" › "), is_tool: false });
+        }
+        v.extend(effects);
         v
     })
 }
@@ -1019,6 +1058,28 @@ mod tests {
         let mut ov = BTreeMap::new();
         assert!(assign(&mut ov, "symbol.breakLink", Some("Cmd+Alt+Shift+F9"), true).is_ok());
         assert_eq!(effective_in(&ov, "symbol.breakLink").as_deref(), Some("Cmd+Alt+Shift+F9"));
+    }
+
+    /// #3296: Effect menu items share `effect.dialog` / `effect.apply`, so each effect is its own
+    /// row. Transform can take T, which is the Type tool's key, when the assignment replaces it.
+    /// Crop Marks has no dialog, so its shortcut applies the effect.
+    #[test]
+    fn effect_menu_items_are_listed_and_assignable() {
+        let e = entry("effect:distort.transform").expect("listed");
+        assert_eq!((e.label.as_str(), e.group.as_str(), e.is_tool), ("Transform…", "Effect › Distort & Transform", false));
+        assert_eq!(default_of("effect:distort.transform"), None);
+        assert_eq!(effect_commands().get("distort.transform").copied(), Some("effect.dialog"));
+        let crop = entry("effect:cropMarks").expect("listed");
+        assert_eq!((crop.label.as_str(), crop.group.as_str()), ("Crop Marks", "Effect"));
+        assert_eq!(effect_commands().get("cropMarks").copied(), Some("effect.apply"));
+        let mut ov = BTreeMap::new();
+        assert!(assign(&mut ov, "effect:distort.transform", Some("T"), false).is_err(), "T is the Type tool's");
+        let removed = assign(&mut ov, "effect:distort.transform", Some("T"), true).unwrap();
+        assert!(removed.iter().any(|k| k == "tool:type"), "{removed:?}");
+        assert_eq!(effective_in(&ov, "effect:distort.transform").as_deref(), Some("T"));
+        assert_eq!(effective_in(&ov, "tool:type"), None);
+        assign(&mut ov, "effect:cropMarks", Some("Cmd+Alt+Shift+F12"), false).unwrap();
+        assert_eq!(effective_in(&ov, "effect:cropMarks").as_deref(), Some("Cmd+Alt+Shift+F12"));
     }
 
     /// #2991: Enter Isolation Mode has no default key but runs on the selection, so it belongs in

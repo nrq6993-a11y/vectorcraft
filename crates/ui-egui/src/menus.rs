@@ -3941,14 +3941,16 @@ fn effect_menu() -> Vec<Item> {
     out
 }
 
-/// The shortcut a menu item shows: its command's (items without params), or a panel's for the
-/// Window menu's `window.panel {panel}` items.
+/// The shortcut a menu item shows: its command's (items without params), a panel's for the Window
+/// menu's `window.panel {panel}` items, or an effect's for Effect menu items.
 pub fn item_shortcut(id: &str, p: &Value) -> Option<&'static str> {
-    match (id, p.get("panel").and_then(Value::as_str)) {
-        ("window.panel", Some(panel)) => crate::shortcut_editor::panel_shortcut(panel),
-        _ if p.is_null() => shortcut_of(id),
-        _ => None,
+    if id == "window.panel" {
+        return p.get("panel").and_then(Value::as_str).and_then(crate::shortcut_editor::panel_shortcut);
     }
+    if matches!(id, "effect.apply" | "effect.dialog") {
+        return p.get("effect").and_then(Value::as_str).and_then(crate::shortcut_editor::effect_shortcut);
+    }
+    if p.is_null() { shortcut_of(id) } else { None }
 }
 
 /// Labels only the canvas context menu ([`context_items`]) shows, so the catalog tests can insist

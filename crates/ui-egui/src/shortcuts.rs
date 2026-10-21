@@ -80,6 +80,11 @@ pub(crate) fn all_shortcuts() -> Vec<(KeyboardShortcut, &'static str, serde_json
             v.push((sc, "window.panel", json!({ "panel": panel })));
         }
     }
+    for (effect, cmd) in crate::shortcut_editor::effect_commands() {
+        if let Some(sc) = crate::shortcut_editor::effect_shortcut(effect).and_then(parse) {
+            v.push((sc, cmd, json!({ "effect": effect })));
+        }
+    }
     settings_chord(&mut v, cfg!(target_os = "macos"));
     // Most specific (most modifiers) first so Cmd+Shift+Z isn't eaten by Cmd+Z.
     v.sort_by_key(|(sc, ..)| {
@@ -616,6 +621,12 @@ pub fn handle(app: &mut VectorcraftApp, ctx: &egui::Context) {
         // Single-key command shortcuts (X, Shift+X, D, /, Shift+D, F, Shift+F by default).
         if let Some(id) = lookup(crate::shortcut_editor::command_for_key) {
             let _ = app.run(id, json!({}));
+            continue;
+        }
+        // Effect menu items (Effect › Distort & Transform › Transform… on T, for example).
+        let effect_at = |k: &str| crate::shortcut_editor::effect_for_key(k);
+        if let Some((cmd, effect)) = effect_at(&key).or_else(|| effect_at(&text)).or_else(|| shifted.as_deref().and_then(effect_at)) {
+            crate::menus::invoke(app, cmd, json!({ "effect": effect }));
             continue;
         }
         if let Some(t) = lookup(crate::shortcut_editor::tool_for_key) {
@@ -1499,6 +1510,32 @@ mod tests {
         assert_eq!(letter_of(Key::E), Some('e'));
         assert_eq!(letter_of(Key::Num1), None);
         assert_eq!(letter_of(Key::Escape), None);
+    }
+
+    /// #3296: a key given to Effect › Distort & Transform › Transform… opens its dialog, and the
+    /// menu shows that key. Crop Marks, which has no dialog, is applied by its chord.
+    #[test]
+    fn an_effect_menu_shortcut_opens_or_applies_that_effect() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), Default::default());
+        app.session.execute("file.new", &json!({"width": 200, "height": 200})).unwrap();
+        let id = app.session.execute("shape.rectangle", &json!({"x": 10, "y": 10, "width": 40, "height": 30})).unwrap()["id"].clone();
+        app.run("shortcuts.set", json!({"id": "effect:distort.transform", "shortcut": "T", "force": true})).unwrap();
+        app.run("shortcuts.set", json!({"id": "effect:cropMarks", "shortcut": "Cmd+Alt+Shift+F12", "force": true})).unwrap();
+        assert_eq!(crate::shortcut_editor::tool_for_key("T"), None, "T left the Type tool");
+        assert_eq!(crate::shortcut_editor::effect_for_key("T"), Some(("effect.dialog", "distort.transform")));
+        let shown = crate::menus::menu_entries(&app)
+            .into_iter()
+            .find(|e| e.params.get("effect").and_then(|v| v.as_str()) == Some("distort.transform"))
+            .map(|e| e.shortcut);
+        assert_eq!(shown.as_deref(), Some("T"));
+        frame(&mut app, vec![egui::Event::Text("t".into())]);
+        let d = app.ui.dialog.as_ref().expect("Transform dialog");
+        assert_eq!((d.kind.as_str(), d.str("__effect").as_str()), ("effect", "distort.transform"));
+        app.ui.dialog = None;
+        let mods = Modifiers::COMMAND | Modifiers::ALT | Modifiers::SHIFT;
+        frame(&mut app, vec![egui::Event::Key { key: Key::F12, physical_key: None, pressed: true, repeat: false, modifiers: mods }]);
+        let effects = app.session.doc().unwrap().doc.node(vectorcraft_engine::doc::NodeId(id.as_u64().unwrap())).unwrap().appearance.effects.clone();
+        assert!(effects.iter().any(|e| e.id == "cropMarks"), "{effects:?}");
     }
 
     /// Cmd+, opens Settings on a Mac only, and never takes a chord a command already has.
