@@ -21,7 +21,7 @@
 //! ```
 //!
 //! A style is *plain* when it is one fill and one stroke at most, in solid colours (a fill's gradient
-//! is the object's own), and only effects read here (Outer Glow, Inner Glow, Drop Shadow) after them. Such
+//! is the object's own), and only effects read here (Outer Glow, Inner Glow, Drop Shadow, Feather) after them. Such
 //! objects are read as themselves with that fill, stroke and those effects; others keep their
 //! drawn look. A fill's or stroke's style says whether it paints with `stroke fill Xd`.
 
@@ -36,10 +36,20 @@ use super::obj::V;
 use super::paint;
 
 /// The filters a plain style may chain.
-const PLAIN: [&str; 8] =
-    ["Chain Style Filter", "Stack Style Filter", "Stroke Style Filter", "Fill Style Filter", "Conduit Filter", "Blend Style Filter", GLOW, INNER];
+const PLAIN: [&str; 9] = [
+    "Chain Style Filter",
+    "Stack Style Filter",
+    "Stroke Style Filter",
+    "Fill Style Filter",
+    "Conduit Filter",
+    "Blend Style Filter",
+    GLOW,
+    INNER,
+    FEATHER,
+];
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const INNER: &str = "Adobe Inner Glow"; // brand-ok: the filter's name in the files
+const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 
 /// A plain style's paint, as the object comes in.
@@ -308,7 +318,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         }
     }
     for (i, f) in filters.iter().enumerate() {
-        let effect = f.name == GLOW || f.name == INNER || f.name == SHADOW;
+        let effect = f.name == GLOW || f.name == INNER || f.name == FEATHER || f.name == SHADOW;
         if !PLAIN.contains(&f.name.as_str()) && f.name != SHADOW {
             plain = false;
         }
@@ -341,6 +351,12 @@ fn style(filters: &[Filter]) -> ArtStyle {
                     "color": color,
                     "source": if param("gtyp").unwrap_or(0.0).round() as i64 == 1 { "center" } else { "edge" },
                 }),
+                visible: true,
+            }),
+            // LiveEffect XML uses `radius`; art styles abbreviate it `rad` (public scripting posts on applyEffect).
+            FEATHER => effects.push(Effect {
+                id: "stylize.feather".into(),
+                params: json!({"radius": param("rad").or_else(|| param("radius")).filter(|v| v.is_finite()).unwrap_or(5.0)}),
                 visible: true,
             }),
             SHADOW => {
@@ -448,7 +464,13 @@ mod tests {
         let styles = art_styles(data);
         let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
         assert_eq!(
-            (inner.id.as_str(), inner.params["opacity"].as_f64(), inner.params["blur"].as_f64(), inner.params["source"].as_str(), inner.params["mode"].as_str()),
+            (
+                inner.id.as_str(),
+                inner.params["opacity"].as_f64(),
+                inner.params["blur"].as_f64(),
+                inner.params["source"].as_str(),
+                inner.params["mode"].as_str()
+            ),
             ("stylize.innerGlow", Some(50.0), Some(8.0), Some("edge"), Some("Screen"))
         );
     }
@@ -472,6 +494,30 @@ mod tests {
             let want = json!({"mode": "Screen", "opacity": 50.0, "blur": 10.0, "x": 7.0, "y": 7.0, "color": vectorcraft_color::Color::BLACK});
             assert_eq!(shadow.params, want, "{csrc:?}");
         }
+    }
+
+    #[test]
+    fn a_feather_reads_its_radius_from_rad() {
+        let data = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Feather) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n12 /Real (rad) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!((feather.id.as_str(), feather.params["radius"].as_f64()), ("stylize.feather", Some(12.0)));
+    }
+
+    #[test]
+    fn a_feather_falls_back_to_radius_and_defaults_to_five_points() {
+        let with_name = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Feather) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n3 /Real (radius) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(with_name);
+        let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!(feather.params["radius"].as_f64(), Some(3.0));
+
+        let bare = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Feather) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(bare);
+        let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
     }
 
     #[test]
