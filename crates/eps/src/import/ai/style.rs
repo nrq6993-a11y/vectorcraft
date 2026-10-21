@@ -54,6 +54,7 @@ const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
+const GAUSSIAN_ART: &str = "Adobe Gaussian Blur"; // brand-ok: art styles use this name
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
 
 const CHAIN: &str = "Chain Style Filter";
@@ -88,7 +89,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Gaussian Blur on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -422,6 +423,10 @@ fn width_profile(arrays: &HashMap<String, Vec<f64>>) -> Option<WidthProfile> {
     (!uniform).then_some(WidthProfile { points })
 }
 
+fn gaussian_blur_radius(param: &dyn Fn(&str) -> Option<f64>) -> f64 {
+    param("rad").or_else(|| param("radius")).or_else(|| param("blur")).unwrap_or(5.0).clamp(0.0, 1000.0)
+}
+
 /// The live effect filter `f` is, when it is one read here.
 fn effect(f: &Filter) -> Option<Effect> {
     let param = |k: &str| f.params.get(k).copied().filter(|v| v.is_finite());
@@ -496,7 +501,7 @@ fn effect(f: &Filter) -> Option<Effect> {
                 "random": flag("randomize"),
             }),
         ),
-        GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
+        GAUSSIAN | GAUSSIAN_ART => ("blur.gaussian", json!({"radius": gaussian_blur_radius(&param)})),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
         _ => return None,
@@ -651,7 +656,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "blur.gaussian"));
     st
 }
 
@@ -762,6 +767,31 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_gaussian_blur_reads_its_radius_from_rad() {
+        let data = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Gaussian Blur) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n12 /Real (rad) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [blur] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!((blur.id.as_str(), blur.params["radius"].as_f64()), ("blur.gaussian", Some(12.0)));
+        assert!(styles["Soft"].plain);
+    }
+
+    #[test]
+    fn a_gaussian_blur_falls_back_to_radius_and_defaults_to_five_points() {
+        let with_name = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Gaussian Blur) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n3 /Real (radius) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(with_name);
+        let [blur] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!(blur.params["radius"].as_f64(), Some(3.0));
+
+        let bare = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Gaussian Blur) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(bare);
+        let [blur] = styles["Soft"].effects.as_slice() else { panic!() };
+        assert_eq!(blur.params["radius"].as_f64(), Some(5.0));
     }
 
     #[test]
