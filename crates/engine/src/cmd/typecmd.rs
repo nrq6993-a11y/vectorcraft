@@ -1346,6 +1346,35 @@ mod area_tests {
         assert!(!serde_json::from_value::<vectorcraft_doc::CharStyle>(old).unwrap().proportional_metrics);
     }
 
+    /// Character Direction (Character panel menu, Middle Eastern options): a character attribute,
+    /// saved only when it is not Default. The typed characters stay as they are.
+    #[test]
+    fn character_direction_is_a_character_attribute_saved_only_when_set() {
+        use vectorcraft_doc::CharDirection;
+        let mut s = Session::new();
+        s.execute("file.new", &json!({"width": 400, "height": 400})).unwrap();
+        let id = s.execute("text.create", &json!({"x": 10, "y": 50, "text": "ab12"})).unwrap()["id"].as_u64().unwrap();
+        let runs = |s: &Session| match &s.doc().unwrap().doc.node(NodeId(id)).unwrap().kind {
+            NodeKind::Text(t) => t.runs.clone(),
+            _ => panic!("text"),
+        };
+        assert_eq!(runs(&s)[0].style.char_direction, CharDirection::Default);
+        assert!(serde_json::to_value(&runs(&s)[0].style).unwrap().get("charDirection").is_none());
+        s.execute("select.set", &json!({"ids": [id]})).unwrap();
+        s.execute("text.setFormat", &json!({"charDirection": "rightToLeft"})).unwrap();
+        assert!(runs(&s).iter().all(|r| r.style.char_direction == CharDirection::RightToLeft));
+        assert_eq!(runs(&s)[0].text, "ab12");
+        assert_eq!(serde_json::to_value(&runs(&s)[0].style).unwrap()["charDirection"], "rightToLeft");
+        s.execute("text.setRangeStyle", &json!({"id": id, "start": 2, "end": 4, "charDirection": "leftToRight"})).unwrap();
+        let set: Vec<_> = runs(&s).iter().map(|r| (r.text.clone(), r.style.char_direction)).collect();
+        assert_eq!(set, [("ab".to_string(), CharDirection::RightToLeft), ("12".to_string(), CharDirection::LeftToRight)]);
+        s.execute("edit.undo", &json!({})).unwrap();
+        assert!(runs(&s).iter().all(|r| r.style.char_direction == CharDirection::RightToLeft));
+        s.execute("text.setFormat", &json!({"charDirection": "default"})).unwrap();
+        assert!(serde_json::to_value(&runs(&s)[0].style).unwrap().get("charDirection").is_none());
+        assert!(s.execute("text.setFormat", &json!({"charDirection": "sideways"})).is_err());
+    }
+
     /// Digits (Character panel menu, Middle Eastern options): a character attribute, saved only
     /// when set; the text keeps the digits that were typed.
     #[test]

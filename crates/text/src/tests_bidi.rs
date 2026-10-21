@@ -79,6 +79,29 @@ fn hebrew_and_arabic_are_visually_rtl_with_exact_source_clusters() {
     }
 }
 
+/// Character Direction sets the order of the selected characters. Default follows the paragraph.
+/// The source text is unchanged.
+#[test]
+fn character_direction_orders_the_selected_characters() {
+    use vectorcraft_doc::CharDirection;
+    let shown = |runs: Vec<TextRun>| {
+        let text: String = runs.iter().map(|r| r.text.clone()).collect();
+        let mut t = TextObject::point(Point::ZERO, &text, CharStyle::default());
+        t.runs = runs;
+        let l = layout(FontDb::global(), &t);
+        l.glyphs.iter().filter_map(|g| text.get(g.byte..).and_then(|s| s.chars().next())).collect::<String>()
+    };
+    let run = |s: &str, dir: CharDirection| TextRun::new(s, CharStyle { char_direction: dir, ..CharStyle::default() });
+    assert_eq!(shown(vec![run("ab", CharDirection::Default)]), "ab");
+    assert_eq!(shown(vec![run("ab", CharDirection::LeftToRight)]), "ab");
+    assert_eq!(shown(vec![run("ab", CharDirection::RightToLeft)]), "ba");
+    // A right-to-left run inside left-to-right text reverses only that run.
+    assert_eq!(shown(vec![run("ab", CharDirection::Default), run("cd", CharDirection::RightToLeft)]), "abdc");
+    // Left to right keeps a number in order inside right-to-left text.
+    assert_eq!(shown(vec![run("שלום", CharDirection::Default), run("12", CharDirection::LeftToRight)]), "12םולש");
+    assert_eq!(shown(vec![run("שלום", CharDirection::Default), run("12", CharDirection::RightToLeft)]), "21םולש");
+}
+
 #[test]
 fn mixed_text_preserves_latin_and_number_order() {
     let s = "שלום Rust 123";

@@ -157,6 +157,7 @@ pub fn char_attrs(v: &CharStyle) -> Map<String, Value> {
         ("charAlign", json!(v.char_align)),
         ("proportionalMetrics", json!(v.proportional_metrics)),
         ("digits", json!(v.digits)),
+        ("charDirection", json!(v.char_direction)),
     ] {
         m.insert(k.into(), x);
     }

@@ -790,6 +790,23 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
                 }
             });
         });
+        // Character Direction: the order of the selected characters (a date or a number inside
+        // right-to-left text). Shown with the Middle Eastern options, as Digits is.
+        let direction = s.as_ref().map(|s| s.char_direction);
+        ui.add_enabled_ui(has, |ui| {
+            ui.menu_button(format!("   {}", tl!("Character Direction")), |ui| {
+                use vectorcraft_doc::CharDirection;
+                for (label, d, key) in [
+                    (tl!("Default"), CharDirection::Default, "default"),
+                    (tl!("Left to Right"), CharDirection::LeftToRight, "leftToRight"),
+                    (tl!("Right to Left"), CharDirection::RightToLeft, "rightToLeft"),
+                ] {
+                    if menu_item(ui, label, true, direction == Some(d)) {
+                        format(app, json!({"charDirection": key}));
+                    }
+                }
+            });
+        });
         ui.separator();
     }
     for l in ["Standard Vertical Roman Alignment", "Tate-chu-yoko", "Fractional Widths", "System Layout", "No Break"] {
@@ -821,7 +838,7 @@ fn reset_panel(app: &mut VectorcraftApp) {
         json!({
             "kerning": "auto", "baselineShift": 0, "hScale": 100, "vScale": 100, "rotation": 0, "underline": false, "strikethrough": false,
             "allCaps": false, "smallCaps": d.small_caps.is_some(), "position": d.position.id(), "charAlign": d.char_align,
-            "proportionalMetrics": d.proportional_metrics, "digits": d.digits
+            "proportionalMetrics": d.proportional_metrics, "digits": d.digits, "charDirection": d.char_direction
         }),
     );
 }
@@ -1154,6 +1171,19 @@ mod tests {
         assert_eq!(shown(&mut app), (true, true));
     }
 
+    /// Character Direction is in the panel menu with the Middle Eastern (Indic) options only.
+    #[test]
+    fn character_direction_shows_with_the_indic_options() {
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        app.run("file.new", json!({"width": 300, "height": 200})).unwrap();
+        let id = app.session.execute("text.create", &json!({"x": 20, "y": 50, "text": "ab"})).unwrap()["id"].clone();
+        app.session.execute("select.set", &json!({"ids": [id]})).unwrap();
+        let shown = |app: &mut VectorcraftApp| crate::tests_labels::painted_text(app, menu).contains("Character Direction");
+        assert!(!shown(&mut app));
+        app.session.prefs.show_indic_options = true;
+        assert!(shown(&mut app));
+    }
+
     /// Digits is in the panel menu with the Middle Eastern (Indic) options only, as Paragraph
     /// Direction is in the Paragraph panel.
     #[test]
@@ -1198,6 +1228,7 @@ mod tests {
                 s.char_align != d.char_align,
                 s.proportional_metrics != d.proportional_metrics,
                 s.digits != d.digits,
+                s.char_direction != d.char_direction,
             ]
         };
         let custom = |app: &mut VectorcraftApp| {
@@ -1206,16 +1237,16 @@ mod tests {
                 json!({
                     "id": id, "tracking": 50, "leading": 30, "kerning": 20, "baselineShift": 3, "hScale": 120, "vScale": 90, "rotation": 15,
                     "underline": true, "strikethrough": true, "allCaps": true, "smallCaps": true, "position": "superscript",
-                    "charAlign": "emBoxCenter", "proportionalMetrics": true, "digits": "hindi"
+                    "charAlign": "emBoxCenter", "proportionalMetrics": true, "digits": "hindi", "charDirection": "rightToLeft"
                 }),
             )
             .unwrap();
         };
         let plain = runs(&app)[0].1.clone();
-        assert_eq!(differs(&plain, &CharStyle::default()), [false; 15]);
+        assert_eq!(differs(&plain, &CharStyle::default()), [false; 16]);
         custom(&mut app);
         let styled = runs(&app)[0].1.clone();
-        assert_eq!(differs(&styled, &CharStyle::default()), [true; 15]);
+        assert_eq!(differs(&styled, &CharStyle::default()), [true; 16]);
         app.run("select.set", json!({"ids": [id]})).unwrap();
         reset_panel(&mut app);
         assert_eq!(runs(&app), [("One 12".to_string(), plain.clone())]);

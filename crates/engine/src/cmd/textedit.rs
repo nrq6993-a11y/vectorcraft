@@ -27,7 +27,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Character",
             [],
             None,
-            "{id? (default: the one selected type object), start?: byte, end?: byte (default: all text), font?, style?, size?: pt, leading?: pt|\"auto\", tracking?, kerning?: 1/1000 em|\"auto\", baselineShift?: pt, hScale?: %, vScale?: %, rotation?: deg, fill?: colour|\"none\", stroke?: colour|\"none\", keepModel?: bool (fill and stroke, as paint.setFill), strokeWidth?: pt, strokeOptions?: {weight?, cap?, join?, miterLimit?, align?, dash?, dashOffset?, alignDashes?} (as stroke.set: the character stroke), underline?, strikethrough?, allCaps?: bool, smallCaps?: bool, position?: \"normal\"|\"superscript\"|\"subscript\" (sizes from Document Setup), features?: [\"dlig\", \"-liga\", …], charAlign?: \"romanBaseline\"|\"emBoxTop\"|\"emBoxCenter\"|\"emBoxBottom\"|\"icfTop\"|\"icfBottom\", proportionalMetrics?: bool (full-width glyphs on the font's proportional widths: `palt` in horizontal type, `vpal` in vertical type), digits?: \"default\"|\"arabic\"|\"hindi\"|\"farsi\" (Character panel menu › Digits: the numeral system every digit is drawn in, whatever was typed), fontAxes?: {\"wght\": 650, …} (Character panel › Variable Font: the setting of each variation axis named, in the axis's units and clamped to its range; null: back to the style's own setting; other axes keep theirs; tags the font has no axis for are left out; a font or style change clears them; text.fontList {family, style} lists the axes)} style a character range (size/leading/baselineShift are document points and hScale includes the object transform; runs are split at the range ends) → {id, runs}",
+            "{id? (default: the one selected type object), start?: byte, end?: byte (default: all text), font?, style?, size?: pt, leading?: pt|\"auto\", tracking?, kerning?: 1/1000 em|\"auto\", baselineShift?: pt, hScale?: %, vScale?: %, rotation?: deg, fill?: colour|\"none\", stroke?: colour|\"none\", keepModel?: bool (fill and stroke, as paint.setFill), strokeWidth?: pt, strokeOptions?: {weight?, cap?, join?, miterLimit?, align?, dash?, dashOffset?, alignDashes?} (as stroke.set: the character stroke), underline?, strikethrough?, allCaps?: bool, smallCaps?: bool, position?: \"normal\"|\"superscript\"|\"subscript\" (sizes from Document Setup), features?: [\"dlig\", \"-liga\", …], charAlign?: \"romanBaseline\"|\"emBoxTop\"|\"emBoxCenter\"|\"emBoxBottom\"|\"icfTop\"|\"icfBottom\", proportionalMetrics?: bool (full-width glyphs on the font's proportional widths: `palt` in horizontal type, `vpal` in vertical type), digits?: \"default\"|\"arabic\"|\"hindi\"|\"farsi\", charDirection?: \"default\"|\"leftToRight\"|\"rightToLeft\" (Character panel menu › Character Direction) (Character panel menu › Digits: the numeral system every digit is drawn in, whatever was typed), fontAxes?: {\"wght\": 650, …} (Character panel › Variable Font: the setting of each variation axis named, in the axis's units and clamped to its range; null: back to the style's own setting; other axes keep theirs; tags the font has no axis for are left out; a font or style change clears them; text.fontList {family, style} lists the axes)} style a character range (size/leading/baselineShift are document points and hScale includes the object transform; runs are split at the range ends) → {id, runs}",
             has_doc,
             set_range_style
         ),
@@ -255,7 +255,20 @@ pub(crate) struct CharChange {
     char_align: Option<vectorcraft_doc::CharAlign>,
     proportional_metrics: Option<bool>,
     digits: Option<vectorcraft_doc::Digits>,
+    char_direction: Option<vectorcraft_doc::CharDirection>,
     font_axes: Option<AxisChange>,
+}
+
+/// `charDirection: "default"|"leftToRight"|"rightToLeft"` → the order of the selected characters.
+pub(crate) fn char_direction_param(p: &Value, cmd: &str) -> Result<Option<vectorcraft_doc::CharDirection>> {
+    use vectorcraft_doc::CharDirection;
+    let Some(v) = p.get("charDirection").filter(|v| !v.is_null()) else { return Ok(None) };
+    Ok(Some(match v.as_str() {
+        Some("default") => CharDirection::Default,
+        Some("leftToRight") => CharDirection::LeftToRight,
+        Some("rightToLeft") => CharDirection::RightToLeft,
+        _ => return Err(bad(cmd, "`charDirection` must be \"default\", \"leftToRight\" or \"rightToLeft\"")),
+    }))
 }
 
 /// `digits: "default"|"arabic"|"hindi"|"farsi"` → the numeral system the digits are drawn in.
@@ -413,6 +426,7 @@ impl CharChange {
             char_align: char_align_param(p, cmd)?,
             proportional_metrics: flag("proportionalMetrics"),
             digits: digits_param(p, cmd)?,
+            char_direction: char_direction_param(p, cmd)?,
             font_axes: font_axes_param(p, cmd)?,
         };
         if c.size.is_some_and(|v| v <= 0.0) {
@@ -454,6 +468,7 @@ impl CharChange {
             && self.char_align.is_none()
             && self.proportional_metrics.is_none()
             && self.digits.is_none()
+            && self.char_direction.is_none()
             && self.font_axes.is_none()
     }
 
@@ -550,6 +565,9 @@ impl CharChange {
         }
         if let Some(v) = self.digits {
             st.digits = v;
+        }
+        if let Some(v) = self.char_direction {
+            st.char_direction = v;
         }
     }
 }

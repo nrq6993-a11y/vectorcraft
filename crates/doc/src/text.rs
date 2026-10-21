@@ -113,6 +113,10 @@ pub struct CharStyle {
     /// these characters are drawn in, whatever digits were typed.
     #[serde(default, skip_serializing_if = "crate::skip::is_default")]
     pub digits: Digits,
+    /// Character Direction (Character panel menu, Middle Eastern options): the order of these
+    /// characters. Default follows the paragraph's bidirectional resolution.
+    #[serde(default, rename = "charDirection", skip_serializing_if = "crate::skip::is_default")]
+    pub char_direction: CharDirection,
 }
 
 /// The numeral system digits are drawn in ([`CharStyle::digits`]): as typed, or every digit of
@@ -150,6 +154,25 @@ impl Digits {
         };
         char::from_u32(base + value).unwrap_or(c)
     }
+}
+
+/// The order of a run of characters ([`CharStyle::char_direction`]), from the Character panel
+/// menu. Default leaves them to the paragraph's bidirectional resolution. Left to Right and Right
+/// to Left set the order of the selected characters, which is how a date or a number stays in
+/// order inside right-to-left text.
+///
+/// Illustrator: Character panel menu › Character Direction, with Preferences › Type › Show Indic
+/// Options. <https://helpx.adobe.com/illustrator/using/arabic-hebrew.html>
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CharDirection {
+    /// The paragraph's bidirectional resolution (UAX #9).
+    #[default]
+    Default,
+    /// These characters run left to right.
+    LeftToRight,
+    /// These characters run right to left.
+    RightToLeft,
 }
 
 /// Where a character smaller than the largest on its line lines up with it: on the Roman
@@ -285,6 +308,7 @@ impl Default for CharStyle {
             proportional_metrics: false,
             small_caps: None,
             digits: Digits::Default,
+            char_direction: CharDirection::Default,
         }
     }
 }

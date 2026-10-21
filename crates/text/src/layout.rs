@@ -6,8 +6,8 @@ use kurbo::{Affine, BezPath, PathEl, Point, Rect, Shape, Vec2};
 use unicode_bidi::{BidiInfo, Level};
 use vectorcraft_doc::text::Kashida;
 use vectorcraft_doc::{
-    Burasagari, CharStyle, HyphenationOptions, InlineArt, Justify, Kinsoku, LeadingModel, Mojikumi, ParaDirection, ParaStyle, PathAlign, PathEffect,
-    SingleWordJustify, TextKind, TextObject,
+    Burasagari, CharDirection, CharStyle, HyphenationOptions, InlineArt, Justify, Kinsoku, LeadingModel, Mojikumi, ParaDirection, ParaStyle,
+    PathAlign, PathEffect, SingleWordJustify, TextKind, TextObject,
 };
 use vectorcraft_geom::{ArcPath, PathData};
 
@@ -1767,7 +1767,7 @@ fn flow(cx: &mut Ctx<'_>, paras: &[Range<usize>], t: &TextObject, regions: Optio
         // its first line) follow its own.
         pen.model = para.leading_model;
         let text = cx.text;
-        let bidi = para_bidi(text.get(pr.clone()).unwrap_or_default(), para.direction);
+        let bidi = resolve_bidi(text, pr.clone(), para.direction, |b| cx.style_at(b).char_direction);
         let rtl = is_rtl(bidi.as_ref());
         let mut sg = cx.shape_para(pr.clone(), bidi.as_ref());
         // Thai, Lao, Khmer and Myanmar break lines between words, not at spaces.
@@ -2157,8 +2157,7 @@ fn on_path(cx: &mut Ctx<'_>, paras: &[Range<usize>], t: &TextObject, path: &Path
     let mut rtl = None;
     let mut rtl_para = None;
     for pr in paras {
-        let text = cx.text;
-        let bidi = para_bidi(text.get(pr.clone()).unwrap_or_default(), para.direction);
+        let bidi = resolve_bidi(cx.text, pr.clone(), para.direction, |b| cx.style_at(b).char_direction);
         rtl_para.get_or_insert(is_rtl(bidi.as_ref()));
         rtl.get_or_insert(is_rtl(bidi.as_ref()) && !cx.vertical);
         let shaped = cx.shape_para(pr.clone(), bidi.as_ref());
@@ -2340,6 +2339,62 @@ fn on_path(cx: &mut Ctx<'_>, paras: &[Range<usize>], t: &TextObject, path: &Path
 /// The bidirectional resolution (UAX #9) of paragraph `text`, its base direction `direction` or,
 /// without one, from its first strong character. `None` for the usual paragraph with nothing right
 /// to left in it (no right-to-left character or direction), which skips the algorithm.
+/// The paragraph's bidirectional resolution, with Character Direction applied: Right to Left and
+/// Left to Right set those characters' embedding level, and Default leaves the resolution alone.
+fn resolve_bidi<'a>(
+    text: &'a str,
+    pr: Range<usize>,
+    direction: Option<ParaDirection>,
+    style_at: impl Fn(usize) -> CharDirection,
+) -> Option<BidiInfo<'a>> {
+    let slice = text.get(pr.clone()).unwrap_or("");
+    let explicit_rtl = slice.char_indices().any(|(i, _)| style_at(pr.start + i) == CharDirection::RightToLeft);
+    let mut info = para_bidi(slice, direction);
+    if info.is_none() && explicit_rtl {
+        info = Some(BidiInfo::new(slice, Some(Level::ltr())));
+    }
+    if let Some(info) = info.as_mut() {
+        apply_char_direction(info, pr.start, &style_at);
+    }
+    info.filter(|b| b.has_rtl() || direction == Some(ParaDirection::RightToLeft))
+}
+
+/// The embedding level Character Direction asks for above the paragraph's base `level`: the next
+/// even level for left to right, the next odd level for right to left. Default changes nothing.
+fn direction_level(base: Level, dir: CharDirection) -> Option<Level> {
+    let n = base.number();
+    let want = match dir {
+        CharDirection::Default => return None,
+        CharDirection::LeftToRight => n + n % 2,
+        CharDirection::RightToLeft => n + 1 - n % 2,
+    };
+    Level::new(want).ok()
+}
+
+/// Write Character Direction into `info`'s per-byte levels. `para_start` is the paragraph's first
+/// byte in the whole text, which `style_at` is indexed by.
+fn apply_char_direction(info: &mut BidiInfo<'_>, para_start: usize, style_at: impl Fn(usize) -> CharDirection) {
+    let paras: Vec<(Range<usize>, Level)> = info.paragraphs.iter().map(|p| (p.range.clone(), p.level)).collect();
+    let text = info.text;
+    for (range, base) in paras {
+        let mut i = range.start;
+        let end = range.end.min(text.len());
+        while i < end {
+            let Some(ch) = text[i..].chars().next() else { break };
+            let len = ch.len_utf8();
+            let slot_end = i.saturating_add(len).min(info.levels.len());
+            if let Some(level) = direction_level(base, style_at(para_start + i))
+                && let Some(slots) = info.levels.get_mut(i..slot_end)
+            {
+                for slot in slots {
+                    *slot = level;
+                }
+            }
+            i = i.saturating_add(len);
+        }
+    }
+}
+
 pub(crate) fn para_bidi(text: &str, direction: Option<ParaDirection>) -> Option<BidiInfo<'_>> {
     use unicode_bidi::BidiClass::{AL, AN, FSI, R, RLE, RLI, RLO};
     let rtl_set = direction == Some(ParaDirection::RightToLeft);
