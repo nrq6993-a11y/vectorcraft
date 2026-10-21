@@ -201,6 +201,7 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 - **Done:** character-style Auto-leading resets propagate to style users while retaining local leading overrides. Sparse definitions remain sparse, native serialization retains explicit Auto, and the Character Styles override marker stays consistent.
 
 - **Improved:** mixed paragraph alignments leave the existing Paragraph/Properties alignment buttons unselected; choosing an alignment still uses the range-aware command. Headless regressions, full integration CI and visual review pass. Other mixed paragraph fields remain; estimate unchanged.
+- **Improved:** Paragraph panel left/right/first-line indents and space before/after show blank when paragraphs in scope differ; uniform values still display and edits apply through `text.setFormat`. Headless regression in `panels/paragraph.rs`; estimate unchanged.
 - **Improved (#1258):** full font names (name ID 4) resolve the face instead of falling back, and Missing Fonts searches recognize the same aliases. Synthetic regressions cover loaded/cataloged fonts, localized names, real-family precedence and variable default faces. Windows font-service activation still needs reporter QA; estimate unchanged.
 - **Done:** Paragraph panel menu › Roman Hanging Punctuation (#2756), per paragraph; estimate unchanged.
 - **Done:** Paragraph panel menu › Justification… (#2755): word and letter spacing, glyph scaling (Minimum, Desired,
@@ -228,11 +229,11 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 
 ## G2 Photoshop-style raster effects and the Effect Gallery
 
-- **Missing:** 9 of 57 filters (6 Artistic, 2 Sketch and 1 more), the Effect Gallery dialog, Load
-  Texture for Texturizer. Measured in
+- **Done:** Effect › Texture › Texturizer › Load Texture… (stored grayscale `textureImage`, Loaded Texture in the Texture menu), matching Glass.
+- **Missing:** 8 of 57 filters (5 Artistic, 2 Sketch and 1 more), the Effect Gallery dialog. Measured in
   [effects-parity.md](effects-parity.md).
 - **Done:** Effect › Artistic › Colored Pencil (`artistic.coloredPencil`, pencil width, stroke pressure, paper brightness; original visual approximation).
-- **Done:** the pixel-filter pipeline and 48 filters (Artistic: Colored Pencil, Cutout, Film Grain, Neon Glow, Plastic Wrap, Poster Edges, Smudge Stick, Sponge, Watercolor; Blur, Brush Strokes, Distort, Pixelate, Sharpen; Sketch:
+- **Done:** the pixel-filter pipeline and 49 filters (Artistic: Colored Pencil, Cutout, Dry Brush, Film Grain, Neon Glow, Plastic Wrap, Poster Edges, Smudge Stick, Sponge, Watercolor; Blur, Brush Strokes, Distort, Pixelate, Sharpen; Sketch:
   Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Water Paper; Stylize, Texture, Video), with live preview and editable native settings. Smart Blur supports Edge Only and Overlay Edge
   modes.
 - **Estimate:** 8–14 h (measured 0.7–1.2 h per filter); parallelizes well.
@@ -274,9 +275,10 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
   Export Type (Graphic or Movie Clip; default Movie Clip; `symbol.new` / `symbol.options` / Symbols panel;
   canvas placement unchanged; Animate / Flash handoff metadata); Symbol Options › Enable Guides for 9-Slice
   Scaling (four guides as fractions of the symbol size, `nineSlice` / `nineSliceGuides` on `symbol.new` /
-  `symbol.options`, stored per symbol; handoff metadata, not drawn on the canvas, #2342).
+  `symbol.options`, stored per symbol; handoff metadata, not drawn on the canvas, #2342); Brush Options › Key
+  Color eyedropper for scatter, art and pattern brushes (Hue Shift colorization; samples canvas art).
 - **Missing:** the Art brush's Overlap, auto-generated Pattern brush corners, new tile art in Pattern Brush
-  Options, the Key Color eyedropper; original brush, symbol and graphic-style libraries generated in code (never
+  Options; original brush, symbol and graphic-style libraries generated in code (never
   Adobe's); dynamic symbols; Start Global Edit; drawing the 9-slice guides on the canvas in symbol edit mode and scaling by them.
 - **Estimate:** 15–26 h.
 

@@ -1,9 +1,9 @@
-//! Photoshop-style raster effects (Effect › Artistic › Colored Pencil, Cutout, Film Grain, Neon Glow, Plastic Wrap and
+//! Photoshop-style raster effects (Effect › Artistic › Colored Pencil, Cutout, Dry Brush, Film Grain, Neon Glow, Plastic Wrap and
 //! Poster Edges, Smudge Stick, Sponge and Watercolor, Blur › Radial Blur and Smart Blur, Brush Strokes › Accented Edges, Angled Strokes,
 //! Crosshatch, Dark Strokes, Ink Outlines, Spatter, Sprayed Strokes and Sumi-e, Distort › Diffuse
 //! Glow, Glass and Ocean Ripple, Pixelate › Color Halftone, Crystallize, Mezzotint and Pointillize,
-//! Sharpen › Unsharp Mask, Sketch › Chalk & Charcoal, Graphic Pen, Halftone Pattern, Note Paper, Plaster and
-//! Reticulation, Stylize ›
+//! Sharpen › Unsharp Mask, Sketch › Bas Relief, Chalk & Charcoal, Charcoal, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster,
+//! Reticulation and Stamp, Stylize ›
 //! Glowing Edges, Texture
 //! › Craquelure, Grain, Mosaic Tiles, Patchwork, Stained Glass and Texturizer, and Video ›
 //! De-Interlace and NTSC Colors): filters over premultiplied RGBA8 pixels.
@@ -40,12 +40,13 @@ pub use distort::{GLASS_TEXTURES, GLASS_TEXTURES_LOADED, GlassTexture};
 pub use loaded::{LOADED, LoadedTexture, TEXTURE_IMAGE, texture};
 pub use pixelate::{MEZZOTINT_TYPES, Mezzotint};
 pub use sketch::{HALFTONE_TYPES, HalftonePattern};
-pub use texture::{GRAIN_TYPES, Grain, LIGHT_DIRECTIONS, Light, TEXTURES, Texture};
+pub use texture::{GRAIN_TYPES, Grain, LIGHT_DIRECTIONS, Light, TEXTURES, TEXTURES_LOADED, Texture};
 
 /// The Photoshop-style effect ids (all raster effects, see [`crate::is_raster`]).
-pub const PIXEL_EFFECTS: [&str; 48] = [
+pub const PIXEL_EFFECTS: [&str; 49] = [
     "artistic.coloredPencil",
     "artistic.cutout",
+    "artistic.dryBrush",
     "artistic.filmGrain",
     "artistic.neonGlow",
     "artistic.plasticWrap",
@@ -104,6 +105,10 @@ pub enum PixelFx {
     /// Artistic › Cutout: flat pieces of colour in `levels` (2..8) steps per channel, their
     /// edges as simple as `simplicity` (0..10) and as faithful as `fidelity` (1..3) say.
     Cutout { levels: f64, simplicity: f64, fidelity: f64 },
+    /// Artistic › Dry Brush: short strokes along the form with darkened edges; `size` (1..10) is the
+    /// brush length, `detail` (0..10) how much detail is kept, `texture` (1..3) the edge and bristle
+    /// contrast.
+    DryBrush { size: f64, detail: f64, texture: f64 },
     /// Artistic › Film Grain: monochrome grain in shadows and midtones, a wider bright
     /// highlight area (0..20), and tonal intensity (0..10), preserving coverage.
     FilmGrain { grain: f64, highlight: f64, intensity: f64 },
@@ -301,6 +306,11 @@ pub(crate) fn parse(id: &str, p: &Value) -> Option<PixelFx> {
             simplicity: num(p, "edgeSimplicity", 4.0).clamp(0.0, 10.0),
             fidelity: num(p, "edgeFidelity", 2.0).round().clamp(1.0, 3.0),
         },
+        "artistic.dryBrush" => PixelFx::DryBrush {
+            size: num(p, "brushSize", 2.0).clamp(1.0, 10.0),
+            detail: num(p, "brushDetail", 10.0).clamp(0.0, 10.0),
+            texture: num(p, "texture", 1.0).round().clamp(1.0, 3.0),
+        },
         "artistic.neonGlow" => PixelFx::NeonGlow {
             size: num(p, "glowSize", 5.0).clamp(-24.0, 24.0),
             brightness: num(p, "glowBrightness", 15.0).clamp(0.0, 50.0),
@@ -494,7 +504,7 @@ pub(crate) fn parse(id: &str, p: &Value) -> Option<PixelFx> {
             light: num(p, "lightIntensity", 3.0).clamp(0.0, 10.0),
         },
         "texture.texturizer" => PixelFx::Texturizer {
-            texture: Texture::parse(text(p, "texture", "canvas")),
+            texture: Texture::parse_with(text(p, "texture", "canvas"), p.get(TEXTURE_IMAGE).and_then(Value::as_str)),
             scaling: num(p, "scaling", 100.0).clamp(50.0, 200.0) / 100.0,
             relief: num(p, "relief", 4.0).clamp(0.0, 50.0),
             light: Light::parse(text(p, "lightDirection", "top")),
@@ -550,6 +560,7 @@ impl PixelFx {
             PixelFx::FilmGrain { .. }
             | PixelFx::ColoredPencil { .. }
             | PixelFx::Cutout { .. }
+            | PixelFx::DryBrush { .. }
             | PixelFx::NeonGlow { .. }
             | PixelFx::PlasticWrap { .. }
             | PixelFx::PosterEdges { .. }
@@ -611,6 +622,7 @@ impl PixelFx {
             | PixelFx::HalftonePattern { .. }
             | PixelFx::NotePaper { .. }
             | PixelFx::Reticulation { .. } => Some(0.0),
+            PixelFx::DryBrush { size, detail, .. } => Some(artistic::dry_brush_reach(size, detail)),
             PixelFx::Plaster { smoothness, .. } => Some(sketch::plaster_reach(smoothness)),
             PixelFx::WaterPaper { fiber_length, .. } => {
                 Some(sketch::water_paper_shift(fiber_length) + 3.0 * (0.06 * fiber_length.clamp(3.0, 50.0)).max(0.35))
@@ -644,6 +656,7 @@ impl PixelFx {
         match *self {
             PixelFx::ColoredPencil { width, pressure, paper } => artistic::colored_pencil(px, w, h, space, width, pressure, paper),
             PixelFx::Cutout { levels, simplicity, fidelity } => artistic::cutout(px, w, h, space, levels, simplicity, fidelity),
+            PixelFx::DryBrush { size, detail, texture } => artistic::dry_brush(px, w, h, space, size, detail, texture),
             PixelFx::FilmGrain { grain, highlight, intensity } => artistic::film_grain(px, w, h, space, grain, highlight, intensity),
             PixelFx::SmudgeStick { stroke, highlight, intensity } => paint::smudge_stick(px, w, h, space, stroke, highlight, intensity),
             PixelFx::Sponge { brush, definition, smoothness } => paint::sponge(px, w, h, space, brush, definition, smoothness),
@@ -696,7 +709,7 @@ impl PixelFx {
             PixelFx::MosaicTiles { tile, grout, lighten } => texture::mosaic_tiles(px, w, h, space, tile, grout, lighten),
             PixelFx::Patchwork { square, relief } => texture::patchwork(px, w, h, space, square, relief),
             PixelFx::StainedGlass { cell, border, light } => texture::stained_glass(px, w, h, space, cell, border, light),
-            PixelFx::Texturizer { texture, scaling, relief, light, invert } => {
+            PixelFx::Texturizer { ref texture, scaling, relief, light, invert } => {
                 texture::texturizer(px, w, h, space, texture, scaling, relief, light, invert)
             }
             PixelFx::DeInterlace { even, interpolate } => video::deinterlace(px, w, h, space, even, interpolate),

@@ -12,7 +12,7 @@ Part of [target-app-parity.md](target-app-parity.md); open work is in [gaps.md](
 | Group | Illustrator | VectorCraft | % | Remaining (h) |
 |---|---:|---:|---:|---:|
 | Illustrator effects (vector and stylize) | 50 | 46 | 92% | 6–10 |
-| Photoshop effects (raster, Effect Gallery) | 57 | 48 | 84% | 7–12 |
+| Photoshop effects (raster, Effect Gallery) | 57 | 49 | 86% | 7–12 |
 | 3D and Materials | 4 (+3 Classic) | 4 (initial: Extrude & Bevel, Revolve, Inflate, Rotate) | ~25% | 25–45 |
 | Beyond Illustrator: Effect › Color Adjustments (6), effect plug-ins (WebAssembly) | — | 6 + plug-ins | — | — |
 
@@ -38,7 +38,7 @@ its resolution, PDF export warns once per object with the requested and the lowe
 
 | Submenu | Items | Ours | Missing |
 |---|---|---:|---|
-| Artistic | Colored Pencil, Cutout, Dry Brush, Film Grain, Fresco, Neon Glow, Paint Daubs, Palette Knife, Plastic Wrap, Poster Edges, Rough Pastels, Smudge Stick, Sponge, Underpainting, Watercolor | 9/15 (approximate Colored Pencil, Cutout, Film Grain, Neon Glow, Plastic Wrap, Poster Edges, Smudge Stick, Sponge, Watercolor) | Dry Brush, Fresco, Paint Daubs, Palette Knife, Rough Pastels, Underpainting |
+| Artistic | Colored Pencil, Cutout, Dry Brush, Film Grain, Fresco, Neon Glow, Paint Daubs, Palette Knife, Plastic Wrap, Poster Edges, Rough Pastels, Smudge Stick, Sponge, Underpainting, Watercolor | 10/15 (approximate Colored Pencil, Cutout, Dry Brush, Film Grain, Neon Glow, Plastic Wrap, Poster Edges, Smudge Stick, Sponge, Watercolor) | Fresco, Paint Daubs, Palette Knife, Rough Pastels, Underpainting |
 | Blur | Gaussian Blur, Radial Blur, Smart Blur | 3/3 | — |
 | Brush Strokes | Accented Edges, Angled Strokes, Crosshatch, Dark Strokes, Ink Outlines, Spatter, Sprayed Strokes, Sumi-e | 8/8 | — |
 | Distort | Diffuse Glow, Glass, Ocean Ripple | 3/3 | — |
@@ -46,7 +46,7 @@ its resolution, PDF export warns once per object with the requested and the lowe
 | Sharpen | Unsharp Mask | 1/1 | — |
 | Sketch | Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Conté Crayon, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Torn Edges, Water Paper | 12/14 (approximate Bas Relief, Chalk & Charcoal, Charcoal, Chrome, Graphic Pen, Halftone Pattern, Note Paper, Photocopy, Plaster, Reticulation, Stamp, Water Paper; Chalk & Charcoal, Graphic Pen, Note Paper and Water Paper defaults unverified) | Conté Crayon, Torn Edges |
 | Stylize | Glowing Edges | 1/1 | — |
-| Texture | Craquelure, Grain, Mosaic Tiles, Patchwork, Stained Glass, Texturizer | 6/6 | Texturizer's Load Texture |
+| Texture | Craquelure, Grain, Mosaic Tiles, Patchwork, Stained Glass, Texturizer | 6/6 | — |
 | Video | De-Interlace, NTSC Colors | 2/2 | — |
 | Effect Gallery | the combined browser and stack dialog | 0/1 | all |
 
