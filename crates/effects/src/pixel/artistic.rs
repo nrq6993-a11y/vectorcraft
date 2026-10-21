@@ -248,21 +248,14 @@ pub(super) fn colored_pencil(px: &mut [[u8; 4]], w: usize, h: usize, space: &Pix
         *e = (s / 4.0).min(1.0);
     }
     let spacing = (0.35 * width).max(1.0);
-    let tone_at = |x: isize, y: isize| -> f32 {
-        if x < 0 || y < 0 {
-            return 0.0;
-        }
-        let (x, y) = (x as usize, y as usize);
-        tones.get(y * w + x).copied().unwrap_or(0.0)
-    };
     place.each(px, |x, y, p| {
         if p[3] == 0 {
             return;
         }
         let k = y * w + x;
         let c = [colour[0][k], colour[1][k], colour[2][k]];
-        let gx = tone_at(x as isize + 1, y as isize) - tone_at(x as isize - 1, y as isize);
-        let gy = tone_at(x as isize, y as isize + 1) - tone_at(x as isize, y as isize - 1);
+        let gx = tone_at(&tones, w, h, x as isize + 1, y as isize) - tone_at(&tones, w, h, x as isize - 1, y as isize);
+        let gy = tone_at(&tones, w, h, x as isize, y as isize + 1) - tone_at(&tones, w, h, x as isize, y as isize - 1);
         let angle = gy.atan2(gx) + std::f32::consts::FRAC_PI_2;
         let (dx, dy) = (angle.cos() as f64, angle.sin() as f64);
         let q = place.at(x, y);

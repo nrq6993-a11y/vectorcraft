@@ -2490,8 +2490,15 @@ fn artistic_params_take_defaults_and_stay_in_range() {
         fx("artistic.plasticWrap", json!({"highlightStrength": -1, "detail": 99, "smoothness": 0})),
         PixelFx::PlasticWrap { highlight: 0.0, detail: 15.0, smoothness: 1.0 }
     );
-    for id in ["artistic.coloredPencil", "artistic.cutout", "artistic.dryBrush", "artistic.neonGlow", "artistic.plasticWrap", "artistic.posterEdges", "artistic.underpainting"]
-    {
+    for id in [
+        "artistic.coloredPencil",
+        "artistic.cutout",
+        "artistic.dryBrush",
+        "artistic.neonGlow",
+        "artistic.plasticWrap",
+        "artistic.posterEdges",
+        "artistic.underpainting",
+    ] {
         assert_eq!(fx(id, json!({})).outset(Rect::new(0.0, 0.0, 40.0, 30.0)), 0.0, "{id} keeps the object's shape");
     }
     assert_eq!(fx("artistic.paintDaubs", json!({})), PixelFx::PaintDaubs { size: 10.0, sharpness: 25.0, kind: PaintDaubBrush::Simple });
