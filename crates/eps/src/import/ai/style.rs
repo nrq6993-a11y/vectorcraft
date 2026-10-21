@@ -54,6 +54,7 @@ const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
+const ROUND: &str = "Adobe Round Corners"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
 
 const CHAIN: &str = "Chain Style Filter";
@@ -88,7 +89,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Round Corners on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -497,6 +498,8 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
+        // LiveEffect XML uses `radius`; art styles abbreviate it `rad` (public scripting posts on applyEffect).
+        ROUND => ("stylize.roundCorners", json!({"radius": param("rad").or_else(|| param("radius")).filter(|v| *v >= 0.0).unwrap_or(10.0)})),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
         _ => return None,
@@ -651,7 +654,10 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st
+            .effects
+            .iter()
+            .all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "stylize.roundCorners"));
     st
 }
 
@@ -683,6 +689,30 @@ mod tests {
             /Dictionary : /NotRecorded ,\n1 /Bool (BSDashAdj) ,\n; (kAIBeautifulStrokesParamsDictKey) ,\n\
             /StrokeStyle : 0 R\n0 0 0 0 0 0 1 XA\n1 J 0 j 2 w 10 M [5 10 ]0 d\n0 XR\n1 0 Xd\n/Def ;\n (StrokeStyle) ,\n; /Dict ;\n /Part ,\n;\n";
         assert!(!art_styles(data)["Stitches"].plain);
+    }
+
+    #[test]
+    fn a_round_corners_reads_its_radius_from_rad() {
+        let data = b"/KnownStyle :\n(Rounded) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Round Corners) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n15 /Real (rad) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [round] = styles["Rounded"].effects.as_slice() else { panic!() };
+        assert_eq!((round.id.as_str(), round.params["radius"].as_f64()), ("stylize.roundCorners", Some(15.0)));
+    }
+
+    #[test]
+    fn a_round_corners_falls_back_to_radius_and_defaults_to_ten_points() {
+        let with_name = b"/KnownStyle :\n(Rounded) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Round Corners) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n4 /Real (radius) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(with_name);
+        let [round] = styles["Rounded"].effects.as_slice() else { panic!() };
+        assert_eq!(round.params["radius"].as_f64(), Some(4.0));
+
+        let bare = b"/KnownStyle :\n(Rounded) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Round Corners) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(bare);
+        let [round] = styles["Rounded"].effects.as_slice() else { panic!() };
+        assert_eq!(round.params["radius"].as_f64(), Some(10.0));
     }
 
     #[test]
