@@ -14,6 +14,9 @@
 //! Opened on colours alone (the Color Guide's Edit or Apply Colors without art), OK saves the new
 //! colours as a colour group named `groupName`.
 //!
+//! Assign and Edit tab bodies scroll inside [`TAB_H`] so many colour rows do not push the Edit
+//! wheel off screen (#3416).
+//!
 //! Fields (`ui.dialog.set`): `rows` ([{from: [keys], to: key, exclude?}]), `colors` (null: Auto, or a
 //! count), `method`, `preserveWhite`, `preserveBlack`, `preserveGrays`, `limitTo` (library id,
 //! "document" for the document's swatches, "" for none), `group`, `groupName`, `tab` (`assign` or
