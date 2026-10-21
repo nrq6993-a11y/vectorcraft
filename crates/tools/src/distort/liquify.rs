@@ -216,6 +216,21 @@ impl LiquifyParams {
         v
     }
 
+    /// Measurement-label readout for the brush options (View → Measurement Labels).
+    pub(super) fn measurement_label(&self) -> String {
+        let pct = |x: f64| format!("{:.0}%", (x * 100.0).clamp(0.0, 100.0));
+        let mut lines = vec![format!("Intensity: {}", pct(self.intensity))];
+        match self.kind {
+            LiquifyKind::Twirl => lines.push(format!("Rate: {:.0}°", self.rate)),
+            LiquifyKind::Wrinkle => {
+                lines.push(format!("H: {}", pct(self.horizontal)));
+                lines.push(format!("V: {}", pct(self.vertical)));
+            }
+            _ => {}
+        }
+        lines.join("\n")
+    }
+
     /// How far off the chord Simplify removes anchors (0: Simplify is off or not an option).
     fn simplify_tolerance(&self) -> f64 {
         if self.kind.simplifies() && self.simplify_on { self.simplify / 100.0 * self.detail_spacing() * 0.02 } else { 0.0 }
@@ -750,14 +765,18 @@ impl Tool for LiquifyTool {
             _ => vec![],
         }
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(c) = self.hover.filter(|_| self.show_brush || self.sizing.is_some()) else { return vec![] };
-        vec![Overlay::Path {
+        let mut o = vec![Overlay::Path {
             path: ellipse_path(c, self.params.width / 2.0, self.params.height / 2.0, self.params.angle),
             color: [0x80, 0x80, 0x80],
             width: 1.0,
             dashed: false,
-        }]
+        }];
+        if cx.measurement_labels {
+            o.push(Overlay::Measure { p: c + Vec2::new(cx.tol(12.0), -cx.tol(20.0)), text: self.params.measurement_label() });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _mods: Mods) -> Cursor {
         Cursor::Crosshair
@@ -820,7 +839,10 @@ impl Tool for LiquifyTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vectorcraft_doc::Selection;
     use vectorcraft_geom::shapes;
+
+    use crate::testutil::{cx, doc_with_rect, paint};
 
     fn square() -> PathData {
         shapes::rectangle(Rect::new(0.0, 0.0, 200.0, 200.0))
@@ -836,6 +858,22 @@ mod tests {
         assert_eq!(d.len(), 11);
         assert!(d.windows(2).all(|w| (w[0].distance(w[1]) - 10.0).abs() < 1e-9));
         assert_eq!(dabs(&[Point::new(5.0, 5.0)], 10.0), vec![Point::new(5.0, 5.0)]);
+    }
+
+    #[test]
+    fn liquify_intensity_measure_honors_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let c = cx(&d, &s, &p);
+        let mut t = LiquifyTool::new("twirl");
+        t.params.intensity = 0.25;
+        t.params.rate = 55.0;
+        t.pointer(&c, &PointerEvent::new(PointerKind::Move, 50.0, 60.0));
+        let want = "Intensity: 25%\nRate: 55°";
+        assert!(t.overlays(&c).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == want)));
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
