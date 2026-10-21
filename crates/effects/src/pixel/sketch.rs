@@ -1,4 +1,4 @@
-//! Effect › Sketch (Chalk & Charcoal, Chrome, Halftone Pattern, Note Paper, Plaster, Reticulation and Water Paper; Graphic Pen lives in
+//! Effect › Sketch (Chalk & Charcoal, Chrome, Conté Crayon, Halftone Pattern, Note Paper, Plaster, Reticulation and Water Paper; Graphic Pen lives in
 //! [`super::brushstrokes`]). Original filters built from public behaviour documentation:
 //! <https://helpx.adobe.com/illustrator/using/summary-effects.html> (Sketch effects redraw in
 //! black and white; Water Paper flows colours on damp fibrous paper) and the public Photoshop Elements Artistic filters guide. Visual
@@ -16,6 +16,7 @@ use super::{PixelSpace, blur_plane, pick};
 
 const SALT_CHALK: u64 = 216;
 const SALT_CHROME: u64 = 0xC40_4D45;
+const SALT_CONTE: u64 = 0xC0A7E_C0A7E;
 const SALT_WATER: u64 = 208;
 const EDGE_SOFT: f64 = 0.8;
 const TONE_SOFT: f64 = 1.0;
@@ -427,5 +428,38 @@ pub(super) fn water_paper(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelS
         let mut rgb = straight(*p).map(|v| ((v + lift as f32 - 0.5) * gain as f32 + 0.5).clamp(0.0, 1.0));
         rgb = rgb.map(|v| (v * paper).clamp(0.0, 1.0));
         *p = premultiply(rgb, f32::from(p[3]) / 255.0);
+    });
+}
+
+/// Conté Crayon: the object redrawn as dense black conté in its dark areas and white crayon in its
+/// lights on grainy paper. `foreground` and `background` (1..25) set how strongly the black and
+/// white crayons bite into shadows and highlights. Coverage is kept; hues become grey like the
+/// public Sketch summary describes.
+pub(super) fn conte_crayon(px: &mut [[u8; 4]], w: usize, h: usize, space: &PixelSpace, foreground: f64, background: f64) {
+    if !(foreground.is_finite() && background.is_finite()) {
+        return;
+    }
+    let Some(place) = Place::new(space, w, h) else { return };
+    let fg = foreground.clamp(1.0, 25.0) / 25.0;
+    let bg = background.clamp(1.0, 25.0) / 25.0;
+    let grain_at = |salt: u64, q: Point, scale: f64| 2.0 * value_noise(salt, q.x / scale, q.y / scale) - 1.0;
+    place.each(px, |x, y, p| {
+        if p[3] == 0 {
+            return;
+        }
+        let q = place.at(x, y);
+        let dark = f64::from(1.0 - luma(straight(*p))).clamp(0.0, 1.0);
+        let light = 1.0 - dark;
+        let px_u = place.px.max(1e-9);
+        let grit = 0.5
+            + 0.28 * grain_at(SALT_CONTE, q, 2.8 * px_u)
+            + 0.17 * grain_at(SALT_CONTE + 1, q, 1.1 * px_u)
+            + 0.12 * grain_at(SALT_CONTE + 2, q, 0.45 * px_u);
+        let chalk = grit.clamp(0.0, 1.0);
+        let black = fg * dark * (0.45 + 0.55 * chalk);
+        let white = bg * light * (0.45 + 0.55 * (1.0 - chalk));
+        let ink = (black - 0.65 * white * (1.0 - black)).clamp(0.0, 1.0);
+        let paper = (1.0 - ink).clamp(0.0, 1.0);
+        *p = premultiply([paper as f32; 3], f32::from(p[3]) / 255.0);
     });
 }

@@ -530,6 +530,13 @@ pub fn effect_catalog() -> Vec<EffectInfo> {
             json!({"detail": 4.0, "smoothness": 4.0}),
         ),
         r(
+            "sketch.conteCrayon",
+            "Conté Crayon…",
+            SKETCH,
+            "{foregroundLevel: 1..25 (4; how densely black conté fills shadows), backgroundLevel: 1..25 (4; how strongly white crayon lifts highlights)} redraws the object as black conté in dark areas and white crayon in light areas on grainy paper, keeping its coverage. Original visual approximation from the public Sketch effects summary; chosen VectorCraft defaults.",
+            json!({"foregroundLevel": 4.0, "backgroundLevel": 4.0}),
+        ),
+        r(
             "sketch.graphicPen",
             "Graphic Pen…",
             SKETCH,
