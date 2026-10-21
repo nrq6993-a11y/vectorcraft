@@ -1,7 +1,8 @@
 //! Edit → Preferences (⌘K): Illustrator-style category list + fields, rendered from the engine's
 //! preference table ([`PREF_SPECS`]). The dialog edits a working copy in `Dialog::fields`
 //! (one field per preference key, so agents can `ui.dialog.set` any of them) and OK applies it
-//! through `prefs.set`. Also: persistence of engine prefs inside `UiState` and the per-frame
+//! through `prefs.set`. Apply commits the same way and leaves the dialog open, as in
+//! Illustrator. Also: persistence of engine prefs inside `UiState` and the per-frame
 //! application of the UI-side preferences (brightness, canvas colour, UI scaling, render threads).
 
 use serde_json::{Map, Value, json};
@@ -35,8 +36,9 @@ pub fn open(app: &mut VectorcraftApp, category: Option<&str>) {
     app.ui.dialog = Some(Dialog { kind: "preferences".into(), fields });
 }
 
-/// OK: validate and apply every preference in the dialog (nothing changes on error).
-pub fn confirm(app: &mut VectorcraftApp) -> Result<Value, String> {
+/// Validate and apply every preference in the dialog (nothing changes on error). With `close`
+/// false the dialog stays open so the user can try more categories, as Illustrator's Apply.
+pub fn apply(app: &mut VectorcraftApp, close: bool) -> Result<Value, String> {
     let Some(d) = app.ui.dialog.clone() else { return Err("no dialog open".into()) };
     let values: Map<String, Value> = d.fields.iter().filter(|(k, _)| !k.starts_with("__")).map(|(k, v)| (k.clone(), v.clone())).collect();
     let touch_ws = values.get("touchWorkspace").and_then(Value::as_bool);
@@ -47,10 +49,17 @@ pub fn confirm(app: &mut VectorcraftApp) -> Result<Value, String> {
     app.ui.view.smart_guides = d.fields.get("__smartGuides").and_then(Value::as_bool).unwrap_or(app.ui.view.smart_guides);
     app.ui.view.snap_to_grid = d.fields.get("__snapToGrid").and_then(Value::as_bool).unwrap_or(app.ui.view.snap_to_grid);
     app.ui.task_bar = d.fields.get("__taskBar").and_then(Value::as_bool).unwrap_or(app.ui.task_bar);
-    app.ui.dialog = None;
+    if close {
+        app.ui.dialog = None;
+    }
     app.ui.engine_prefs = app.session.prefs.to_json();
     app.prefs_changed = true;
     Ok(Value::Null)
+}
+
+/// OK: apply and close the dialog.
+pub fn confirm(app: &mut VectorcraftApp) -> Result<Value, String> {
+    apply(app, true)
 }
 
 /// Copy the engine prefs into `UiState` so the host persists them with the UI state.
@@ -163,7 +172,7 @@ pub fn apply_runtime(app: &mut VectorcraftApp, ctx: &egui::Context) {
 pub fn show(app: &mut VectorcraftApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.dialog.clone() else { return };
     let t = Tokens::get(ctx);
-    let (mut ok, mut cancel, mut reset) = (false, false, false);
+    let (mut ok, mut apply_btn, mut cancel, mut reset) = (false, false, false, false);
     let cat = d.str("__category");
     let cat = PREF_CATEGORIES.iter().find(|c| **c == cat).copied().unwrap_or(PREF_CATEGORIES[0]);
     crate::dialogs::modal::show(ctx, tl!("Preferences"), egui::Id::new("dialog-preferences"), -20.0, 20, |ui| {
@@ -211,6 +220,10 @@ pub fn show(app: &mut VectorcraftApp, ctx: &egui::Context) {
                     ok = true;
                 }
                 ui.add_space(8.0);
+                if widgets::secondary_button(ui, tl!("Apply")).clicked() {
+                    apply_btn = true;
+                }
+                ui.add_space(8.0);
                 if widgets::secondary_button(ui, tl!("Cancel")).clicked() {
                     cancel = true;
                 }
@@ -233,7 +246,9 @@ pub fn show(app: &mut VectorcraftApp, ctx: &egui::Context) {
     app.ui.dialog = Some(d);
     if cancel {
         app.ui.dialog = None;
-    } else if ok && let Err(e) = confirm(app) {
+    } else if ok && let Err(e) = apply(app, true) {
+        app.status(e);
+    } else if apply_btn && let Err(e) = apply(app, false) {
         app.status(e);
     }
 }
@@ -486,6 +501,25 @@ mod tests {
         assert_eq!(a.session.prefs.ui_brightness, "light");
         assert!(!a.ui.view.smart_guides);
         assert_eq!(a.ui.engine_prefs["keyboardIncrement"], json!(4.0));
+    }
+
+    /// #3454: Apply commits preferences like OK but leaves the dialog open (Illustrator).
+    #[test]
+    fn apply_without_ok_leaves_dialog_open_and_persists() {
+        let mut a = app();
+        open(&mut a, Some("Type"));
+        a.ui.dialog.as_mut().unwrap().fields.insert("fontNamesInEnglish".into(), json!(false));
+        assert!(!a.take_prefs_changed());
+        apply(&mut a, false).unwrap();
+        assert!(a.ui.dialog.is_some());
+        assert_eq!(a.ui.dialog.as_ref().unwrap().kind, "preferences");
+        assert!(!a.session.prefs.font_names_in_english);
+        assert_eq!(a.ui.engine_prefs["fontNamesInEnglish"], json!(false));
+        assert!(a.take_prefs_changed());
+        a.ui.dialog.as_mut().unwrap().fields.insert("fontNamesInEnglish".into(), json!(true));
+        apply(&mut a, false).unwrap();
+        assert!(a.ui.dialog.is_some());
+        assert!(a.session.prefs.font_names_in_english);
     }
 
     /// General › Show Tool Tips: off, a button held under the pointer shows no tool tip; back on,
