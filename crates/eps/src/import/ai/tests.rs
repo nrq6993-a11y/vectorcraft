@@ -1267,6 +1267,26 @@ fn an_object_with_a_style_this_reads_comes_in_as_itself() {
 }
 
 #[test]
+fn an_object_with_a_twist_style_comes_in_as_itself() {
+    let twist_style = "%AI9_BeginArtStyles\n\
+        /KnownStyle :\n(Twisted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /CompoundFilter :\n(Stack Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+        /BasicFilter :\n(Fill Style Filter) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n/FillStyle : 0 O\n0 0 0 0 0 0 1 Xa\n0 1 Xd\n/Def ;\n (FillStyle) ,\n; /Dict ;\n /Part ,\n\
+        /BasicFilter :\n(Conduit Filter) 0 0 /Filter ,\n1 /Visible ,\n;\n /Part ,\n;\n /Part ,\n\
+        /BasicFilter :\n(Adobe Twist) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n30 /Real (angle) ,\n; /Dict ;\n /Part ,\n;\n\
+        %AI9_EndArtStyles\n";
+    let hidden_rect = rect_path(0.0, 0.0, 10.0, 10.0).replace('\n', "\n%_");
+    let art_ = format!("0 Ae\nu\n{RED}{}f\nU\n%_{hidden_rect}f\n1 (Twisted) XW\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    let r = read_ok(&format!("{twist_style}{}", layer(&art_)));
+    let a = art(&r.doc);
+    assert_eq!(a.len(), 1, "{a:#?}");
+    assert!(matches!(a[0].kind, NodeKind::Path { .. }), "the object, not its look");
+    let [twist] = a[0].appearance.effects.as_slice() else { panic!("{:#?}", a[0].appearance.effects) };
+    assert_eq!((twist.id.as_str(), &twist.params), ("distort.twist", &serde_json::json!({"angle": 30.0})));
+    assert!(!r.warnings.iter().any(|w| w.contains("drawn look")), "{:?}", r.warnings);
+}
+
+#[test]
 fn an_object_with_a_feather_style_comes_in_with_a_live_effect() {
     let feather_style = "%AI9_BeginArtStyles\n\
         /KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\

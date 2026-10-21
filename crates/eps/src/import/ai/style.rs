@@ -49,6 +49,8 @@ use super::paint;
 
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
+const TWIST: &str = "Adobe Twist"; // brand-ok: the filter's name in the files
+const TWIRL: &str = "Adobe Twirl"; // brand-ok: LiveEffect XML name (public scripting posts)
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
@@ -88,7 +90,7 @@ pub(super) struct ArtStyle {
     /// The style reads as [`Self::items`] and [`Self::effects`].
     pub plain: bool,
     /// It is one fill and one stroke at most, in solid colours or the object's own gradient, with
-    /// no transparency or effects of their own, and only Outer Glow, Feather and Drop Shadow on the
+    /// no transparency or effects of their own, and only Outer Glow, Feather, Drop Shadow and Twist on the
     /// object: what any object is read with. Type takes the other plain styles too (its drawn look
     /// can't be retyped); other objects keep their drawn look, which is the app's own rendering.
     pub simple: bool,
@@ -422,6 +424,12 @@ fn width_profile(arrays: &HashMap<String, Vec<f64>>) -> Option<WidthProfile> {
     (!uniform).then_some(WidthProfile { points })
 }
 
+/// LiveEffect XML for Twist (`angle`; public scripting posts).
+fn twist_params(param: &dyn Fn(&str) -> Option<f64>) -> serde_json::Value {
+    let angle = param("angle").unwrap_or(10.0).clamp(-3600.0, 3600.0);
+    json!({"angle": angle})
+}
+
 /// The live effect filter `f` is, when it is one read here.
 fn effect(f: &Filter) -> Option<Effect> {
     let param = |k: &str| f.params.get(k).copied().filter(|v| v.is_finite());
@@ -436,6 +444,7 @@ fn effect(f: &Filter) -> Option<Effect> {
         ),
         // LiveEffect XML uses `radius`; art styles abbreviate it `rad` (public scripting posts on applyEffect).
         FEATHER => ("stylize.feather", json!({"radius": param("rad").or_else(|| param("radius")).unwrap_or(5.0)})),
+        TWIST | TWIRL => ("distort.twist", twist_params(&param)),
         SHADOW => {
             let mut params = json!({
                 "mode": mode(1),
@@ -651,7 +660,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "distort.twist"));
     st
 }
 
@@ -762,6 +771,30 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_twist_art_style_reads_its_live_effect() {
+        let data = b"/KnownStyle :\n(Twisted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Twist) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n45 /Real (angle) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Twisted"];
+        assert!(style.plain);
+        let [twist] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!((twist.id.as_str(), &twist.params), ("distort.twist", &json!({"angle": 45.0})));
+    }
+
+    #[test]
+    fn a_twirl_art_style_defaults_its_angle_and_clamps_hostile_values() {
+        let bare = b"/KnownStyle :\n(Twisted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Twirl) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let bare_style = art_styles(bare).remove("Twisted").unwrap_or_default();
+        let [twist] = bare_style.effects.as_slice() else { panic!() };
+        assert_eq!(&twist.params, &json!({"angle": 10.0}));
+        let data = b"/KnownStyle :\n(Twisted) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Twist) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n99999 /Real (angle) ,\n; /Dict ;\n /Part ,\n;\n";
+        let clamped = art_styles(data).remove("Twisted").unwrap_or_default();
+        let [twist] = clamped.effects.as_slice() else { panic!() };
+        assert_eq!(twist.params["angle"].as_f64(), Some(3600.0));
     }
 
     #[test]
