@@ -48,6 +48,7 @@ use super::obj::V;
 use super::paint;
 
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
+const INNER: &str = "Adobe Inner Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
 const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
@@ -434,6 +435,17 @@ fn effect(f: &Filter) -> Option<Effect> {
             "stylize.outerGlow",
             json!({"mode": mode(2), "opacity": param("opac").unwrap_or(0.75) * 100.0, "blur": 2.0 * param("blur").unwrap_or(5.0), "color": color}),
         ),
+        // `gtyp` 0 is Edge, 1 is Center (public forum posts on LiveEffect XML for Inner Glow).
+        INNER => (
+            "stylize.innerGlow",
+            json!({
+                "mode": mode(2),
+                "opacity": param("opac").unwrap_or(0.75) * 100.0,
+                "blur": 2.0 * param("blur").unwrap_or(5.0),
+                "color": color,
+                "source": if param("gtyp").unwrap_or(0.0).round() as i64 == 1 { "center" } else { "edge" },
+            }),
+        ),
         // LiveEffect XML uses `radius`; art styles abbreviate it `rad` (public scripting posts on applyEffect).
         FEATHER => ("stylize.feather", json!({"radius": param("rad").or_else(|| param("radius")).unwrap_or(5.0)})),
         SHADOW => {
@@ -651,7 +663,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.innerGlow" | "stylize.feather" | "stylize.dropShadow"));
     st
 }
 
@@ -747,6 +759,33 @@ mod tests {
         let styles = art_styles(data);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!((feather.id.as_str(), feather.params["radius"].as_f64()), ("stylize.feather", Some(12.0)));
+    }
+
+    #[test]
+    fn an_inner_glow_reads_opacity_blur_mode_and_edge_source() {
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n0 /Int (gtyp) ,\n0.5 /Real (opac) ,\n4 /Real (blur) ,\n2 /Int (blnd) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
+        assert_eq!(
+            (
+                inner.id.as_str(),
+                inner.params["opacity"].as_f64(),
+                inner.params["blur"].as_f64(),
+                inner.params["source"].as_str(),
+                inner.params["mode"].as_str()
+            ),
+            ("stylize.innerGlow", Some(50.0), Some(8.0), Some("edge"), Some("Screen"))
+        );
+    }
+
+    #[test]
+    fn an_inner_glow_center_source_reads_from_gtyp() {
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n1 /Int (gtyp) ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let [inner] = styles["GlowIn"].effects.as_slice() else { panic!() };
+        assert_eq!(inner.params["source"].as_str(), Some("center"));
     }
 
     #[test]
