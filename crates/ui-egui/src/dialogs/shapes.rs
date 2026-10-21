@@ -19,6 +19,7 @@ fn title(kind: &str) -> &'static str {
         "ellipse" => tl!("Ellipse"),
         "polygon" => tl!("Polygon"),
         "star" => tl!("Star"),
+        "spiral" => tl!("Spiral"),
         "rectangularGrid" => tl!("Rectangular Grid"),
         "polarGrid" => tl!("Polar Grid"),
         _ => tl!("Line Segment Tool Options"),
@@ -78,6 +79,11 @@ fn body(app: &mut VectorcraftApp, ui: &mut egui::Ui, d: &mut Dialog) -> bool {
                 set_grid_placed(d, artboard_rect(was, refi, None, None, Some(w), Some(h), false));
             }
         });
+    } else if d.kind == "spiral" {
+        form::grid(ui, d, unit);
+        ui.add_space(8.0);
+        form::check(ui, d, "clockwise", tl!("Clockwise"));
+        return false;
     } else {
         form::grid(ui, d, unit);
     }
@@ -107,6 +113,7 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
     let count = match d.kind.as_str() {
         "polygon" => Some(("sides", 6.0, 3.0)),
         "star" => Some(("points", 5.0, 2.0)),
+        "spiral" => Some(("segments", 10.0, 2.0)),
         _ => None,
     };
     let options = count.map(|(key, default, min)| {
@@ -140,6 +147,17 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
             let (l, a) = (d.f64("length", 100.0), d.f64("angle", 0.0).to_radians());
             ("shape.line", json!({"x1": x, "y1": y, "x2": x + l * a.cos(), "y2": y - l * a.sin()}))
         }
+        "spiral" => (
+            "shape.spiral",
+            json!({
+                "cx": x,
+                "cy": y,
+                "radius": d.f64("radius", 50.0),
+                "decay": d.f64("decay", 80.0).clamp(5.0, 150.0),
+                "segments": d.f64("segments", 10.0) as u64,
+                "clockwise": d.fields.get("clockwise").and_then(Value::as_bool).unwrap_or(true),
+            }),
+        ),
         _ => (
             "shape.rectangle",
             json!({"x": bx, "y": by, "width": d.f64("width", 100.0), "height": d.f64("height", 100.0), "radius": d.f64("radius", 0.0)}),
@@ -160,6 +178,19 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spiral_dialog_places_at_the_click_with_its_fields() {
+        let mut app = crate::VectorcraftApp::new(vectorcraft_engine::Session::new(), Default::default());
+        app.run("file.new", json!({"width": 200, "height": 200})).unwrap();
+        super::super::tools::open_tool_dialog(&mut app, "spiral", json!({"x": 30.0, "y": 40.0}));
+        let d = app.ui.dialog.as_ref().expect("spiral dialog");
+        assert_eq!(d.kind, "spiral");
+        assert_eq!(d.f64("x", 0.0), 30.0);
+        crate::dialogs::confirm(&mut app).unwrap();
+        assert!(app.ui.dialog.is_none());
+        assert_eq!(app.session.active().unwrap().selection.len(), 1);
+    }
 
     #[test]
     fn alt_click_centres_the_typed_size_on_the_click() {

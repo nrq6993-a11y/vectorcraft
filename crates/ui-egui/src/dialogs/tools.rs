@@ -20,6 +20,20 @@ pub fn open_tool_dialog(app: &mut VectorcraftApp, kind: &str, p: Value) {
             Dialog::new(kind, json!({"x": x, "y": y, "radius1": "50 pt", "radius2": "25 pt", "points": app.session.tool_options_of(kind)["points"]}))
         }
         "lineSegment" => Dialog::new(kind, json!({"x": x, "y": y, "length": "100 pt", "angle": 0})),
+        "spiral" => {
+            let o = app.session.tool_options_of("spiral");
+            Dialog::new(
+                kind,
+                json!({
+                    "x": x,
+                    "y": y,
+                    "radius": "50 pt",
+                    "decay": o.get("decay").and_then(Value::as_f64).unwrap_or(80.0),
+                    "segments": o.get("segments").and_then(Value::as_u64).unwrap_or(10),
+                    "clockwise": o.get("clockwise").and_then(Value::as_bool).unwrap_or(true),
+                }),
+            )
+        }
         // The grids: the tool's stored options (divider counts and skews, switches) at the default size.
         "rectangularGrid" | "polarGrid" => {
             let mut obj = match app.session.tool_options_of(kind) {

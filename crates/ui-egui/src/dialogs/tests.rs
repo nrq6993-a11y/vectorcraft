@@ -88,6 +88,7 @@ fn every_dialog_draws() {
         "polygon",
         "star",
         "lineSegment",
+        "spiral",
         "rectangularGrid",
         "polarGrid",
         "rotate",
