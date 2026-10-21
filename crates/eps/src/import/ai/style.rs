@@ -50,6 +50,7 @@ use super::paint;
 const GLOW: &str = "Adobe Outer Glow"; // brand-ok: the filter's name in the files
 const FEATHER: &str = "Adobe Feather"; // brand-ok: the filter's name in the files
 const SHADOW: &str = "Adobe Drop Shadow"; // brand-ok: the filter's name in the files
+const PUCKER: &str = "Adobe Pucker & Bloat"; // brand-ok: the filter's name in the files
 const DEFORM: &str = "Adobe Deform"; // brand-ok: the filter's name in the files
 const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the files
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
@@ -455,6 +456,8 @@ fn effect(f: &Filter) -> Option<Effect> {
             }
             ("stylize.dropShadow", params)
         }
+        // LiveEffect XML for Pucker & Bloat (`amount`; public scripting notes).
+        PUCKER => ("distort.puckerBloat", json!({"amount": param("amount").unwrap_or(0.0).clamp(-200.0, 200.0)})),
         // Effect › Warp: `DeformStyle` numbers the styles from 1 as the dialog lists them, `Rotate`
         // is Vertical, and the bend and distortions are fractions.
         DEFORM => {
@@ -651,7 +654,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "distort.puckerBloat"));
     st
 }
 
@@ -683,6 +686,33 @@ mod tests {
             /Dictionary : /NotRecorded ,\n1 /Bool (BSDashAdj) ,\n; (kAIBeautifulStrokesParamsDictKey) ,\n\
             /StrokeStyle : 0 R\n0 0 0 0 0 0 1 XA\n1 J 0 j 2 w 10 M [5 10 ]0 d\n0 XR\n1 0 Xd\n/Def ;\n (StrokeStyle) ,\n; /Dict ;\n /Part ,\n;\n";
         assert!(!art_styles(data)["Stitches"].plain);
+    }
+
+    #[test]
+    fn a_pucker_bloat_reads_its_amount() {
+        for (body, want) in [("25 /Real (amount) ,\n", 25.0), ("-40 /Real (amount) ,\n", -40.0)] {
+            let data = format!(
+                "/KnownStyle :\n(Puck) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+                /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n;\n"
+            );
+            let styles = art_styles(data.as_bytes());
+            let [pb] = styles["Puck"].effects.as_slice() else { panic!("{body}") };
+            assert_eq!((pb.id.as_str(), pb.params["amount"].as_f64()), ("distort.puckerBloat", Some(want)));
+        }
+    }
+
+    #[test]
+    fn a_pucker_bloat_defaults_to_zero_and_clamps_amount() {
+        let bare = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let bare_styles = art_styles(bare);
+        let [zero] = bare_styles["Flat"].effects.as_slice() else { panic!() };
+        assert_eq!(zero.params["amount"].as_f64(), Some(0.0));
+        let huge = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Pucker & Bloat) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n500 /Real (amount) ,\n; /Dict ;\n /Part ,\n;\n";
+        let huge_styles = art_styles(huge);
+        let [clamped] = huge_styles["Flat"].effects.as_slice() else { panic!() };
+        assert_eq!(clamped.params["amount"].as_f64(), Some(200.0));
     }
 
     #[test]
