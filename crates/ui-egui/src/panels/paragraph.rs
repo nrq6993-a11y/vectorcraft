@@ -5,7 +5,7 @@
 
 use egui::{Ui, vec2};
 use serde_json::{Value, json};
-use vectorcraft_doc::{Composer, HyphenationOptions, JustificationOptions, Justify, NodeKind, ParaDirection, ParaStyle, SingleWordJustify};
+use vectorcraft_doc::{Composer, HyphenationOptions, JustificationOptions, Justify, Kinsoku, Mojikumi, NodeKind, ParaDirection, ParaStyle, SingleWordJustify};
 
 use super::character::{Metric, Shared, text_style};
 use super::{pstate, set_pstate};
@@ -207,18 +207,28 @@ pub(crate) fn shared_single_word_justify(app: &VectorcraftApp) -> Option<SingleW
     acc.value()
 }
 
-/// The composer every paragraph in scope shares, or `None` when they differ (neither menu item checked).
-fn shared_composer(app: &VectorcraftApp) -> Option<Composer> {
+/// A paragraph attribute shared by every paragraph in scope, or `None` when they differ.
+fn shared_para<T: PartialEq + Copy>(app: &VectorcraftApp, field: impl Fn(&ParaStyle) -> T) -> Option<T> {
     let mut acc = Shared::None;
     let mut any = false;
     visit_paragraphs(app, |p| {
         any = true;
-        acc.add(p.composer);
+        acc.add(field(p));
     });
     if !any {
-        return text_style(app).map(|(_, p)| p.composer);
+        return text_style(app).map(|(_, p)| field(&p));
     }
     acc.value()
+}
+
+/// The composer every paragraph in scope shares, or `None` when they differ (neither menu item checked).
+fn shared_composer(app: &VectorcraftApp) -> Option<Composer> {
+    shared_para(app, |p| p.composer)
+}
+
+/// Hyphenation shared by every paragraph in scope, or `None` when they differ (checkbox off).
+fn shared_hyphenate(app: &VectorcraftApp) -> Option<bool> {
+    shared_para(app, |p| p.hyphenate)
 }
 
 /// None means differing displayed alignments, following the other mixed-value controls.
@@ -256,10 +266,11 @@ pub fn alignment_buttons(app: &mut VectorcraftApp, ui: &mut Ui, para: &ParaStyle
     }
 }
 
-/// The Hyphenate checkbox of `para`'s paragraphs.
-pub fn hyphenate_check(app: &mut VectorcraftApp, ui: &mut Ui, para: &ParaStyle) {
-    if widgets::check(ui, tl!("Hyphenate"), para.hyphenate, true) {
-        format(app, json!({"hyphenate": !para.hyphenate}));
+/// The Hyphenate checkbox for the paragraphs the panel acts on.
+pub fn hyphenate_check(app: &mut VectorcraftApp, ui: &mut Ui, _para: &ParaStyle) {
+    let hyphenate = shared_hyphenate(app);
+    if widgets::check(ui, tl!("Hyphenate"), hyphenate == Some(true), true) {
+        format(app, json!({"hyphenate": hyphenate != Some(true)}));
     }
 }
 
@@ -353,7 +364,11 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         ui.horizontal(|ui| {
             widgets::dim_label(ui, tl!("Mojikumi Set"));
             let sets = [tl!("None"), tl!("Line-end Punctuation Half Width")];
-            let current = if para.mojikumi == vectorcraft_doc::Mojikumi::LineEndHalf { sets[1] } else { sets[0] };
+            let current = match shared_para(app, |p| p.mojikumi) {
+                Some(Mojikumi::LineEndHalf) => sets[1],
+                Some(Mojikumi::None) => sets[0],
+                None => "",
+            };
             // Already translated: shown as they are.
             if let Some(i) = widgets::dropdown_names(ui, "pa-mojikumi", current, &sets, ui.available_width() - 4.0) {
                 format(app, json!({"mojikumi": if i == 1 { "lineEndHalf" } else { "none" }}));
@@ -361,11 +376,10 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         });
         // Which characters may not start or end a line.
         ui.horizontal(|ui| {
-            use vectorcraft_doc::Kinsoku;
             widgets::dim_label(ui, tl!("Kinsoku Set"));
             let sets = [(tl!("None"), Kinsoku::None, "none"), (tl!("Hard"), Kinsoku::Hard, "hard"), (tl!("Soft"), Kinsoku::Soft, "soft")];
             let names = sets.map(|s| s.0);
-            let current = sets.iter().find(|s| s.1 == para.kinsoku).map_or(names[1], |s| s.0);
+            let current = shared_para(app, |p| p.kinsoku).and_then(|k| sets.iter().find(|s| s.1 == k).map(|s| s.0)).unwrap_or("");
             // Already translated: shown as they are.
             if let Some(i) = widgets::dropdown_names(ui, "pa-kinsoku", current, &names, ui.available_width() - 4.0)
                 && let Some((_, _, key)) = sets.get(i)
@@ -530,6 +544,31 @@ mod tests {
         assert_eq!(shared_composer(&app), None);
         app.run("text.setFormat", json!({"id": id, "composer": "everyLine"})).unwrap();
         assert_eq!(shared_composer(&app), Some(Composer::EveryLine));
+    }
+
+    #[test]
+    fn paragraph_mixed_hyphenate_checks_off() {
+        let (mut app, id) = editing_text("A\nB\n");
+        app.run("text.setFormat", json!({"id": id, "hyphenate": true})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "hyphenate": false})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_hyphenate(&app), None);
+        app.run("text.setFormat", json!({"id": id, "hyphenate": true})).unwrap();
+        assert_eq!(shared_hyphenate(&app), Some(true));
+    }
+
+    #[test]
+    fn paragraph_mixed_kinsoku_and_mojikumi_show_blank_dropdowns() {
+        let (mut app, id) = editing_text("A\nB\n");
+        app.session.prefs.show_east_asian_options = true;
+        app.run("text.setFormat", json!({"id": id, "kinsoku": "hard", "mojikumi": "none"})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "kinsoku": "soft", "mojikumi": "lineEndHalf"})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.kinsoku), None);
+        assert_eq!(shared_para(&app, |p| p.mojikumi), None);
+        app.run("text.setFormat", json!({"id": id, "kinsoku": "hard", "mojikumi": "lineEndHalf"})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.kinsoku), Some(Kinsoku::Hard));
+        assert_eq!(shared_para(&app, |p| p.mojikumi), Some(Mojikumi::LineEndHalf));
     }
 
     #[test]
