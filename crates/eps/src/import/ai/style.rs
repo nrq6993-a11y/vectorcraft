@@ -789,6 +789,19 @@ mod tests {
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
     }
+
+    #[test]
+    fn hostile_stroke_paint_flags_ignore_short_operands() {
+        let mut f = Filter::default();
+        f.paints = (true, true);
+        paint_op(&mut f, "Xd", &[V::Num(1.0)]);
+        assert_eq!(f.paints, (true, true));
+        paint_op(&mut f, "Xd", &[V::Num(0.0), V::Num(1.0)]);
+        assert_eq!(f.paints, (false, true));
+        paint_op(&mut f, "Xd", &[V::Num(2.0), V::Num(0.0)]);
+        assert_eq!(f.paints, (true, false));
+    }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
