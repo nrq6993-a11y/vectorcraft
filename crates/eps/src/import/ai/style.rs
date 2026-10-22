@@ -55,6 +55,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const ROUGH_PASTELS: &str = "PSAdapter_plugin_RghP"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -497,8 +498,20 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
-        // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
+        // Photoshop plug-in settings live in a binary block: VectorCraft's effect defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        ROUGH_PASTELS => (
+            "artistic.roughPastels",
+            json!({
+                "strokeLength": 6.0,
+                "strokeDetail": 10.0,
+                "texture": "canvas",
+                "scaling": 100.0,
+                "relief": 4.0,
+                "lightDirection": "top",
+                "invert": false
+            }),
+        ),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -651,7 +664,10 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st
+            .effects
+            .iter()
+            .all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "artistic.roughPastels"));
     st
 }
 
@@ -762,6 +778,32 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_rough_pastels_art_style_maps_to_a_live_artistic_effect() {
+        let data = b"/KnownStyle :\n(Pastel) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_RghP) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let styles = art_styles(data);
+        let st = &styles["Pastel"];
+        assert!(st.plain, "{st:?}");
+        assert!(st.simple, "{st:?}");
+        let [pastels] = st.effects.as_slice() else { panic!("{st:?}") };
+        assert_eq!(
+            (pastels.id.as_str(), &pastels.params),
+            (
+                "artistic.roughPastels",
+                &json!({
+                    "strokeLength": 6.0,
+                    "strokeDetail": 10.0,
+                    "texture": "canvas",
+                    "scaling": 100.0,
+                    "relief": 4.0,
+                    "lightDirection": "top",
+                    "invert": false
+                })
+            )
+        );
     }
 
     #[test]
