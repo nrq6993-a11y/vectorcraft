@@ -1572,6 +1572,9 @@ lighting	Light	Cahaya
 	Select text to set its OpenType features.	Pilih teks untuk mengatur fitur OpenType-nya.
 	Standard Ligatures	Ligatur standar
 	Swash	Swash
+	Stylistic Sets	Set Stilistis
+	Stylistic Alternates	Alternatif Stilistis
+	Titling Alternates	Alternatif Judul
 	Tabular Lining	Lining tabular
 	Tabular Oldstyle	Oldstyle tabular
 	Every-line Composer	Komposer tiap baris

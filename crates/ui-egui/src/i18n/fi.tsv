@@ -1710,6 +1710,9 @@ lighting	Light	Valo
 	Select text to set its OpenType features.	Valitse teksti, jonka OpenType-ominaisuudet haluat asettaa.
 	Standard Ligatures	Vakioligatuurit
 	Swash	Koukerot
+	Stylistic Sets	Tyylisetit
+	Stylistic Alternates	Tyylivaihtoehdot
+	Titling Alternates	Otsikkovaihtoehdot
 	Tabular Lining	Taulukkonumerot
 	Tabular Oldstyle	Vanhanaikaiset taulukkonumerot
 	Every-line Composer	Kaikkien rivien asettelu

@@ -80,12 +80,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
         }
     });
     widgets::divider(ui);
-    for (label, i) in [
-        (tl!("Stylistic Alternates"), 20usize),
-        (tl!("Titling Alternates"), 21),
-        (tl!("Superscript"), 24),
-        (tl!("Subscript"), 25),
-    ] {
+    for (label, i) in [(tl!("Stylistic Alternates"), 20usize), (tl!("Titling Alternates"), 21), (tl!("Superscript"), 24), (tl!("Subscript"), 25)] {
         let on = next.extra & (1 << i) != 0;
         if widgets::check(ui, label, on, true) {
             if on {

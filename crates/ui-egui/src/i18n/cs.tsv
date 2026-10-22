@@ -1747,6 +1747,9 @@ lighting	Light	Světlo
 	Select text to set its OpenType features.	Vyberte text, abyste mohli nastavit jeho funkce OpenType.
 	Standard Ligatures	Standardní ligatury
 	Swash	Ozdobné tvary
+	Stylistic Sets	Stylistické sady
+	Stylistic Alternates	Stylistické alternativy
+	Titling Alternates	Titulní alternativy
 	Tabular Lining	Tabulkové verzálkové
 	Tabular Oldstyle	Tabulkové minuskové
 	Every-line Composer	Sazba všech řádků

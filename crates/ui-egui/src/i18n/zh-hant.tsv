@@ -3955,6 +3955,9 @@ font-script	Japanese	漢字
 	Swap start and end arrowheads	對調起點與終點箭頭
 	Swap the selected object for the file, keeping its place and transform	以檔案取代選取的物件，並保留其位置與變形
 	Swash	花體字
+	Stylistic Sets	樣式集
+	Stylistic Alternates	樣式替換
+	Titling Alternates	標題替換
 	Swatch Conflict	色票衝突
 	Swatch Conflicts	色票衝突
 	Swatch exchange files keep solid colors only.	色票交換檔案僅保留純色。

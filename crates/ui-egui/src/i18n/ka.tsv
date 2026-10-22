@@ -1473,6 +1473,9 @@ lighting	Light	სინათლე
 	Select text to set its OpenType features.	OpenType შესაძლებლობების დასაყენებლად მონიშნეთ ტექსტი.
 	Standard Ligatures	სტანდარტული ლიგატურები
 	Swash	მოხატული ასოები (swash)
+	Stylistic Sets	სტილისტური ნაკრებები
+	Stylistic Alternates	სტილისტური ალტერნატივები
+	Titling Alternates	სათაურის ალტერნატივები
 	Tabular Lining	ცხრილური ხაზოვანი
 	Tabular Oldstyle	ცხრილური ძველებური
 	Every-line Composer	აბზაცის მიხედვით აწყობა
