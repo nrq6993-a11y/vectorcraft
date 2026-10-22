@@ -55,6 +55,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const PLASTER: &str = "PSAdapter_plugin_Plst"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -497,8 +498,9 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
-        // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
+        // Photoshop Sketch plug-ins store settings in a binary block: VectorCraft's effect defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        PLASTER => ("sketch.plaster", json!({"imageBalance": 20.0, "smoothness": 8.0, "lightDirection": "top"})),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -651,13 +653,28 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "sketch.plaster"));
     st
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_plaster_style_maps_to_a_live_sketch_effect() {
+        let style = art_styles(
+            b"/KnownStyle :\n(Mold) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_Plst) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Mold")
+        .unwrap_or_default();
+        let [pl] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (pl.id.as_str(), &pl.params["imageBalance"], &pl.params["smoothness"], &pl.params["lightDirection"]),
+            ("sketch.plaster", &json!(20.0), &json!(8.0), &json!("top"))
+        );
+    }
 
     #[test]
     fn a_variable_width_stroke_keeps_its_profile() {
