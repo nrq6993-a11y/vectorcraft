@@ -768,14 +768,21 @@ mod tests {
     fn hostile_dash_offsets_and_width_profiles_are_tamed() {
         let mut f = Filter::default();
         paint_op(&mut f, "d", &[V::Arr(vec![V::Num(5.0)]), V::Num(f64::NAN)]);
-        assert_eq!(f.dash.map(|d| d.offset), Some(0.0));
+        assert_eq!(f.dash.as_ref().map(|d| d.offset), Some(0.0));
         // Positions outside 0..=1 and out of order, a negative width, a non-finite one.
         let arrays = HashMap::from([
             ("BSVariableWidthTValuesArray".to_string(), vec![1.5, -0.2, 0.5, 0.7]),
             ("BSCenteredWidthsArray".to_string(), vec![-1.0, 2.0, 0.5, f64::INFINITY]),
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
+        let ok = (0..64).map(|_| V::Num(2.0)).collect::<Vec<_>>();
+        paint_op(&mut f, "d", &[V::Arr(ok), V::Num(0.0)]);
+        assert_eq!(f.dash.as_ref().map(|d| d.pattern.len()), Some(64));
+        let huge = (0..65).map(|_| V::Num(1.0)).collect::<Vec<_>>();
+        paint_op(&mut f, "d", &[V::Arr(huge), V::Num(0.0)]);
+        assert_eq!(f.dash, None);
     }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
