@@ -5020,3 +5020,5 @@ lighting	Light	Свет
 	Packaged {n} file(s) in {folder}	Упаковано файлов: {n} в {folder}
 	Packaged {n} file(s) {note}	Упаковано файлов: {n} {note}
 	{count} file(s) in {folder}. Show the package folder?	Файлов: {count} в {folder}. Показать папку пакета?
+@msg	{count} file(s) in {folder}. Show the package folder?	Файлов: {count} в {folder}. Показать папку пакета?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	Файлов: {count} в {folder}{note}. Показать папку пакета?

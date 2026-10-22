@@ -5261,3 +5261,5 @@ mark-style	Japanese	Japońskie
 	Packaged {n} file(s) in {folder}	Spakowane pliki: {n} w {folder}
 	Packaged {n} file(s) {note}	Spakowane pliki: {n} {note}
 	{count} file(s) in {folder}. Show the package folder?	Pliki: {count} w {folder}. Pokazać folder pakietu?
+@msg	{count} file(s) in {folder}. Show the package folder?	Pliki: {count} w {folder}. Pokazać folder pakietu?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	Pliki: {count} w {folder}{note}. Pokazać folder pakietu?

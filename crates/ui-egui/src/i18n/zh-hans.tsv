@@ -5248,3 +5248,5 @@ lighting	Light	光源
 	Packaged {n} file(s) in {folder}	已将 {n} 个文件打包到 {folder}
 	Packaged {n} file(s) {note}	已打包 {n} 个文件 {note}
 	{count} file(s) in {folder}. Show the package folder?	{folder} 中有 {count} 个文件。要显示打包文件夹吗？
+@msg	{count} file(s) in {folder}. Show the package folder?	{folder} 中有 {count} 个文件。要显示打包文件夹吗？
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{folder} 中有 {count} 个文件{note}。要显示打包文件夹吗？

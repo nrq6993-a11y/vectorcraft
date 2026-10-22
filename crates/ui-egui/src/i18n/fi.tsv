@@ -5440,3 +5440,5 @@ swatch	Bright Violet	Kirkas violetti
 	Packaged {n} file(s) in {folder}	Paketoitiin {n} tiedosto(a) kansioon {folder}
 	Packaged {n} file(s) {note}	Paketoitiin {n} tiedosto(a) {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} tiedosto(a) kansiossa {folder}. Näytetäänkö pakettikansio?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} tiedosto(a) kansiossa {folder}. Näytetäänkö pakettikansio?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} tiedosto(a) kansiossa {folder}{note}. Näytetäänkö pakettikansio?

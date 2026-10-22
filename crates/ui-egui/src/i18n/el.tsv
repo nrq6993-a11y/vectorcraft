@@ -5361,3 +5361,5 @@ effect	Points	Σημεία
 	Packaged {n} file(s) in {folder}	Συσκευάστηκαν {n} αρχεία στον φάκελο {folder}
 	Packaged {n} file(s) {note}	Συσκευάστηκαν {n} αρχεία {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} αρχεία στον φάκελο {folder}. Να εμφανιστεί ο φάκελος συσκευασίας;
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} αρχεία στον φάκελο {folder}. Να εμφανιστεί ο φάκελος συσκευασίας;
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} αρχεία στον φάκελο {folder}{note}. Να εμφανιστεί ο φάκελος συσκευασίας;

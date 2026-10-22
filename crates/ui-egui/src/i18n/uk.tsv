@@ -5004,3 +5004,5 @@ lighting	Light	Світло
 	Packaged {n} file(s) in {folder}	Упаковано файли: {n} {folder}
 	Packaged {n} file(s) {note}	Упаковано файли: {n} {note}
 	{count} file(s) in {folder}. Show the package folder?	файлів: {count} {folder}. Показати папку пакета?
+@msg	{count} file(s) in {folder}. Show the package folder?	файлів: {count} {folder}. Показати папку пакета?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	файлів: {count} {folder}{note}. Показати папку пакета?

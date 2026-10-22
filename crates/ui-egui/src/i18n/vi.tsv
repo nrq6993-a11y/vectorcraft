@@ -5004,3 +5004,5 @@ theme	Appearance	Giao diện
 	Packaged {n} file(s) in {folder}	Đã đóng gói {n} tệp trong {folder}
 	Packaged {n} file(s) {note}	Đã đóng gói {n} tệp {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} tệp trong {folder}. Hiện thư mục gói?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} tệp trong {folder}. Hiện thư mục gói?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} tệp trong {folder}{note}. Hiện thư mục gói?

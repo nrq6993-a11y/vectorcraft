@@ -5024,3 +5024,5 @@ lighting	Light	Luce
 	Packaged {n} file(s) in {folder}	Pacchetto creato con {n} file in {folder}
 	Packaged {n} file(s) {note}	Pacchetto creato con {n} file {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} file in {folder}. Vuoi mostrare la cartella del pacchetto?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} file in {folder}. Vuoi mostrare la cartella del pacchetto?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} file in {folder} {note}. Vuoi mostrare la cartella del pacchetto?

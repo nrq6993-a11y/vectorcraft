@@ -5409,3 +5409,5 @@ mark-style	Japanese	Japonské
 	Packaged {n} file(s) in {folder}	Zabaleno souborů: {n} do {folder}
 	Packaged {n} file(s) {note}	Zabaleno souborů: {n} {note}
 	{count} file(s) in {folder}. Show the package folder?	Souborů: {count} v {folder}. Zobrazit složku balíčku?
+@msg	{count} file(s) in {folder}. Show the package folder?	Souborů: {count} v {folder}. Zobrazit složku balíčku?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	Souborů: {count} v {folder}{note}. Zobrazit složku balíčku?

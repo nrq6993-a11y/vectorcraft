@@ -5395,3 +5395,5 @@ imageTrace	Outline	Körvonal
 	Packaged {n} file(s) in {folder}	Becsomagolt fájlok: {n}, mappa: {folder}
 	Packaged {n} file(s) {note}	Becsomagolt fájlok: {n} {note}
 	{count} file(s) in {folder}. Show the package folder?	Fájlok: {count}, mappa: {folder}. Megnyitod a csomag mappáját?
+@msg	{count} file(s) in {folder}. Show the package folder?	Fájlok: {count}, mappa: {folder}. Megnyitod a csomag mappáját?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	Fájlok: {count}, mappa: {folder}{note}. Megnyitod a csomag mappáját?

@@ -5318,3 +5318,5 @@ imageTrace	Outline	კონტური
 	Packaged {n} file(s) in {folder}	შეფუთულია ფაილი ({n}) საქაღალდეში {folder}
 	Packaged {n} file(s) {note}	შეფუთულია ფაილი ({n}) {note}
 	{count} file(s) in {folder}. Show the package folder?	ფაილები: {count}, ადგილი: {folder}. ვაჩვენოთ შეფუთვის საქაღალდე?
+@msg	{count} file(s) in {folder}. Show the package folder?	ფაილები: {count}, ადგილი: {folder}. ვაჩვენოთ შეფუთვის საქაღალდე?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	ფაილები: {count}, ადგილი: {folder}{note}. ვაჩვენოთ შეფუთვის საქაღალდე?

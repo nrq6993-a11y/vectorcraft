@@ -5408,3 +5408,5 @@ theme	Appearance	Apparence
 	Packaged {n} file(s) in {folder}	{n} fichier(s) assemblé(s) dans {folder}
 	Packaged {n} file(s) {note}	{n} fichier(s) assemblé(s) {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} fichier(s) dans {folder}. Afficher le dossier de l’assemblage ?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} fichier(s) dans {folder}. Afficher le dossier de l’assemblage ?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} fichier(s) dans {folder}{note}. Afficher le dossier de l’assemblage ?

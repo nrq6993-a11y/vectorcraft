@@ -5326,3 +5326,5 @@ mark-style	Japanese	Japonesas
 	Packaged {n} file(s) in {folder}	{n} arquivo(s) empacotado(s) em {folder}
 	Packaged {n} file(s) {note}	{n} arquivo(s) empacotado(s) {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} arquivo(s) em {folder}. Mostrar a pasta do pacote?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} arquivo(s) em {folder}. Mostrar a pasta do pacote?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} arquivo(s) em {folder}{note}. Mostrar a pasta do pacote?

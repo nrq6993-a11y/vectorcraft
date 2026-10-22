@@ -4990,3 +4990,5 @@ effect	Soft	Weich
 	Packaged {n} file(s) in {folder}	{n} Datei(en) in {folder} verpackt
 	Packaged {n} file(s) {note}	{n} Datei(en) verpackt {note}
 	{count} file(s) in {folder}. Show the package folder?	{count} Datei(en) in {folder}. Paketordner anzeigen?
+@msg	{count} file(s) in {folder}. Show the package folder?	{count} Datei(en) in {folder}. Paketordner anzeigen?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{count} Datei(en) in {folder} {note}. Paketordner anzeigen?

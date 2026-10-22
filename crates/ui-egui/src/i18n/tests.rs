@@ -1700,6 +1700,28 @@ fn package_status_message_templates_parse() {
     assert!(Catalog::parse("@msg\tPackaged {n} file(s) in {folder}{note}\tbad\n").message("Packaged 1 file(s) in /a b").is_none());
 }
 
+/// Package status and confirm strings from [`crate::dialogs::package`] use distinct `@msg` templates
+/// in every [`COMPLETE_MESSAGES`] catalog (not only plain `tl!` rows).
+#[test]
+fn package_status_msg_rows_exist_in_complete_message_catalogs() {
+    const TEMPLATES: &[&str] = &[
+        "Packaged {n} file(s)",
+        "Packaged {n} file(s) {note}",
+        "Packaged {n} file(s) in {folder}",
+        "Packaged {n} file(s) in {folder} {note}",
+        "{count} file(s) in {folder}. Show the package folder?",
+        "{count} file(s) in {folder} {note}. Show the package folder?",
+    ];
+    for code in COMPLETE_MESSAGES {
+        let lang = Lang::from_code(code).expect("registered");
+        let (entries, errors) = parse_entries(lang.0.source);
+        assert!(errors.is_empty(), "{}: {errors:?}", code);
+        let rows: std::collections::HashSet<&str> = entries.iter().filter(|(ctx, _, _)| ctx == "@msg").map(|(_, src, _)| src.as_str()).collect();
+        let missing: Vec<_> = TEMPLATES.iter().filter(|t| !rows.contains(*t)).collect();
+        assert!(missing.is_empty(), "{}: missing @msg rows: {missing:#?}", code);
+    }
+}
+
 /// Each language that translates status and error messages ([`COMPLETE_MESSAGES`]) has an `@msg`
 /// row for every message in the sources that reach the status bar, so a new one can't ship
 /// untranslated by accident (`VECTORCRAFT_I18N_DUMP_MESSAGES=<file>` lists them). A message listed

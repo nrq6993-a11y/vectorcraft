@@ -5372,3 +5372,5 @@ theme	Appearance	Görünüm
 	Packaged {n} file(s) in {folder}	{folder} biçiminde paketlenmiş {n} dosyası/dosyaları
 	Packaged {n} file(s) {note}	Paketlenmiş {n} dosyası/dosyaları {note}
 	{count} file(s) in {folder}. Show the package folder?	{folder} içindeki {count} dosyası/dosyaları. Paket klasörü gösterilsin mi?
+@msg	{count} file(s) in {folder}. Show the package folder?	{folder} içindeki {count} dosyası/dosyaları. Paket klasörü gösterilsin mi?
+@msg	{count} file(s) in {folder} {note}. Show the package folder?	{folder}{note} içindeki {count} dosyası/dosyaları. Paket klasörü gösterilsin mi?
