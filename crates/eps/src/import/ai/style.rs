@@ -775,7 +775,12 @@ mod tests {
             ("BSCenteredWidthsArray".to_string(), vec![-1.0, 2.0, 0.5, f64::INFINITY]),
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
+        let long = (0..1025).map(|i| i as f64 / 1024.0).collect::<Vec<_>>();
+        let wide = vec![1.0; 1025];
+        let huge = HashMap::from([("BSVariableWidthTValuesArray".to_string(), long), ("BSCenteredWidthsArray".to_string(), wide)]);
+        assert_eq!(width_profile(&huge), None);
     }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
