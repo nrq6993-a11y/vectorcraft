@@ -36,6 +36,17 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_runtime_procedure_call_depth_is_bounded() {
+    let mut body = String::from("/p0 { } def ");
+    for i in 1..=400 {
+        body.push_str(&format!("/p{i} {{ p{} }} def ", i - 1));
+    }
+    body.push_str("p400");
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("procedures nest too deeply"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
