@@ -68,6 +68,21 @@ fn effect_menu_lists_outline_object_between_offset_path_and_outline_stroke() {
     );
 }
 
+/// Effect › Pathfinder › Trap… is last in the submenu and opens its options dialog.
+#[test]
+fn effect_menu_lists_trap_last_in_pathfinder_with_dialog() {
+    let app = app();
+    let entries = menus::menu_entries(&app);
+    let pathfinder: Vec<_> = entries.iter().filter(|e| e.path == ["Effect", "Pathfinder"]).collect();
+    assert_eq!(pathfinder.len(), 13);
+    let trap = pathfinder.last().expect("Trap");
+    assert_eq!(trap.label, "Trap");
+    assert_eq!(trap.command.as_deref(), Some("effect.dialog"));
+    assert_eq!(trap.params, json!({"effect": "pathfinder.trap"}));
+    assert_eq!(pathfinder[10].params, json!({"effect": "pathfinder.hardMix"}));
+    assert_eq!(pathfinder[11].params, json!({"effect": "pathfinder.softMix"}));
+}
+
 /// Effect › Rasterize…, an item of its own between Pathfinder and Stylize, opens its options.
 #[test]
 fn effect_menu_lists_rasterize_between_pathfinder_and_stylize() {
