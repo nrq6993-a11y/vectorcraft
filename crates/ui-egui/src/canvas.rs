@@ -3373,7 +3373,7 @@ fn task_bar(app: &mut VectorcraftApp, ui: &mut Ui, xf: &Xf) {
         let anchors = !st.selection.anchors.is_empty();
         if anchors {
             items.push((tl!("Remove Anchor Points"), "pen-tool-delete", "path.removeAnchors", none()));
-            items.push((tl!("Connect"), "dc-join", "path.join", none()));
+            items.push((tl!("Connect"), "dc-join", "path.join", json!({"averageFirst": true})));
             items.push((tl!("Cut Path"), "scissors", "path.cutAtAnchors", none()));
             items.push((tl!("Corner"), "dc-anchor", TASK_BAR_TO_CORNER, none()));
             items.push((tl!("Smooth"), "dc-anchor-smooth", TASK_BAR_TO_SMOOTH, none()));

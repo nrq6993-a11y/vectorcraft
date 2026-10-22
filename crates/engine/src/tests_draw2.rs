@@ -2093,6 +2093,20 @@ fn the_pen_continues_any_open_path_and_joins_another() {
     assert_eq!(pts(&s, a), [(400.0, 200.0), (300.0, 200.0), (200.0, 100.0), (100.0, 100.0), (50.0, 50.0)]);
 }
 
+/// `path.join {averageFirst: true}` averages direct-selected anchors and merges coincident ones
+/// in one undo step (Object › Path › Join).
+#[test]
+fn join_average_first_merges_in_one_undo_step() {
+    let mut s = session();
+    let r = rect(&mut s, 100.0, 100.0, 100.0, 80.0);
+    let pts = |s: &Session| path(s, r).subpaths[0].anchors.iter().map(|x| (x.p.x, x.p.y)).collect::<Vec<_>>();
+    s.execute("select.anchors", &json!({"id": r.0, "anchors": [[0, 0], [0, 1]], "mode": "set"})).unwrap();
+    s.execute("path.join", &json!({"averageFirst": true})).unwrap();
+    assert_eq!(pts(&s), [(150.0, 100.0), (200.0, 180.0), (100.0, 180.0)]);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(pts(&s).len(), 4);
+}
+
 /// #1533: two corners of a rectangle brought together by Average become one anchor on Join, in
 /// one undo step; anchors that aren't on one another leave Join as it was.
 #[test]

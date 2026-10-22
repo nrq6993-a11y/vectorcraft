@@ -74,7 +74,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Join",
             ["Object", "Path"],
             Some("Cmd+J"),
-            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair), to?: \"corner\"|\"smooth\" (the joined anchor: corner retracts both handles, smooth pulls handles in line with the neighbours)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
+            "{ids?: [path, path] (default: the selected paths), ends?: [\"first\"|\"last\", \"first\"|\"last\"] (which end of each path to join, as the Pen joins them; default: the nearest pair), to?: \"corner\"|\"smooth\" (the joined anchor: corner retracts both handles, smooth pulls handles in line with the neighbours), averageFirst?: true (average the direct-selected anchors with path.average's axis, then join, as one undo step), axis?: \"horizontal\"|\"vertical\"|\"both\" (with averageFirst; default both)} join two open paths into one (the first keeps its id, selected), or close a single open path; without ids, direct-selected anchors lying on one another along a path merge into one anchor instead",
             has_selection,
             join
         ),
@@ -386,8 +386,39 @@ fn merge_coincident(sp: &mut SubPath, picked: impl Fn(usize) -> bool, join_kind:
     before - sp.anchors.len()
 }
 
+fn apply_average(d: &mut vectorcraft_doc::Document, t: &AnchorTargets, axis: &str) {
+    let pts: Vec<Point> = t
+        .iter()
+        .flat_map(|(id, v)| v.iter().filter_map(|&(si, ai)| d.node(*id)?.path_data()?.subpaths.get(si)?.anchors.get(ai).map(|a| a.p)))
+        .collect();
+    if pts.is_empty() {
+        return;
+    }
+    let c = Point::new(pts.iter().map(|p| p.x).sum::<f64>() / pts.len() as f64, pts.iter().map(|p| p.y).sum::<f64>() / pts.len() as f64);
+    for (id, v) in t {
+        let path = match path_mut(d, *id) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+        for &(si, ai) in v {
+            if let Some(a) = path.anchor_mut(si, ai) {
+                let target = match axis {
+                    "horizontal" => Point::new(a.p.x, c.y),
+                    "vertical" => Point::new(c.x, a.p.y),
+                    _ => c,
+                };
+                a.translate(target - a.p);
+            }
+        }
+    }
+}
+
 fn join(s: &mut Session, p: &Value) -> Result<Value> {
     const C: &str = "path.join";
+    let average_first = p.get("averageFirst").and_then(Value::as_bool).unwrap_or(false);
+    let avg_axis = str_param(p, "axis").unwrap_or("both");
+    let st = s.doc()?;
+    let avg_targets = if average_first && !st.selection.anchors.is_empty() { anchor_targets(s)? } else { vec![] };
     let join_kind = match p.get("to").and_then(Value::as_str) {
         None => None,
         Some("smooth") => Some(true),
@@ -396,7 +427,6 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
     };
     let ids = match ids_param(p, "ids") {
         Some(ids) => {
-            let st = s.doc()?;
             if let Some(id) = ids.iter().find(|id| !matches!(st.doc.node(**id).map(|n| &n.kind), Some(NodeKind::Path { .. }))) {
                 return Err(bad(C, format!("{} isn't a path", id.0)));
             }
@@ -407,7 +437,23 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
     // Direct-selected anchors lying on one another along a path (two corners brought together by
     // Average) become one anchor; the paths themselves are joined only when there are none.
     if p.get("ids").is_none() {
-        let st = s.doc()?;
+        if average_first && !avg_targets.is_empty() {
+            let objects = st.selection.objects.clone();
+            let picks: Vec<(NodeId, BTreeSet<(usize, usize)>)> = st.selection.anchors.iter().map(|(id, set)| (*id, set.clone())).collect();
+            let avg_targets = avg_targets.clone();
+            s.edit("Join", |d, sel| {
+                apply_average(d, &avg_targets, avg_axis);
+                for (id, picked) in &picks {
+                    let path = path_mut(d, *id)?;
+                    for (si, sp) in path.subpaths.iter_mut().enumerate() {
+                        merge_coincident(sp, |ai| picked.contains(&(si, ai)), join_kind);
+                    }
+                }
+                sel.set(objects);
+                Ok(())
+            })?;
+            return ok();
+        }
         let mut merged = vec![];
         for (id, picked) in &st.selection.anchors {
             let Some(mut path) = st.doc.node(*id).and_then(|n| n.path_data()).cloned() else { continue };
@@ -423,7 +469,6 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
                 for (id, path) in merged {
                     *path_mut(d, id)? = path;
                 }
-                // The anchor indices changed: the paths stay selected, whole.
                 sel.set(objects);
                 Ok(())
             })?;
@@ -467,7 +512,11 @@ fn join(s: &mut Session, p: &Value) -> Result<Value> {
             if a == b {
                 return Err(bad(C, "join two different paths"));
             }
+            let avg_targets = avg_targets.clone();
             s.edit("Join", |d, sel| {
+                if average_first && !avg_targets.is_empty() {
+                    apply_average(d, &avg_targets, avg_axis);
+                }
                 let pb = d.node(b).and_then(|n| n.path_data()).cloned().ok_or(EngineError::NoNode(b))?;
                 let pa = path_mut(d, a)?;
                 let (Some(sa), Some(sb)) = (pa.subpaths.iter().position(|s| !s.closed), pb.subpaths.iter().position(|s| !s.closed)) else {
@@ -531,30 +580,12 @@ pub(super) fn anchor_targets(s: &Session) -> Result<AnchorTargets> {
 
 fn average(s: &mut Session, p: &Value) -> Result<Value> {
     let t = anchor_targets(s)?;
-    let d0 = &s.doc()?.doc;
-    let pts: Vec<Point> = t
-        .iter()
-        .flat_map(|(id, v)| v.iter().filter_map(move |(si, ai)| d0.node(*id)?.path_data()?.subpaths.get(*si)?.anchors.get(*ai).map(|a| a.p)))
-        .collect();
-    if pts.is_empty() {
+    if t.iter().all(|(_, v)| v.is_empty()) {
         return ok();
     }
-    let c = Point::new(pts.iter().map(|p| p.x).sum::<f64>() / pts.len() as f64, pts.iter().map(|p| p.y).sum::<f64>() / pts.len() as f64);
-    let axis = str_param(p, "axis").unwrap_or("both").to_string();
+    let axis = str_param(p, "axis").unwrap_or("both");
     s.edit("Average", |d, _| {
-        for (id, v) in &t {
-            let path = path_mut(d, *id)?;
-            for &(si, ai) in v {
-                if let Some(a) = path.anchor_mut(si, ai) {
-                    let target = match axis.as_str() {
-                        "horizontal" => Point::new(a.p.x, c.y),
-                        "vertical" => Point::new(c.x, a.p.y),
-                        _ => c,
-                    };
-                    a.translate(target - a.p);
-                }
-            }
-        }
+        apply_average(d, &t, axis);
         Ok(())
     })?;
     ok()
