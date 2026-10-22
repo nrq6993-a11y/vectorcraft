@@ -36,6 +36,13 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_operand_stack_overflow_is_bounded() {
+    let body = format!("{} pop", "1 ".repeat(100_001));
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("the operand stack overflowed"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
