@@ -2710,7 +2710,7 @@ pub fn menu_tree_named(english_names: bool) -> Vec<(&'static str, Vec<Item>)> {
                 sub(
                     "Path",
                     vec![
-                        c("Join", "path.join"),
+                        cp("Join", "path.join", json!({"averageFirst": true})),
                         c("Average…", "path.average"),
                         Sep,
                         c("Outline Stroke", "object.path.outlineStroke"),
@@ -3258,7 +3258,7 @@ pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
         }
         let paths = any(|k| matches!(k, NodeKind::Path { .. }));
         if paths {
-            v.extend([c("Join", "path.join"), c("Average…", "path.average")]);
+            v.extend([cp("Join", "path.join", json!({"averageFirst": true})), c("Average…", "path.average")]);
         }
         if !st.selection.anchors.is_empty() {
             v.extend([c("Remove Anchor Points", "path.removeAnchors"), c("Cut Path at Selected Anchor Points", "path.cutAtAnchors")]);

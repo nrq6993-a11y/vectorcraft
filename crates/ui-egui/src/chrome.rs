@@ -187,7 +187,7 @@ pub fn anchor_buttons(app: &mut VectorcraftApp, ui: &mut Ui, controls: AnchorCon
             tl!("Anchors:"),
             &[
                 ("pen-tool-delete", tl!("Remove Anchor Points"), "path.removeAnchors", None),
-                ("dc-join", tl!("Connect Selected End Points"), "path.join", None),
+                ("dc-join", tl!("Connect Selected End Points"), "path.join", Some("averageFirst")),
                 ("scissors", tl!("Cut Path at Selected Anchor Points"), "path.cutAtAnchors", None),
             ],
         ),
@@ -202,7 +202,13 @@ pub fn anchor_buttons(app: &mut VectorcraftApp, ui: &mut Ui, controls: AnchorCon
             ui.label(egui::RichText::new(label).size(12.0).color(t.text));
             for &(icon, tip, id, to) in buttons {
                 if widgets::icon_button(ui, icon, tip, false, 24.0).clicked() {
-                    run = Some((id, to.map_or_else(|| json!({}), |to| json!({ "to": to }))));
+                    run = Some((id, to.map_or_else(|| json!({}), |to| {
+                        if id == "path.join" && to == "averageFirst" {
+                            json!({"averageFirst": true})
+                        } else {
+                            json!({ "to": to })
+                        }
+                    })));
                 }
             }
         });
