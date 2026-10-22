@@ -1015,9 +1015,9 @@ fn draw_groups(
             ui.painter().rect_filled(gap, 0.0, t.tab_strip);
             gap.top()
         };
-        // Tab strip: a click shows a tab, a double-click collapses the group, a drag out of the
-        // strip floats a tab on its own; a lone tab or the strip right of the tabs moves the group
-        // (out of its set).
+        // Tab strip: a click shows a tab, a double-click on a tab or the strip right of the tabs
+        // collapses the group; a drag out of the strip floats a tab on its own; a lone tab or that
+        // blank strip moves the group (out of its set).
         let (strip, _) = ui.allocate_exact_size(vec2(width, STRIP), Sense::hover());
         ui.painter().rect_filled(strip, 0.0, t.panel_darker);
         let lone = g.ids.len() == 1;
@@ -1049,8 +1049,10 @@ fn draw_groups(
         }
         let rest = Rect::from_min_max(pos2(out.right, strip.top()), pos2(menu.left() - 4.0, strip.bottom()));
         if rest.width() > 0.0 {
-            let resp = ui.interact(rest, ui.id().with(("strip", g.gi)), Sense::drag());
-            if resp.drag_started() {
+            let resp = ui.interact(rest, ui.id().with(("strip", g.gi)), Sense::click_and_drag());
+            if resp.double_clicked() {
+                *action = Some(Action::Collapse(g.gi));
+            } else if resp.drag_started() {
                 *action = Some(match alone {
                     Some(pos) => Action::Move(g.active, pos),
                     None => Action::Detach(g.gi, strip.left()),
@@ -1775,6 +1777,26 @@ mod tests {
         assert!(h.app.ui.floating_panels[0].collapsed);
         h.app.run("window.panel", json!({"panel": "layers"})).unwrap();
         assert!(!h.app.ui.floating_panels[0].collapsed);
+    }
+
+    #[test]
+    fn a_double_click_on_blank_tab_strip_collapses_a_floating_group() {
+        let mut h = Harness::new();
+        h.app.run("window.panel.float", json!({"panel": "layers", "x": 500, "y": 150})).unwrap();
+        h.app.run("window.panel.float", json!({"panel": "stroke", "below": "layers"})).unwrap();
+        h.settle();
+        let open = h.temp_rect(group_rect_id("layers"));
+        let strip_y = open.top() + 1.0 + TITLE + STRIP / 2.0;
+        let at = pos2(open.left() + 160.0, strip_y);
+        h.time += 1.0;
+        h.frame(vec![Event::PointerMoved(at), button(at, true)]);
+        h.frame(vec![button(at, false)]);
+        h.frame(vec![button(at, true)]);
+        h.frame(vec![button(at, false)]);
+        h.settle();
+        assert!(h.app.ui.floating_panels[0].collapsed, "collapsed from blank strip");
+        let shut = h.temp_rect(group_rect_id("layers"));
+        assert!(shut.height() < 1.0 + TITLE + STRIP + 2.0, "only its tabs: {shut:?}");
     }
 
     #[test]

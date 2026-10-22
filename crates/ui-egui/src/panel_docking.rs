@@ -1066,13 +1066,31 @@ pub(crate) fn show(app: &mut VectorcraftApp, ui: &mut egui::Ui) -> bool {
             }
             None => dock(ui),
         };
-        // A double-click on a tab of the dock's tree collapses its group to its tabs, or expands it.
+        // A double-click on a tab or the strip right of the tabs collapses its group to its tabs, or expands it.
         if let Some(root) = &drawn.root {
             let tabs = Layout { root: Some(root.clone()), floating: Vec::new() };
             if let Some(panel) =
                 tabs.panels().into_iter().find(|p| ui.ctx().read_response(area.with(("tab", *p))).is_some_and(|r| r.double_clicked()))
             {
                 content.commands.push(("window.panel.collapse", json!({"panel": panel})));
+            } else {
+                let groups = root_groups(ui.ctx(), &display, tree, style.tab_height);
+                for g in groups {
+                    let tabs_right = g
+                        .panels
+                        .iter()
+                        .filter_map(|p| ui.ctx().read_response(area.with(("tab", &p.to_string()))).map(|r| r.rect.right()))
+                        .fold(g.strip.left(), |a, b| a.max(b));
+                    let menu_left = g.strip.right() - 18.0;
+                    let rest = egui::Rect::from_min_max(egui::pos2(tabs_right, g.strip.top()), egui::pos2(menu_left, g.strip.bottom()));
+                    if rest.width() > 4.0 {
+                        let resp = ui.interact(rest, area.with(("strip-blank", g.shown)), egui::Sense::click_and_drag());
+                        if resp.double_clicked() {
+                            content.commands.push(("window.panel.collapse", json!({"panel": g.shown})));
+                            break;
+                        }
+                    }
+                }
             }
         }
         let groups = if collapsed { Vec::new() } else { root_groups(ui.ctx(), &display, tree, style.tab_height) };

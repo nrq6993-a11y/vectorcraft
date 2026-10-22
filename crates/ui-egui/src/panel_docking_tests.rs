@@ -970,6 +970,22 @@ fn tab_center(h: &Harness<'static, VectorcraftApp>, panel: &str) -> Pos2 {
     h.ctx.read_response(egui::Id::new("vectorcraft-panel-docking").with(("tab", &panel.to_string()))).unwrap().rect.center()
 }
 
+/// The middle of the shared dock tab strip right of the tabs (not on the ≡ menu).
+fn tab_strip_blank_center(h: &Harness<'static, VectorcraftApp>, panel: &str) -> Pos2 {
+    let docking = egui::Id::new("vectorcraft-panel-docking");
+    let groups = root_groups(h);
+    let group = groups.iter().find(|g| g.panels.contains(&panel)).expect("dock group");
+    let tabs_right = group
+        .panels
+        .iter()
+        .filter_map(|p| h.ctx.read_response(docking.with(("tab", &p.to_string()))).map(|r| r.rect.right()))
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(group.strip.left());
+    let menu_left = group.strip.right() - 18.0;
+    let x = tabs_right + (menu_left - tabs_right) * 0.5;
+    pos2(x.max(tabs_right + 2.0), group.strip.center().y)
+}
+
 /// A double-click on a tab of the shared dock collapses its group to its tabs; another tab expands it.
 #[test]
 fn a_double_click_on_a_dock_tab_collapses_its_group_to_its_tabs_and_another_expands_it() {
@@ -1029,6 +1045,52 @@ fn a_double_click_on_a_legacy_dock_tab_collapses_the_tabbed_group() {
     double_click(&mut h, tab);
     assert!(h.state().ui.docking_collapsed.is_empty());
     assert!(layers_drawn(&h), "Layers shows again");
+}
+
+/// A double-click on the legacy dock's tab strip right of the tabs collapses the tabbed group.
+#[test]
+fn a_double_click_on_blank_legacy_tab_strip_collapses_the_tabbed_group() {
+    let mut app = app();
+    app.run("file.new", json!({"width": 400, "height": 300})).unwrap();
+    let mut h = harness(app, vec2(1280.0, 800.0));
+    let dock_tab_rect = |h: &Harness<'static, VectorcraftApp>, label: &str| {
+        h.query_all_by_label(label).find(|node| node.rect().height() <= 45.0).map(|node| node.rect())
+    };
+    let layers_tab = dock_tab_rect(&h, "Layers").expect("Layers tab");
+    let strip_y = layers_tab.center().y;
+    let tabs_right = ["Properties", "Layers", "Libraries"]
+        .iter()
+        .filter_map(|label| dock_tab_rect(&h, label))
+        .map(|r| r.right())
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .expect("dock tabs");
+    let at = pos2(tabs_right + 36.0, strip_y);
+    click(&mut h, layers_tab.center());
+    h.run_steps(45);
+    assert!(layers_drawn(&h), "Layers shows");
+    double_click(&mut h, at);
+    assert!(h.state().ui.docking.is_none(), "still the legacy dock");
+    assert!(h.state().ui.docking_collapsed.contains("layers"));
+    assert!(!layers_drawn(&h), "no Layers body");
+    double_click(&mut h, at);
+    assert!(h.state().ui.docking_collapsed.is_empty());
+    assert!(layers_drawn(&h), "Layers shows again");
+}
+
+/// A double-click on the shared dock's tab strip right of the tabs collapses that group.
+#[test]
+fn a_double_click_on_blank_shared_tab_strip_collapses_its_dock_group() {
+    let mut app = app();
+    app.run("file.new", json!({"width": 400, "height": 300})).unwrap();
+    app.run("window.panel.move", json!({"panel":"swatches", "anchor":"layers", "zone":"top"})).unwrap();
+    let mut h = harness(app, vec2(1280.0, 800.0));
+    assert!(root_groups(&h).len() >= 2);
+    let at = tab_strip_blank_center(&h, "swatches");
+    double_click(&mut h, at);
+    assert!(h.state().ui.docking_collapsed.contains("swatches"));
+    assert!(root_groups(&h)[0].rect.height() < 40.0, "only its tabs");
+    double_click(&mut h, at);
+    assert!(h.state().ui.docking_collapsed.is_empty());
 }
 
 /// `window.panel.collapse` checks its parameters, and a collapsed group survives a reload.
