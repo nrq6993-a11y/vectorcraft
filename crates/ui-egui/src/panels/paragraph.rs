@@ -5,7 +5,7 @@
 
 use egui::{Ui, vec2};
 use serde_json::{Value, json};
-use vectorcraft_doc::{Composer, HyphenationOptions, Justify, NodeKind, ParaDirection, ParaStyle};
+use vectorcraft_doc::{Composer, HyphenationOptions, JustificationOptions, Justify, NodeKind, ParaDirection, ParaStyle, SingleWordJustify};
 
 use super::character::{Metric, Shared, text_style};
 use super::{pstate, set_pstate};
@@ -177,6 +177,34 @@ fn shared_para_field(app: &VectorcraftApp, field: impl Fn(&ParaStyle) -> f64) ->
         return text_style(app).map(|(_, p)| field(&p));
     }
     acc.value().map(|m| m.0)
+}
+
+/// A justification option shared by every paragraph in scope, or `None` when they differ.
+pub(crate) fn shared_justification_f64(app: &VectorcraftApp, f: impl Fn(&JustificationOptions) -> f64) -> Option<f64> {
+    let mut acc = Shared::None;
+    let mut any = false;
+    visit_paragraphs(app, |p| {
+        any = true;
+        acc.add(Metric(f(&p.justification)));
+    });
+    if !any {
+        return text_style(app).map(|(_, p)| f(&p.justification));
+    }
+    acc.value().map(|m| m.0)
+}
+
+/// Single Word Justification shared by every paragraph in scope, or `None` when they differ.
+pub(crate) fn shared_single_word_justify(app: &VectorcraftApp) -> Option<SingleWordJustify> {
+    let mut acc = Shared::None;
+    let mut any = false;
+    visit_paragraphs(app, |p| {
+        any = true;
+        acc.add(p.justification.single_word);
+    });
+    if !any {
+        return text_style(app).map(|(_, p)| p.justification.single_word);
+    }
+    acc.value()
 }
 
 /// The composer every paragraph in scope shares, or `None` when they differ (neither menu item checked).
