@@ -39,9 +39,10 @@
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::{BlendMode, Paint};
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
+use vectorcraft_effects::merged_params;
 
 use super::lex::{Lexer, Tok};
 use super::obj::V;
@@ -55,6 +56,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const FREE_DISTORT: &str = "Adobe Free Distort"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -499,9 +501,27 @@ fn effect(f: &Filter) -> Option<Effect> {
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        FREE_DISTORT => ("distort.freeDistort", free_distort_params(&param)),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
+}
+
+/// LiveEffect keys for Free Distort (`dst0h`…`dst3v`; public `applyEffect` XML). Corners are TL, TR, BL, BR;
+/// `v` is negated when mapped into the unit box (y down), then reordered to TL, TR, BR, BL for `distort.freeDistort`.
+fn free_distort_params(param: &dyn Fn(&str) -> Option<f64>) -> Value {
+    let corner = |h: &str, v: &str, default: (f64, f64)| {
+        let x = param(h).filter(|n| n.is_finite()).unwrap_or(default.0);
+        let y = param(v).filter(|n| n.is_finite()).map(|n| -n).unwrap_or(default.1);
+        [x, y]
+    };
+    let corners = json!([
+        corner("dst0h", "dst0v", (0.0, 0.0)),
+        corner("dst1h", "dst1v", (1.0, 0.0)),
+        corner("dst3h", "dst3v", (1.0, 1.0)),
+        corner("dst2h", "dst2v", (0.0, 1.0)),
+    ]);
+    merged_params("distort.freeDistort", &json!({"corners": corners}))
 }
 
 /// The fill or stroke basic filter `f` paints, `Ok(None)` when it paints nothing, `Err` when it
@@ -762,6 +782,29 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_free_distort_style_reads_corner_positions() {
+        let data = b"/KnownStyle :\n(Warped) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            0 /Real (dst0h) ,\n0 /Real (dst0v) ,\n1.1 /Real (dst1h) ,\n0 /Real (dst1v) ,\n0 /Real (dst2h) ,\n-1 /Real (dst2v) ,\n1 /Real (dst3h) ,\n-0.9 /Real (dst3v) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Warped"];
+        assert!(style.plain, "{style:?}");
+        let [fx] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(fx.id, "distort.freeDistort");
+        assert_eq!(fx.params["corners"], json!([[0.0, 0.0], [1.1, 0.0], [1.0, 0.9], [0.0, 1.0]]));
+    }
+
+    #[test]
+    fn a_free_distort_style_without_corners_is_identity() {
+        let data = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Free Distort) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Flat"];
+        assert!(style.plain);
+        let [fx] = style.effects.as_slice() else { panic!() };
+        assert_eq!(fx.params["corners"], json!([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]));
     }
 
     #[test]
