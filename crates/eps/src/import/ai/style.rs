@@ -789,6 +789,18 @@ mod tests {
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
     }
+
+    #[test]
+    fn hostile_blend_opacities_are_clamped() {
+        let mut f = Filter::default();
+        paint_op(&mut f, "Xy", &[V::Num(3.0), V::Num(1.5)]);
+        assert_eq!(f.xy, Some((3, 1.0)));
+        paint_op(&mut f, "Xy", &[V::Num(-1.0), V::Num(0.25)]);
+        assert_eq!(f.xy, Some((0, 0.25)));
+        paint_op(&mut f, "Xy", &[V::Num(0.0), V::Num(f64::NAN)]);
+        assert_eq!(f.xy, Some((0, 0.25)));
+    }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
