@@ -5,7 +5,9 @@
 
 use egui::{Ui, vec2};
 use serde_json::{Value, json};
-use vectorcraft_doc::{Composer, HyphenationOptions, JustificationOptions, Justify, Kinsoku, Mojikumi, NodeKind, ParaDirection, ParaStyle, SingleWordJustify};
+use vectorcraft_doc::{
+    Composer, HyphenationOptions, JustificationOptions, Justify, Kinsoku, Mojikumi, NodeKind, ParaDirection, ParaStyle, SingleWordJustify,
+};
 
 use super::character::{Metric, Shared, text_style};
 use super::{pstate, set_pstate};
@@ -195,16 +197,7 @@ pub(crate) fn shared_justification_f64(app: &VectorcraftApp, f: impl Fn(&Justifi
 
 /// Single Word Justification shared by every paragraph in scope, or `None` when they differ.
 pub(crate) fn shared_single_word_justify(app: &VectorcraftApp) -> Option<SingleWordJustify> {
-    let mut acc = Shared::None;
-    let mut any = false;
-    visit_paragraphs(app, |p| {
-        any = true;
-        acc.add(p.justification.single_word);
-    });
-    if !any {
-        return text_style(app).map(|(_, p)| p.justification.single_word);
-    }
-    acc.value()
+    shared_para(app, |p| p.justification.single_word)
 }
 
 /// A paragraph attribute shared by every paragraph in scope, or `None` when they differ.
