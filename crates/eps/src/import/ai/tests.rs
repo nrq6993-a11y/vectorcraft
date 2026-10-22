@@ -89,6 +89,27 @@ fn layers_and_sublayers() {
 }
 
 #[test]
+fn template_and_non_printing_layers_from_lb_flags() {
+    let square = format!("{RED}{}f\n", rect_path(0.0, 0.0, 10.0, 10.0));
+    // Non-printing only: printing off, dim images off.
+    let notes = format!("%AI5_BeginLayer\n1 1 1 0 0 0 1 0 79 128 255 0 50 0 Lb\n(Notes) Ln\n0 A\n0 Xw\n{square}\nLB\n%AI5_EndLayer--\n");
+    // Non-printing with dim images, but not a template layer.
+    let dimmed = format!("%AI5_BeginLayer\n1 1 1 0 1 0 1 0 79 128 255 0 55 0 Lb\n(Guides) Ln\n0 A\n0 Xw\n{square}\nLB\n%AI5_EndLayer--\n");
+    // Template: the editing-data template flag on (operand six), with dim images.
+    let template = format!("%AI5_BeginLayer\n1 1 1 0 1 1 1 0 79 128 255 0 40 0 Lb\n(Dieline) Ln\n0 A\n0 Xw\n{square}\nLB\n%AI5_EndLayer--\n");
+    let doc = read_ok(&format!("{notes}{dimmed}{template}")).doc;
+    assert_eq!(doc.layers.len(), 3);
+    let NodeKind::Layer { printable, template, dim_images, .. } = &doc.layers[0].kind else { panic!() };
+    assert!(!*printable && !*template && dim_images.is_none());
+    let NodeKind::Layer { printable, template, dim_images, .. } = &doc.layers[1].kind else { panic!() };
+    assert!(!*printable && !*template);
+    assert_eq!(*dim_images, Some(55));
+    let NodeKind::Layer { printable, template, dim_images, .. } = &doc.layers[2].kind else { panic!() };
+    assert!(!*printable && *template);
+    assert_eq!(*dim_images, Some(40));
+}
+
+#[test]
 fn groups_names_hidden_and_locked() {
     let art_ = format!(
         "0 Ae\nu\n{RED}{}f\n%_/ArtDictionary :\n%_/XMLUID : (My_Rect__x23_2) ; (AI10_ArtUID) ,\n%_;\n%_\n\
