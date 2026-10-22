@@ -2710,7 +2710,8 @@ pub fn menu_tree_named(english_names: bool) -> Vec<(&'static str, Vec<Item>)> {
                 sub(
                     "Path",
                     vec![
-                        c("Join", "path.join"),
+                        cp("Join", "path.join", json!({"to": "corner"})),
+                        cp("Join with Smooth Point", "path.join", json!({"to": "smooth"})),
                         c("Average…", "path.average"),
                         Sep,
                         c("Outline Stroke", "object.path.outlineStroke"),
@@ -3258,7 +3259,11 @@ pub fn context_items(app: &VectorcraftApp) -> Vec<Item> {
         }
         let paths = any(|k| matches!(k, NodeKind::Path { .. }));
         if paths {
-            v.extend([c("Join", "path.join"), c("Average…", "path.average")]);
+            v.extend([
+                cp("Join", "path.join", json!({"to": "corner"})),
+                cp("Join with Smooth Point", "path.join", json!({"to": "smooth"})),
+                c("Average…", "path.average"),
+            ]);
         }
         if !st.selection.anchors.is_empty() {
             v.extend([c("Remove Anchor Points", "path.removeAnchors"), c("Cut Path at Selected Anchor Points", "path.cutAtAnchors")]);
@@ -4784,6 +4789,19 @@ mod tests {
             assert_eq!(e.path, ["Object", "Image Trace"]);
             assert_eq!(click_target(&e.label, cmd, &e.params), (cmd.to_string(), json!({"preset": "Default"})), "{}", e.label);
         }
+    }
+
+    #[test]
+    fn object_path_join_menu_offers_corner_and_smooth() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({})).unwrap();
+        let joins: Vec<_> = menu_entries(&app)
+            .into_iter()
+            .filter(|e| e.command.as_deref() == Some("path.join"))
+            .map(|e| (e.label.clone(), e.params.clone()))
+            .collect();
+        assert_eq!(joins, [("Join".to_string(), json!({"to": "corner"})), ("Join with Smooth Point".to_string(), json!({"to": "smooth"})),]);
+        assert_eq!(click_target("Join", "path.join", &json!({"to": "corner"})), ("path.join".to_string(), json!({"to": "corner"})));
     }
 
     #[test]

@@ -187,7 +187,7 @@ pub fn anchor_buttons(app: &mut VectorcraftApp, ui: &mut Ui, controls: AnchorCon
             tl!("Anchors:"),
             &[
                 ("pen-tool-delete", tl!("Remove Anchor Points"), "path.removeAnchors", None),
-                ("dc-join", tl!("Connect Selected End Points"), "path.join", None),
+                ("dc-join", tl!("Connect Selected End Points"), "path.join", Some("corner")),
                 ("scissors", tl!("Cut Path at Selected Anchor Points"), "path.cutAtAnchors", None),
             ],
         ),
