@@ -2525,6 +2525,10 @@ and its steps of these commands get the artboard that is active when the action 
 Direct Selection or Group Selection tool inside an artboard makes that artboard the active one; with the Selection
 tool, a Shift-click on an empty spot inside an artboard makes it active and keeps the selection. Choosing the Artboard
 tool (`tool.select {tool: "artboard"}`) starts it on the active artboard: its `active` option is that artboard's index.
+A command that starts the Artboard tool afresh in the same document (`file.revert`, or a `command.batch` or
+`action.batch` that reverts the document or switches to another document and back) keeps the active artboard and
+starts the tool on it. When a later step of the batch chooses the tool's artboards (a Paste or Cut), the artboard the
+tool then has active becomes the active one.
 
 `artboard.fitToArt {index? | indices?}` (Object › Artboards › Fit to Artwork Bounds) fits each artboard it names to
 the art on that artboard, in one undo step. The art is what an export draws, measured with its strokes and with the
@@ -4550,14 +4554,14 @@ default name, "Artboard N" for the Nth artboard.
 
 The Shape Builder tool's options are its Shape Builder Tool Options (dialog `shapeBuilderOptions`):
 `openFilledAsClosed` (on: a filled open path bounds a region as if an invisible edge closed it; off: it cuts regions
-as an unfilled path does), `pickColorFrom` (`artwork`, the default: a merged shape takes the fill of the front-most
-object over the first region the drag touches that an object covers, and the current fill when only lines enclose
-every region touched; `swatches`: the current fill, and the Left and Right arrow keys step the current fill through the
-document's color swatches), `cursorSwatchPreview` (off; with `swatches`, chips above the pointer show the current fill
-and the swatches before and after it), `selection` (`freeform`, the default, or `straightLine`: a drag touches what
-the line from its first point to the pointer crosses) and `highlightFill` (on by default; when it is off, merge mode
-shades no regions). The tool sends `openFilledAsClosed` and `pickColorFrom` with `shapeBuilder.merge`, which takes
-both as params, and `shapeBuilder.regions` takes `openFilledAsClosed`.
+as an unfilled path does), `pickColorFrom` (`artwork`, the default: a merged shape takes the appearance, opacity and
+blending mode of the front-most selected object under the drag's first point, else of the one under its last point,
+else of the front-most selected object; `swatches`: the current fill, and the Left and Right arrow keys step the
+current fill through the document's color swatches), `cursorSwatchPreview` (off; with `swatches`, chips above the
+pointer show the current fill and the swatches before and after it), `selection` (`freeform`, the default, or
+`straightLine`: a drag touches what the line from its first point to the pointer crosses) and `highlightFill` (on by
+default; when it is off, merge mode shades no regions). The tool sends `openFilledAsClosed` and `pickColorFrom` with
+`shapeBuilder.merge`, which takes both as params, and `shapeBuilder.regions` takes `openFilledAsClosed`.
 
 ```json
 {"name":"run_command","arguments":{"command":"tool.setOption","params":{"tool":"shapeBuilder","values":{"selection":"straightLine","pickColorFrom":"swatches"}}}}
