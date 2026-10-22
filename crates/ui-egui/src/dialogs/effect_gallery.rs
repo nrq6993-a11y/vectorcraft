@@ -13,14 +13,18 @@ use crate::{VectorcraftApp, widgets};
 /// Dialog kind for the Effect Gallery.
 pub const KIND: &str = "effectGallery";
 
-/// Raster effect submenus in the gallery (the six Photoshop-style folders it holds).
-const CATEGORIES: [(&str, &[&str]); 6] = [
+/// Raster effect submenus in the gallery (every Photoshop-style Effect submenu with pixel filters).
+const CATEGORIES: [(&str, &[&str]); 10] = [
     ("Artistic", &["Effect", "Artistic"]),
+    ("Blur", &["Effect", "Blur"]),
     ("Brush Strokes", &["Effect", "Brush Strokes"]),
     ("Distort", &["Effect", "Distort"]),
+    ("Pixelate", &["Effect", "Pixelate"]),
+    ("Sharpen", &["Effect", "Sharpen"]),
     ("Sketch", &["Effect", "Sketch"]),
     ("Stylize", &["Effect", "Stylize"]),
     ("Texture", &["Effect", "Texture"]),
+    ("Video", &["Effect", "Video"]),
 ];
 
 pub(super) const SPEC: DialogSpec = DialogSpec {
@@ -474,5 +478,16 @@ mod tests {
         assert_eq!(n.appearance.effects[1].id, "stylize.glowingEdges");
         assert!(!n.appearance.effects[1].visible);
         assert_eq!(st.history.undo.len(), steps + 1);
+    }
+
+    #[test]
+    fn blur_pixelate_sharpen_and_video_categories_list_their_filters() {
+        let cat = |name: &str| super::CATEGORIES.iter().position(|(n, _)| *n == name).expect(name);
+        assert!(super::effects_in_category(cat("Blur")).iter().any(|e| e.id == "blur.smart"));
+        assert!(super::effects_in_category(cat("Pixelate")).iter().any(|e| e.id == "pixelate.crystallize"));
+        assert!(super::effects_in_category(cat("Sharpen")).iter().any(|e| e.id == "sharpen.unsharpMask"));
+        assert!(super::effects_in_category(cat("Video")).iter().any(|e| e.id == "video.deinterlace"));
+        let listed: usize = super::CATEGORIES.iter().enumerate().map(|(i, _)| super::effects_in_category(i).len()).sum();
+        assert_eq!(listed, vectorcraft_effects::PIXEL_EFFECTS.len(), "every pixel filter is in the gallery");
     }
 }
