@@ -789,6 +789,16 @@ mod tests {
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
     }
+
+    #[test]
+    fn hostile_stroke_miter_limits_are_capped() {
+        let mut f = Filter::default();
+        paint_op(&mut f, "M", &[V::Num(900.0)]);
+        assert_eq!(f.miter, 500.0);
+        paint_op(&mut f, "M", &[V::Num(0.5)]);
+        assert_eq!(f.miter, 500.0);
+    }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
