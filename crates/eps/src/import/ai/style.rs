@@ -55,6 +55,9 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const CHARCOAL: &str = "PSAdapter_plugin_Chrc"; // brand-ok: the filter's name in the files
+const PHOTOCOPY: &str = "PSAdapter_plugin_Phtc"; // brand-ok: the filter's name in the files
+const STAMP: &str = "PSAdapter_plugin_Stmp"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -497,8 +500,11 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
-        // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
+        // Photoshop Sketch plug-ins store settings in a binary block: VectorCraft's effect defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        CHARCOAL => ("sketch.charcoal", json!({"thickness": 1.0, "detail": 1.0, "lightDarkBalance": 50.0})),
+        PHOTOCOPY => ("sketch.photocopy", json!({"detail": 7.0, "darkness": 25.0})),
+        STAMP => ("sketch.stamp", json!({"lightDarkBalance": 25.0, "smoothness": 5.0})),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -658,6 +664,39 @@ fn style(filters: &[Filter]) -> ArtStyle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sketch_psadapter_filters_map_to_live_sketch_effects() {
+        let charcoal = art_styles(
+            b"/KnownStyle :\n(Char) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_Chrc) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Char")
+        .unwrap_or_default();
+        assert!(charcoal.plain);
+        let [ch] = charcoal.effects.as_slice() else { panic!() };
+        assert_eq!(ch.id.as_str(), "sketch.charcoal");
+
+        let photocopy = art_styles(
+            b"/KnownStyle :\n(Copy) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_Phtc) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Copy")
+        .unwrap_or_default();
+        assert!(photocopy.plain);
+        let [pc] = photocopy.effects.as_slice() else { panic!() };
+        assert_eq!(pc.id.as_str(), "sketch.photocopy");
+
+        let stamp = art_styles(
+            b"/KnownStyle :\n(Stamp) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_Stmp) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Stamp")
+        .unwrap_or_default();
+        assert!(stamp.plain);
+        let [st] = stamp.effects.as_slice() else { panic!() };
+        assert_eq!(st.id.as_str(), "sketch.stamp");
+    }
 
     #[test]
     fn a_variable_width_stroke_keeps_its_profile() {
