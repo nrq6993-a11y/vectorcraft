@@ -461,6 +461,24 @@ fn use_precise_cursors_swaps_the_tools_own_pointers_for_a_crosshair() {
     }
 }
 
+/// With Alt held, the Pencil and the Paintbrush show their closing cursors, and Use Precise Cursors turns those into
+/// a crosshair too.
+#[test]
+fn alt_shows_the_pencil_and_paintbrush_closing_cursors() {
+    use vectorcraft_tools::{Cursor, Mods};
+    let mut s = Session::new();
+    s.execute("file.new", &json!({"width": 400, "height": 400})).unwrap();
+    let at = vectorcraft_geom::Point::new(300.0, 300.0);
+    let alt = Mods { alt: true, ..Default::default() };
+    for precise in [false, true] {
+        s.execute("prefs.set", &json!({"key": "usePreciseCursors", "value": precise})).unwrap();
+        for (tool, c) in [("pencil", Cursor::PencilClose), ("paintbrush", Cursor::PaintbrushClose)] {
+            s.select_tool(tool, ViewInfo::default()).unwrap();
+            assert_eq!(s.cursor(at, alt, ViewInfo::default()), if precise { Cursor::Crosshair } else { c }, "{tool}, precise {precise}");
+        }
+    }
+}
+
 /// Every state of the Pen's pointer, and the other drawing pointers, turn into a crosshair; the rest stay.
 #[test]
 fn precise_cursors_replace_every_pen_state() {
@@ -1352,6 +1370,17 @@ fn show_font_names_in_english_preference_is_stored() {
     assert!(s.prefs.font_names_in_english);
 }
 
+/// Preferences › Devices › Enable Touch Workspace (#394): stored and restored through `prefs.set`.
+#[test]
+fn touch_workspace_preference_is_stored() {
+    let mut s = Session::new();
+    assert!(s.prefs.touch_workspace, "on by default");
+    set_pref(&mut s, "touchWorkspace", json!(false));
+    assert!(!s.prefs.touch_workspace);
+    set_pref(&mut s, "touchWorkspace", json!(true));
+    assert!(s.prefs.touch_workspace);
+}
+
 /// Preferences › Type › Highlight Alternate Glyphs (#394): off by default so OpenType
 /// substitutions are not pink on every canvas until the user turns the preference on.
 #[test]
@@ -1362,6 +1391,33 @@ fn highlight_alternate_glyphs_preference_is_off_by_default() {
     assert!(s.prefs.highlight_alternate_glyphs);
     set_pref(&mut s, "highlightAlternateGlyphs", json!(false));
     assert!(!s.prefs.highlight_alternate_glyphs);
+}
+
+/// File Handling › Use Low Resolution Proxy for Linked EPS (#394): off by default; toggling it does
+/// not replace full-resolution pixels already in the document.
+#[test]
+fn low_res_proxy_eps_preference_does_not_swap_full_resolution_pixels() {
+    use crate::tests_links::{Folder, RED, place, png, save, write};
+    let dir = Folder::new("eps-proxy-pref");
+    let pic = dir.file("photo.eps");
+    write(&pic, &png(600, 300, RED));
+    let mut s = Session::new();
+    s.execute("file.new", &json!({"width": 400, "height": 300})).unwrap();
+    assert!(!s.prefs.low_res_proxy_eps);
+    let id = place(&mut s, &pic);
+    let doc_path = dir.file("doc.vectorcraft");
+    save(&mut s, &doc_path);
+    s.execute("links.update", &json!({})).unwrap();
+    let key = {
+        let st = s.doc().unwrap();
+        let NodeKind::Image(im) = &st.doc.node(id).unwrap().kind else { panic!("image") };
+        im.key.clone()
+    };
+    assert!(!s.doc().unwrap().doc.images[&key].is_proxy());
+    set_pref(&mut s, "lowResProxyEps", json!(true));
+    assert!(!s.doc().unwrap().doc.images[&key].is_proxy(), "full pixels stay in the document");
+    set_pref(&mut s, "lowResProxyEps", json!(false));
+    assert!(!s.prefs.low_res_proxy_eps);
 }
 
 /// Preferences › Hyphenation › Exceptions (#394): `prefs.set` pushes the list into the hyphenator
