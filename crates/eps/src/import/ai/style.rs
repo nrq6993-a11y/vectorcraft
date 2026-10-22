@@ -651,7 +651,7 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "sketch.basRelief"));
     st
 }
 
@@ -762,6 +762,23 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_bas_relief_art_style_maps_to_a_live_sketch_effect() {
+        let style = art_styles(
+            b"/KnownStyle :\n(Relief) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_BsRl) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Relief")
+        .unwrap_or_default();
+        assert!(style.plain, "{style:?}");
+        assert!(style.simple, "{style:?}");
+        let [relief] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (relief.id.as_str(), &relief.params["detail"], &relief.params["smoothness"], &relief.params["lightDirection"]),
+            ("sketch.basRelief", &json!(13.0), &json!(3.0), &json!("bottom"))
+        );
     }
 
     #[test]
