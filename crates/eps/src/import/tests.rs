@@ -36,6 +36,13 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_dictionary_stack_overflow_is_bounded() {
+    let body = "1 dict begin ".repeat(998);
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("the dictionary stack overflowed"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
