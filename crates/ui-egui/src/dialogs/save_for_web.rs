@@ -72,8 +72,10 @@ const QUALITIES: [(&str, u8); 5] = [("Low", 10), ("Medium", 30), ("High", 60), (
 pub fn open(app: &mut VectorcraftApp) -> Result<Value, String> {
     let n = app.session.active().ok_or("no document")?.doc.artboards.len();
     let mut s = app.session.last_web_settings();
-    // A remembered artboard this document doesn't have: its first.
-    if s.artboard.is_some_and(|a| a >= n) {
+    // Clip to Artboard follows the navigator's active artboard when the dialog opens (#3607).
+    if n > 0 {
+        s.artboard = Some(crate::panels::artboards::selected(app, n));
+    } else {
         s.artboard = None;
     }
     let mut fields = settings_fields(&s);

@@ -102,6 +102,23 @@ fn save_remembers_and_writes_and_done_only_remembers() {
 }
 
 #[test]
+fn opens_clip_to_the_active_artboard() {
+    let dir = vectorcraft_testkit::temp_dir("sfw-active-board");
+    let (mut app, _) = app(&dir, false);
+    app.run("file.new", json!({"width": 100, "height": 50, "artboards": 2})).unwrap();
+    app.run("artboard.setProps", json!({"index": 1, "width": 200, "height": 80})).unwrap();
+    app.view_mut().unwrap().artboard = 1;
+    app.run("file.saveForWeb", json!({})).unwrap();
+    let d = app.ui.dialog.as_ref().unwrap();
+    assert_eq!(d.fields.get("artboard").and_then(|v| v.as_u64()), Some(1));
+    let i = d.fields.get("artboard").and_then(|v| v.as_u64()).unwrap();
+    let s = app.session.web_settings(&json!({"artboard": i, "clipToArtboard": true})).unwrap();
+    let doc = &app.session.active().unwrap().doc;
+    let (r, _) = vectorcraft_engine::cmd::webexport::region(doc, &s).unwrap();
+    assert_eq!((r.width(), r.height()), (200.0, 80.0));
+}
+
+#[test]
 fn html_output_with_slices_saves_the_page_and_images() {
     let dir = vectorcraft_testkit::temp_dir("sfw-html");
     let (mut app, _) = app(&dir, false);
