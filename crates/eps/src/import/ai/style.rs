@@ -789,6 +789,20 @@ mod tests {
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
     }
+
+    #[test]
+    fn hostile_stroke_caps_and_joins_ignore_invalid_values() {
+        let mut f = Filter::default();
+        paint_op(&mut f, "J", &[V::Num(99.0)]);
+        assert_eq!(f.cap, LineCap::Butt);
+        paint_op(&mut f, "J", &[V::Num(2.0)]);
+        assert_eq!(f.cap, LineCap::Square);
+        paint_op(&mut f, "j", &[V::Num(99.0)]);
+        assert_eq!(f.join, LineJoin::Miter);
+        paint_op(&mut f, "j", &[V::Num(1.0)]);
+        assert_eq!(f.join, LineJoin::Round);
+    }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
