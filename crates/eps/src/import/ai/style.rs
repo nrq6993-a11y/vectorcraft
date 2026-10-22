@@ -39,9 +39,10 @@
 
 use std::collections::HashMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vectorcraft_color::{BlendMode, Paint};
 use vectorcraft_doc::{Dash, Effect, LineCap, LineJoin, WidthProfile};
+use vectorcraft_effects::merged_params;
 
 use super::lex::{Lexer, Tok};
 use super::obj::V;
@@ -55,6 +56,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const TWEAK: &str = "Adobe Tweak"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -422,6 +424,20 @@ fn width_profile(arrays: &HashMap<String, Vec<f64>>) -> Option<WidthProfile> {
     (!uniform).then_some(WidthProfile { points })
 }
 
+/// LiveEffect XML for Tweak (`h`, `v`, `relative`, `anchors`, `in`/`inHandles`, `out`/`outHandles`, `seed`; public scripting notes).
+fn tweak_params(param: &dyn Fn(&str) -> Option<f64>, flag: &dyn Fn(&str) -> bool) -> Value {
+    let h = param("h").or_else(|| param("horizontal")).unwrap_or(10.0);
+    let v = param("v").or_else(|| param("vertical")).unwrap_or(10.0);
+    let relative = if param("relative").is_some() { flag("relative") } else { param("absoluteness").unwrap_or(0.0) == 0.0 };
+    let anchors = param("anchors").map(|_| flag("anchors")).unwrap_or(true);
+    let in_pts = param("in").or_else(|| param("inHandles"));
+    let out_pts = param("out").or_else(|| param("outHandles"));
+    let in_flag = in_pts.map(|n| n != 0.0).unwrap_or(true);
+    let out_flag = out_pts.map(|n| n != 0.0).unwrap_or(true);
+    let seed = param("seed").unwrap_or(0.0) as i64;
+    merged_params("distort.tweak", &json!({"h": h, "v": v, "relative": relative, "anchors": anchors, "in": in_flag, "out": out_flag, "seed": seed}))
+}
+
 /// The live effect filter `f` is, when it is one read here.
 fn effect(f: &Filter) -> Option<Effect> {
     let param = |k: &str| f.params.get(k).copied().filter(|v| v.is_finite());
@@ -499,6 +515,7 @@ fn effect(f: &Filter) -> Option<Effect> {
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        TWEAK => ("distort.tweak", tweak_params(&param, &flag)),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -762,6 +779,43 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_tweak_art_style_reads_its_live_effect() {
+        let data = b"/KnownStyle :\n(Jitter) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Tweak) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n\
+            12 /Real (h) ,\n8 /Real (v) ,\n0 /Bool (relative) ,\n1 /Bool (anchors) ,\n1 /Bool (in) ,\n0 /Bool (out) ,\n3 /Int (seed) ,\n\
+            ; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Jitter"];
+        assert!(style.plain, "{style:?}");
+        let [tweak] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(tweak.id, "distort.tweak");
+        assert_eq!(
+            (
+                tweak.params["h"].as_f64(),
+                tweak.params["v"].as_f64(),
+                tweak.params["relative"].as_bool(),
+                tweak.params["anchors"].as_bool(),
+                tweak.params["in"].as_bool(),
+                tweak.params["out"].as_bool(),
+                tweak.params["seed"].as_i64(),
+            ),
+            (Some(12.0), Some(8.0), Some(false), Some(true), Some(true), Some(false), Some(3))
+        );
+    }
+
+    #[test]
+    fn a_tweak_art_style_without_keys_uses_effect_defaults() {
+        let data = b"/KnownStyle :\n(Flat) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Tweak) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Flat"];
+        assert!(style.plain);
+        let [tweak] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (tweak.params["h"].as_f64(), tweak.params["v"].as_f64(), tweak.params["relative"].as_bool(), tweak.params["anchors"].as_bool(),),
+            (Some(10.0), Some(10.0), Some(true), Some(true))
+        );
     }
 
     #[test]
