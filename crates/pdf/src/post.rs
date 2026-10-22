@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use vectorcraft_doc::{CopyrightStatus, DocMetadata};
 
 use crate::encrypt::Obj;
+use crate::lab_spot::find;
 use crate::linearize::{self, Parsed};
 use crate::patch::Patch;
 use crate::{PdfError, PdfOptions, PdfSettings};
@@ -61,6 +62,25 @@ fn thumbnails(pdf: Vec<u8>, thumbs: &[Thumbnail], gray: bool) -> Result<Vec<u8>,
         let n = patch.add_object(thumb.object(gray)?);
         patch.replace(dict, dict, format!("/Thumb {n} 0 R").into_bytes());
     }
+    patch.apply(&pdf, &xref)
+}
+
+/// When `title` is non-empty, `pdf` gets `/ViewerPreferences << /DisplayDocTitle true >>` on its
+/// catalog so viewers show the document title instead of the file name (ISO 32000-1 §12.3.2).
+pub(crate) fn display_doc_title(pdf: Vec<u8>, title: &str) -> Result<Vec<u8>, PdfError> {
+    if title.trim().is_empty() {
+        return Ok(pdf);
+    }
+    let failed = |why: &str| PdfError::Write(format!("can't write DisplayDocTitle: {why}"));
+    let Parsed { xref, .. } = linearize::parse(&pdf).map_err(failed)?;
+    let root = xref.trailer_ref(&pdf, b"/Root").and_then(|n| xref.dict(&pdf, n));
+    let Some((at, end)) = root else { return Err(failed("the written PDF has no catalog")) };
+    let dict = pdf.get(at..end).ok_or_else(|| failed("the catalog can't be read"))?;
+    if find(dict, b"/ViewerPreferences", 0).is_some() {
+        return Ok(pdf);
+    }
+    let mut patch = Patch::new(&xref);
+    patch.replace(at, at, b"/ViewerPreferences<</DisplayDocTitle true>>".to_vec());
     patch.apply(&pdf, &xref)
 }
 

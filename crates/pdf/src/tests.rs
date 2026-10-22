@@ -70,6 +70,15 @@ fn metadata_creator_and_title() {
     let s = uncompressed(&d);
     assert!(s.contains("VectorCraft"));
     assert!(s.contains("Poster"));
+    assert!(s.contains("/DisplayDocTitle true"), "viewers should show the document title");
+}
+
+#[test]
+fn display_doc_title_is_omitted_when_the_document_has_no_title() {
+    let mut d = doc(100.0, 100.0);
+    d.title.clear();
+    let s = uncompressed(&d);
+    assert!(!s.contains("/DisplayDocTitle"));
 }
 
 #[test]
