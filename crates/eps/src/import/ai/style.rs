@@ -55,6 +55,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const PLASTIC_WRAP: &str = "PSAdapter_plugin_PlsW"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -497,8 +498,9 @@ fn effect(f: &Filter) -> Option<Effect> {
             }),
         ),
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
-        // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
+        // Photoshop plug-ins store settings in a binary block: VectorCraft's effect defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        PLASTIC_WRAP => ("artistic.plasticWrap", json!({"highlightStrength": 20.0, "detail": 12.0, "smoothness": 15.0})),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -651,13 +653,32 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st
+            .effects
+            .iter()
+            .all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "artistic.plasticWrap"));
     st
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_plastic_wrap_style_maps_to_a_live_artistic_effect() {
+        let style = art_styles(
+            b"/KnownStyle :\n(Shiny) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_PlsW) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Shiny")
+        .unwrap_or_default();
+        assert!(style.simple);
+        let [pw] = style.effects.as_slice() else { panic!() };
+        assert_eq!(
+            (pw.id.as_str(), &pw.params["highlightStrength"], &pw.params["detail"], &pw.params["smoothness"]),
+            ("artistic.plasticWrap", &json!(20.0), &json!(12.0), &json!(15.0))
+        );
+    }
 
     #[test]
     fn a_variable_width_stroke_keeps_its_profile() {
