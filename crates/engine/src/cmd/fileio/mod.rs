@@ -29,6 +29,7 @@ pub mod dxfimport;
 mod encode;
 pub mod eps;
 mod export;
+mod guides_import;
 pub(crate) mod imagemap;
 mod legacy_ai;
 mod load;
