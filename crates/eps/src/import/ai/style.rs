@@ -585,10 +585,15 @@ impl Builder<'_> {
                         (look.blend, look.opacity) = (super::read::blend_mode(mode), opacity);
                     }
                 }
-                _ => match effect(c) {
-                    Some(e) => look.effects.push(e),
-                    None => self.plain = false,
-                },
+                _ => {
+                    if !c.visible {
+                        continue;
+                    }
+                    match effect(c) {
+                        Some(e) => look.effects.push(e),
+                        None => self.plain = false,
+                    }
+                }
             }
         }
         if paints != 1 {
@@ -638,10 +643,15 @@ fn style(filters: &[Filter]) -> ArtStyle {
             CONDUIT => {}
             // The object's own transparency, which its look carries too.
             BLEND => {}
-            _ => match effect(f) {
-                Some(e) => st.effects.push(e),
-                None => b.plain = false,
-            },
+            _ => {
+                if !f.visible {
+                    continue;
+                }
+                match effect(f) {
+                    Some(e) => st.effects.push(e),
+                    None => b.plain = false,
+                }
+            }
         }
     }
     st.plain = b.plain;
@@ -683,6 +693,26 @@ mod tests {
             /Dictionary : /NotRecorded ,\n1 /Bool (BSDashAdj) ,\n; (kAIBeautifulStrokesParamsDictKey) ,\n\
             /StrokeStyle : 0 R\n0 0 0 0 0 0 1 XA\n1 J 0 j 2 w 10 M [5 10 ]0 d\n0 XR\n1 0 Xd\n/Def ;\n (StrokeStyle) ,\n; /Dict ;\n /Part ,\n;\n";
         assert!(!art_styles(data)["Stitches"].plain);
+    }
+
+    #[test]
+    fn a_hidden_feather_on_the_object_is_ignored() {
+        let data = b"/KnownStyle :\n(Soft) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Feather) 1 0 /Filter ,\n0 /Visible ,\n/Dictionary : /NotRecorded ,\n12 /Real (rad) ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["Soft"];
+        assert!(style.plain, "{style:?}");
+        assert!(style.effects.is_empty());
+    }
+
+    #[test]
+    fn a_hidden_unread_effect_does_not_force_the_style_non_plain() {
+        // GUARDS: visibility must be checked before unknown-filter plain checks, or a hidden effect this
+        // does not read yet made the style fall back to its drawn look.
+        let data = b"/KnownStyle :\n(GlowIn) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(Adobe Inner Glow) 1 0 /Filter ,\n0 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n";
+        let style = &art_styles(data)["GlowIn"];
+        assert!(style.plain, "{style:?}");
+        assert!(style.effects.is_empty());
     }
 
     #[test]
