@@ -81,7 +81,9 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
 }
 
 pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
-    menu_item(ui, tl!("Trap…"), false, false);
+    if menu_item(ui, tl!("Trap…"), operands(app) >= 2, false) {
+        app.run("effect.dialog", json!({"effect": "pathfinder.trap"})).ok();
+    }
     let last: Option<(String, String)> = pstate(ui.ctx(), "pf-last");
     let label =
         last.as_ref().map(|(_, l)| crate::i18n::fmt(tl!("Repeat {name}"), &[("name", tl!(l))])).unwrap_or_else(|| tl!("Repeat Pathfinder").into());
@@ -125,6 +127,18 @@ mod tests {
         assert!(matches!(united.kind, NodeKind::Path { .. }), "one path, the stroke's inner edge gone: {:?}", united.kind);
         let b = united.geometric_bounds().unwrap();
         assert_eq!((b.x0, b.y0, b.x1, b.y1), (5.0, 5.0, 65.0, 65.0), "the stroke's outer edge");
+    }
+
+    /// Pathfinder panel › Trap… is enabled with two filled shapes and opens the Trap effect dialog.
+    #[test]
+    fn pathfinder_panel_trap_opens_the_trap_effect_dialog() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), Default::default());
+        app.run("file.new", json!({"width": 200, "height": 200})).unwrap();
+        let a = app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 50})).unwrap()["id"].clone();
+        let b = app.run("shape.rectangle", json!({"x": 40, "y": 40, "width": 50, "height": 50})).unwrap()["id"].clone();
+        app.run("select.set", json!({"ids": [a, b]})).unwrap();
+        assert_eq!(operands(&app), 2);
+        assert!(app.run("effect.dialog", json!({"effect": "pathfinder.trap"})).is_ok());
     }
 
     /// Screen readers name each Shape Mode and Pathfinder button, enabled for two selected objects.

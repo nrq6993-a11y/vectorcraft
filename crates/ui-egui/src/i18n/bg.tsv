@@ -4375,7 +4375,9 @@ axis	Both	И двете
 @msg	automation filesystem access is not granted: read authority is absent: {path}	достъпът на автоматизацията до файловата система не е разрешен: липсва право за четене: {path}
 @msg	automation filesystem access is not granted: write authority is absent: {path}	достъпът на автоматизацията до файловата система не е разрешен: липсва право за запис: {path}
 @msg	automation path rejected: outside the read root {root}: {path}	пътят за автоматизация е отхвърлен: извън корена за четене {root}: {path}
+@msg	automation path rejected: outside the read roots {roots}: {path}	пътят за автоматизация е отхвърлен: извън корените за четене {roots}: {path}
 @msg	automation path rejected: outside the write root {root}: {path}	пътят за автоматизация е отхвърлен: извън корена за запис {root}: {path}
+@msg	automation path rejected: outside the write roots {roots}: {path}	пътят за автоматизация е отхвърлен: извън корените за запис {roots}: {path}
 @msg	automation path rejected: path is empty	пътят за автоматизация е отхвърлен: пътят е празен
 @msg	automation path rejected: a link that leads nowhere: {path}	пътят за автоматизация е отхвърлен: връзка, която не води доникъде: {path}
 @msg	automation path rejected: cannot resolve {path}: {e}	пътят за автоматизация е отхвърлен: не може да се разреши {path}: {e}
@@ -5257,6 +5259,10 @@ theme	Appearance	Външен вид
 	Halftone Pattern	Полутонов шаблон
 	Torn Edges…	Разкъсани краища…
 	Torn Edges	Разкъсани краища
+	Conté Crayon…	Креда Конте…
+	Conté Crayon	Креда Конте
+	Foreground Level	Ниво на преден план
+	Background Level	Ниво на фон
 	Pattern Type	Тип шаблон
 	Dot	Точка
 # User Interface › Color Scheme
