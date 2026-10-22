@@ -85,7 +85,13 @@ impl VectorcraftApp {
             }
             return;
         }
-        let (clip, svg, pdf) = (self.session.clipboard.clone(), self.session.prefs.copy_as_svg, self.session.prefs.copy_as_pdf);
+        let (clip, svg, pdf, aicb, aicb_mode) = (
+            self.session.clipboard.clone(),
+            self.session.prefs.copy_as_svg,
+            self.session.prefs.copy_as_pdf,
+            self.session.prefs.copy_aicb,
+            self.session.prefs.aicb_mode.clone(),
+        );
         let latest = self.clipboard_publishing.latest.clone();
         let n = latest.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
         self.clipboard_publishing.pending = true;
@@ -94,7 +100,7 @@ impl VectorcraftApp {
             // These formats are not made when a later Copy or Cut, or a copy through egui, dropped them.
             if latest.load(Ordering::SeqCst) == n {
                 // The receiver is gone only when the job was dropped unapplied.
-                let _ = tx.send(clip.flavours_with_warnings(svg, pdf));
+                let _ = tx.send(clip.flavours_with_warnings(svg, pdf, aicb, &aicb_mode));
             }
             Ok(Value::Null)
         };

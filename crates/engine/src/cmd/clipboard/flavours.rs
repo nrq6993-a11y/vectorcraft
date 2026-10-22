@@ -169,7 +169,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Clipboard Formats",
             [],
             None,
-            "{} → {flavours: [mime…]} what Copy offers other apps for the current clipboard, best first, by the Clipboard Handling preferences: text/plain (a type-only copy's text, else the SVG markup with copyAsSvg when the images it embeds total at most 1 MiB), image/svg+xml (copyAsSvg), application/pdf (copyAsPdf), image/png (always; PDF and PNG only for objects with an area); the app publishes them on Copy and Cut",
+            "{} → {flavours: [mime…]} what Copy offers other apps for the current clipboard, best first, by the Clipboard Handling preferences: text/plain (a type-only copy's text, else the SVG markup with copyAsSvg when the images it embeds total at most 1 MiB), image/svg+xml (copyAsSvg), application/pdf (copyAsPdf), application/postscript (copyAicb, the legacy vector clipboard; aicbMode preservePaths or preserveAppearance), image/png (always; PDF, EPS and PNG only for objects with an area); the app publishes them on Copy and Cut",
             always,
             flavours
         ),
@@ -275,33 +275,42 @@ impl Clipboard {
         fileio::encode_with_warnings(&doc, "pdf", &json!({ "preserveEditing": false })).map(Some)
     }
 
+    /// PostScript (EPS) for the legacy vector clipboard (`copyAicb`): `mode` is the `aicbMode`
+    /// preference (`preservePaths` or `preserveAppearance`).
+    pub fn aicb_eps(&self, mode: &str) -> Result<Option<(Vec<u8>, Vec<String>)>> {
+        let Some((doc, _)) = self.cropped() else { return Ok(None) };
+        let overprints = if mode == "preservePaths" { "discard" } else { "preserve" };
+        fileio::encode_with_warnings(&doc, "eps", &json!({ "previewFormat": "none", "overprints": overprints, "useArtboards": false })).map(Some)
+    }
+
     /// Bytes of the encoded images the objects show (what their SVG embeds as base64).
     fn image_bytes(&self) -> usize {
         self.images.values().fold(0usize, |sum, b| sum.saturating_add(b.bytes.len()))
     }
 
     /// The MIME types of [`Self::flavours`], without making them.
-    pub fn flavour_types(&self, svg: bool, pdf: bool) -> Vec<&'static str> {
+    pub fn flavour_types(&self, svg: bool, pdf: bool, aicb: bool) -> Vec<&'static str> {
         if self.is_empty() {
             return vec![];
         }
         let text = (svg && self.image_bytes() <= COPY_TEXT_IMAGE_BYTES) || self.nodes.iter().all(type_only);
         // Art without an area (a lone guide-like line) has no page or picture.
         let area = self.bounds().is_some_and(|b| b.width() > 0.0 && b.height() > 0.0);
-        [(TEXT, text), (SVG, svg), (PDF, pdf && area), (PNG, area)].into_iter().filter_map(|(m, on)| on.then_some(m)).collect()
+        [(TEXT, text), (SVG, svg), (PDF, pdf && area), (EPS, aicb && area), (PNG, area)].into_iter().filter_map(|(m, on)| on.then_some(m)).collect()
     }
 
-    /// What Copy offers other apps, best first, with Include SVG Code (`svg`) and On Copy: PDF
-    /// (`pdf`) as given (see `clipboard.flavours`). A [`Flavour`] that can't be made (art too large
-    /// to render) is left out; the PNG is scaled down to at most [`COPY_PNG_SIDE`] pixels a side.
-    pub fn flavours(&self, svg: bool, pdf: bool) -> Vec<Flavour> {
-        self.flavours_with_warnings(svg, pdf).0
+    /// What Copy offers other apps, best first, with Include SVG Code (`svg`), On Copy: PDF (`pdf`)
+    /// and Legacy vector clipboard (`aicb`) as given (see `clipboard.flavours`). A [`Flavour`] that
+    /// can't be made (art too large to render) is left out; the PNG is scaled down to at most
+    /// [`COPY_PNG_SIDE`] pixels a side.
+    pub fn flavours(&self, svg: bool, pdf: bool, aicb: bool, aicb_mode: &str) -> Vec<Flavour> {
+        self.flavours_with_warnings(svg, pdf, aicb, aicb_mode).0
     }
 
     /// [`Self::flavours`], with the warnings of the PDF and PNG encoders, each once (an image that
     /// couldn't be decoded, type in the fallback font).
-    pub fn flavours_with_warnings(&self, svg: bool, pdf: bool) -> (Vec<Flavour>, Vec<String>) {
-        let types = self.flavour_types(svg, pdf);
+    pub fn flavours_with_warnings(&self, svg: bool, pdf: bool, aicb: bool, aicb_mode: &str) -> (Vec<Flavour>, Vec<String>) {
+        let types = self.flavour_types(svg, pdf, aicb);
         let svg = types.contains(&SVG).then(|| self.svg()).flatten();
         let mut out = vec![];
         let mut warnings: Vec<String> = vec![];
@@ -318,6 +327,7 @@ impl Clipboard {
                 TEXT => self.text().or_else(|| svg.clone()).map(String::into_bytes),
                 SVG => svg.clone().map(String::into_bytes),
                 PDF => self.pdf().inspect_err(|e| log::warn!("clipboard PDF: {e}")).ok().flatten().map(&mut keep),
+                EPS => self.aicb_eps(aicb_mode).inspect_err(|e| log::warn!("clipboard EPS: {e}")).ok().flatten().map(&mut keep),
                 _ => {
                     let side = self.bounds().map_or(1.0, |b| b.width().max(b.height()));
                     let scale = (COPY_PNG_SIDE / side).clamp(0.01, 1.0);
@@ -351,13 +361,13 @@ impl Session {
 
     /// The MIME types of [`Self::clipboard_flavours`], without making them.
     pub fn clipboard_flavour_types(&self) -> Vec<&'static str> {
-        self.clipboard.flavour_types(self.prefs.copy_as_svg, self.prefs.copy_as_pdf)
+        self.clipboard.flavour_types(self.prefs.copy_as_svg, self.prefs.copy_as_pdf, self.prefs.copy_aicb)
     }
 
     /// What Copy offers other apps, best first (see `clipboard.flavours`): [`Clipboard::flavours`]
     /// by the Clipboard Handling preferences.
     pub fn clipboard_flavours(&self) -> Vec<Flavour> {
-        self.clipboard.flavours(self.prefs.copy_as_svg, self.prefs.copy_as_pdf)
+        self.clipboard.flavours(self.prefs.copy_as_svg, self.prefs.copy_as_pdf, self.prefs.copy_aicb, &self.prefs.aicb_mode)
     }
 
     /// Replace the clipboard with `clip`, centred on `p`'s `center` (default: the first

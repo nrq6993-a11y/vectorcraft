@@ -114,7 +114,7 @@ fn the_png_and_pdf_say_when_an_image_or_a_font_is_missing() {
     let pdf = warnings(&run(&mut s, "clipboard.exportPdf", json!({})));
     assert!(pdf.iter().any(|w| w.contains("Nonexistent Sans Probe")), "{pdf:?}");
     // Copy's formats carry the notes of both, each once.
-    let (flavours, notes) = s.clipboard.flavours_with_warnings(false, true);
+    let (flavours, notes) = s.clipboard.flavours_with_warnings(false, true, false, "preserveAppearance");
     assert_eq!(flavours.iter().map(|f| f.mime).collect::<Vec<_>>(), [TEXT, PDF, PNG]);
     for w in png.iter().chain(&pdf) {
         assert_eq!(notes.iter().filter(|n| *n == w).count(), 1, "{w} in {notes:?}");
@@ -124,7 +124,7 @@ fn the_png_and_pdf_say_when_an_image_or_a_font_is_missing() {
     run(&mut s, "select.set", json!({"ids": [image.0]}));
     run(&mut s, "edit.copy", json!({}));
     assert_eq!(warnings(&run(&mut s, "clipboard.exportPng", json!({}))), [NOTE]);
-    let (flavours, notes) = s.clipboard.flavours_with_warnings(false, false);
+    let (flavours, notes) = s.clipboard.flavours_with_warnings(false, false, false, "preserveAppearance");
     assert_eq!(flavours.iter().map(|f| f.mime).collect::<Vec<_>>(), [PNG]);
     assert_eq!(notes, [NOTE]);
 }
@@ -304,7 +304,13 @@ fn copy_offers_flavours_by_the_preferences() {
     assert!(f[2].data.starts_with(b"\x89PNG"));
     run(&mut s, "prefs.set", json!({"key": "copyAsPdf", "value": true}));
     assert_eq!(mimes(&s), [TEXT, SVG, PDF, PNG]);
-    assert!(s.clipboard_flavours()[2].data.starts_with(b"%PDF"));
+    assert!(s.clipboard_flavours().iter().find(|f| f.mime == PDF).unwrap().data.starts_with(b"%PDF"));
+    run(&mut s, "prefs.set", json!({"key": "copyAicb", "value": true}));
+    assert_eq!(mimes(&s), [TEXT, SVG, PDF, EPS, PNG]);
+    let flavours = s.clipboard_flavours();
+    let eps = flavours.iter().find(|f| f.mime == EPS).unwrap();
+    assert!(vectorcraft_pdf::is_postscript(&eps.data) || eps.data.starts_with(b"%!PS"), "EPS bytes: {:?}", eps.data.get(..20));
+    run(&mut s, "prefs.set", json!({"key": "copyAicb", "value": false}));
     run(&mut s, "prefs.set", json!({"values": {"copyAsSvg": false, "copyAsPdf": false}}));
     assert_eq!(mimes(&s), [PNG]);
     // Type only: its text is the plain text, even without SVG.
