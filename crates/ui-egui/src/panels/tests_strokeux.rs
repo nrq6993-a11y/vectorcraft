@@ -212,7 +212,13 @@ fn stroke_weight_field_steps_ten_with_shift_arrows() {
     let mut time = 0.0;
     let mut raw = |events: Vec<Event>| {
         time += 0.05;
-        egui::RawInput { events, time: Some(time), screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(400.0, 300.0))), focused: true, ..Default::default() }
+        egui::RawInput {
+            events,
+            time: Some(time),
+            screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(400.0, 300.0))),
+            focused: true,
+            ..Default::default()
+        }
     };
     frame_raw(&ctx, &mut app, raw(vec![Event::PointerMoved(at), click(true), click(false)]), stroke::show);
     frame_raw(&ctx, &mut app, raw(vec![key(Key::ArrowUp, egui::Modifiers::SHIFT)]), stroke::show);
