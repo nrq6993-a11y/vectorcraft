@@ -199,28 +199,17 @@ pub(crate) fn canvas_accessibility_description(app: &VectorcraftApp) -> String {
     };
     let nab = st.doc.artboards.len();
     let cur = crate::panels::artboards::selected(app, nab);
-    let board = st
-        .doc
-        .artboards
-        .get(cur)
-        .map(|a| format!("{} {}", cur + 1, a.name))
-        .unwrap_or_else(|| "?".into());
+    let board = st.doc.artboards.get(cur).map(|a| format!("{} {}", cur + 1, a.name)).unwrap_or_else(|| "?".into());
     let selection = match st.selection.len() {
         0 => "nothing selected".into(),
         1 => {
             let id = st.selection.objects[0];
-            let name = st
-                .doc
-                .node(id)
-                .and_then(|n| n.name.clone().filter(|s| !s.is_empty()))
-                .unwrap_or_else(|| format!("object {}", id.0));
+            let name = st.doc.node(id).and_then(|n| n.name.clone().filter(|s| !s.is_empty())).unwrap_or_else(|| format!("object {}", id.0));
             format!("1 object selected: {name}")
         }
         n => format!("{n} objects selected"),
     };
-    let tool = vectorcraft_tools::tool_info(app.session.tool_id())
-        .map(|t| t.label)
-        .unwrap_or_else(|| app.session.tool_id());
+    let tool = vectorcraft_tools::tool_info(app.session.tool_id()).map(|t| t.label).unwrap_or_else(|| app.session.tool_id());
     format!("Canvas, artboard {board}, {selection}, {tool}")
 }
 
@@ -9091,10 +9080,7 @@ mod tests {
         let label = canvas_accessibility_description(&app);
         assert!(label.contains("1 object selected: Logo"), "{label}");
         let nodes = tree(|ui| show(&mut app, ui));
-        assert_eq!(
-            nodes.iter().find(|n| n.role() == Role::Canvas).and_then(|n| n.label()),
-            Some(label.as_str())
-        );
+        assert_eq!(nodes.iter().find(|n| n.role() == Role::Canvas).and_then(|n| n.label()), Some(label.as_str()));
         let other = app.run("shape.rectangle", json!({"x": 60, "y": 10, "width": 20, "height": 20})).unwrap()["id"].as_u64().unwrap();
         app.run("select.set", json!({"ids": [id, other]})).unwrap();
         let label = canvas_accessibility_description(&app);
