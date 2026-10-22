@@ -313,6 +313,8 @@ pub struct PlannedSheet {
     pub plate: Option<usize>,
     /// The ink of a separation, with its screen.
     pub ink: Option<PrintInk>,
+    /// Artboard background (Properties › Artboards › Fill), behind the art on the trim box.
+    pub background: Option<vectorcraft_color::Color>,
 }
 
 impl PlannedSheet {
@@ -329,6 +331,7 @@ impl PlannedSheet {
             clip: true,
             marks: self.marks.as_ref(),
             negative: self.negative,
+            background: self.background,
         }
     }
 }
@@ -383,6 +386,7 @@ pub fn plan<'a>(doc: &'a Document, opts: &PrintOptions) -> Result<PrintPlan<'a>,
                 negative: set.output.image == PrintImage::Negative,
                 plate: *plate,
                 ink: ink.cloned(),
+                background: l.artboard.and_then(|i| doc.artboards.get(i).and_then(|a| a.color)),
             })
         })
         .collect();

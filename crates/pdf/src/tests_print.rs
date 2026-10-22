@@ -238,6 +238,19 @@ fn tiles_cover_the_artboard_with_overlap() {
 }
 
 #[test]
+fn artboard_background_color_is_drawn_on_print_pages() {
+    let mut d = doc(200.0, 150.0, &[(Rect::new(10.0, 10.0, 50.0, 50.0), rgb(1.0, 0.0, 0.0))]);
+    d.artboards[0].color = Some(Color::from_hex("#336699").unwrap());
+    let printed = pages(&job(&d, json!({})).bytes);
+    assert_eq!(printed.len(), 1);
+    assert!(
+        printed[0].1.iter().any(|(_, p)| rgb8(p) == [51, 102, 153]),
+        "artboard fill on the trim box: {:?}",
+        printed[0].1.iter().map(|(_, p)| rgb8(p)).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn artboard_range_skip_blank_and_ignore() {
     let mut d =
         doc(100.0, 100.0, &[(Rect::new(10.0, 10.0, 20.0, 20.0), rgb(1.0, 0.0, 0.0)), (Rect::new(410.0, 10.0, 420.0, 20.0), rgb(0.0, 0.0, 1.0))]);
