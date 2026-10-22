@@ -789,6 +789,18 @@ mod tests {
         ]);
         assert_eq!(width_profile(&arrays).map(|p| p.points), Some(vec![(0.0, 2.0, 2.0), (0.5, 0.5, 0.5), (1.0, 0.0, 0.0)]));
     }
+
+    #[test]
+    fn hostile_stroke_widths_are_sanitized() {
+        let mut f = Filter::default();
+        paint_op(&mut f, "w", &[V::Num(12.0)]);
+        assert_eq!(f.width, 12.0);
+        paint_op(&mut f, "w", &[V::Num(-1.0)]);
+        assert_eq!(f.width, 12.0);
+        paint_op(&mut f, "w", &[V::Num(f64::INFINITY)]);
+        assert_eq!(f.width, 12.0);
+    }
+
     /// A basic filter `name` whose dictionary holds `body`.
     fn basic(name: &str, body: &str) -> String {
         format!("/BasicFilter :\n({name}) 0 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n{body}; /Dict ;\n /Part ,\n")
