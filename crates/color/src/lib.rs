@@ -386,9 +386,18 @@ impl Paint {
     pub fn is_registration(&self) -> bool {
         matches!(self, Paint::Solid { swatch: Some(s), .. } if s == swatch::REGISTRATION)
     }
+    /// Solid paint that exports and round-trips as SVG/CSS `currentColor` (placeholder black on the canvas).
+    pub fn current_color() -> Self {
+        Paint::Solid { color: Color::BLACK, swatch: Some(swatch::CURRENT_COLOR.into()), tint: 1.0 }
+    }
+    /// Is this paint the `currentColor` keyword (inherits the CSS `color` property in SVG)?
+    pub fn is_current_color(&self) -> bool {
+        matches!(self, Paint::Solid { swatch: Some(s), .. } if s == swatch::CURRENT_COLOR)
+    }
     pub fn label(&self) -> String {
         match self {
             Paint::None => "None".into(),
+            Paint::Solid { swatch: Some(n), .. } if n == swatch::CURRENT_COLOR => "currentColor".into(),
             Paint::Solid { color, swatch: Some(n), tint } if *tint < 1.0 => format!("{n} {}% ({})", tint_percent(*tint), color.to_hex()),
             Paint::Solid { color, swatch: Some(n), .. } => format!("{n} ({})", color.to_hex()),
             Paint::Solid { color, .. } => color.to_hex(),
@@ -520,6 +529,16 @@ mod tests {
         assert_eq!(Color::cmyk(0.3, 0.3, 0.3, 0.3).tinted(0.0), Color::cmyk(0.0, 0.0, 0.0, 0.0));
         assert_eq!(Color::rgb(0.0, 0.0, 0.0).tinted(-1.0).to_hex(), "#ffffff", "clamped");
         assert_eq!(tint_percent(0.404), 40.0);
+    }
+
+    #[test]
+    fn current_color_marker_labels_and_round_trips() {
+        let p = Paint::current_color();
+        assert!(p.is_current_color() && !p.is_registration());
+        assert_eq!(p.label(), "currentColor");
+        let s = serde_json::to_string(&p).unwrap();
+        let back: Paint = serde_json::from_str(&s).unwrap();
+        assert!(back.is_current_color());
     }
 
     #[test]

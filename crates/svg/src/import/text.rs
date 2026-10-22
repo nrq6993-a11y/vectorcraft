@@ -374,7 +374,7 @@ impl Ctx {
             Ok(svgtypes::Paint::None) => (Paint::None, None),
             Ok(svgtypes::Paint::Color(c)) => (solid(c), None),
             Ok(svgtypes::Paint::CurrentColor) => {
-                (self.css.prop(n, "color").and_then(|c| svgtypes::Color::from_str(&c).ok()).map_or(Paint::solid(Color::BLACK), solid), None)
+                (self.css.prop(n, "color").and_then(|c| svgtypes::Color::from_str(&c).ok()).map_or(Paint::current_color(), solid), None)
             }
             Ok(svgtypes::Paint::FuncIRI(..)) => (Paint::None, Some(v)),
             _ => (initial, None),

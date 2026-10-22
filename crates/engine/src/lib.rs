@@ -2290,6 +2290,8 @@ mod tests_containers;
 #[cfg(test)]
 mod tests_css;
 #[cfg(test)]
+mod tests_current_color;
+#[cfg(test)]
 mod tests_cut;
 #[cfg(test)]
 mod tests_dashalign;

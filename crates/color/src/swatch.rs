@@ -20,6 +20,9 @@ pub struct Swatch {
 /// The name of the built-in Registration swatch ([`registration`]).
 pub const REGISTRATION: &str = "[Registration]";
 
+/// Marker name for paints that use the SVG/CSS keyword `currentColor` (not a document swatch).
+pub const CURRENT_COLOR: &str = "[CurrentColor]";
+
 /// The built-in Registration swatch: a global colour of 100% of every ink that prints on every
 /// plate, process and spot (printer's marks). Every document has it; it can't be edited or deleted.
 pub fn registration() -> &'static Swatch {

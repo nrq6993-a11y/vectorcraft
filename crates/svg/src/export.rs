@@ -812,6 +812,7 @@ impl Writer<'_> {
                 Some(id) => format!("url(#{id})"),
                 None => "none".into(),
             },
+            Paint::Solid { color, swatch, .. } if swatch.as_deref() == Some(vectorcraft_color::swatch::CURRENT_COLOR) => "currentColor".into(),
             Paint::Solid { color, .. } => color.to_hex(),
             Paint::Gradient(g) => format!("url(#{})", self.gradient_def(g, bounds.unwrap_or(Rect::new(0.0, 0.0, 1.0, 1.0)))),
         }
