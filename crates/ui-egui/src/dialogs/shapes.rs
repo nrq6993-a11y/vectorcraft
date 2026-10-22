@@ -1,5 +1,5 @@
 //! Shape size dialogs (a click with a shape tool): Rectangle, Rounded Rectangle, Ellipse, Polygon,
-//! Star, Line Segment Tool Options and the two grids (size, divider counts and skews, switches).
+//! Star, Line Segment and Spiral Tool Options and the two grids (size, divider counts and skews, switches).
 
 use serde_json::{Value, json};
 use vectorcraft_geom::{Point, Rect};
@@ -21,6 +21,7 @@ fn title(kind: &str) -> &'static str {
         "star" => tl!("Star"),
         "rectangularGrid" => tl!("Rectangular Grid"),
         "polarGrid" => tl!("Polar Grid"),
+        "spiral" => tl!("Spiral"),
         _ => tl!("Line Segment Tool Options"),
     }
 }
@@ -80,6 +81,10 @@ fn body(app: &mut VectorcraftApp, ui: &mut egui::Ui, d: &mut Dialog) -> bool {
         });
     } else {
         form::grid(ui, d, unit);
+        if d.kind == "spiral" {
+            ui.add_space(8.0);
+            form::check(ui, d, "clockwise", tl!("Clockwise"));
+        }
     }
     let own = match d.kind.as_str() {
         "rectangularGrid" => ("frame", tl!("Use Outside Rectangle As Frame")),
@@ -109,11 +114,21 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
         "star" => Some(("points", 5.0, 2.0)),
         _ => None,
     };
-    let options = count.map(|(key, default, min)| {
-        let mut values = json!({});
-        values[key] = json!(d.f64(key, default).clamp(min, 1000.0) as u64);
-        values
-    });
+    let options = count
+        .map(|(key, default, min)| {
+            let mut values = json!({});
+            values[key] = json!(d.f64(key, default).clamp(min, 1000.0) as u64);
+            values
+        })
+        .or_else(|| {
+            (d.kind == "spiral").then(|| {
+                json!({
+                    "decay": d.f64("decay", 80.0).clamp(5.0, 150.0),
+                    "segments": d.f64("segments", 10.0).clamp(2.0, 1000.0) as u64,
+                    "clockwise": d.bool("clockwise"),
+                })
+            })
+        });
     let (x, y) = (d.f64("x", 0.0), d.f64("y", 0.0));
     let (bx, by) = box_origin(d);
     let (id, params) = match d.kind.as_str() {
@@ -139,6 +154,12 @@ fn confirm(app: &mut VectorcraftApp, d: &Dialog) -> Result<Value, String> {
         "lineSegment" => {
             let (l, a) = (d.f64("length", 100.0), d.f64("angle", 0.0).to_radians());
             ("shape.line", json!({"x1": x, "y1": y, "x2": x + l * a.cos(), "y2": y - l * a.sin()}))
+        }
+        "spiral" => {
+            let decay = d.f64("decay", 80.0).clamp(5.0, 150.0);
+            let segments = d.f64("segments", 10.0).clamp(2.0, 1000.0) as u64;
+            let clockwise = d.bool("clockwise");
+            ("shape.spiral", json!({"cx": x, "cy": y, "radius": d.f64("radius", 50.0), "decay": decay, "segments": segments, "clockwise": clockwise}))
         }
         _ => (
             "shape.rectangle",

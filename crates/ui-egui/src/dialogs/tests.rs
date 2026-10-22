@@ -41,6 +41,7 @@ fn kinds_map_to_their_dialogs() {
         ("newDocument", DialogKind::NewDocument),
         ("roundedRectangle", DialogKind::Shape),
         ("lineSegment", DialogKind::Shape),
+        ("spiral", DialogKind::Shape),
         ("rectangularGrid", DialogKind::Shape),
         ("polarGrid", DialogKind::Shape),
         ("shear", DialogKind::Transform),
@@ -88,6 +89,7 @@ fn every_dialog_draws() {
         "polygon",
         "star",
         "lineSegment",
+        "spiral",
         "rectangularGrid",
         "polarGrid",
         "rotate",
@@ -97,7 +99,14 @@ fn every_dialog_draws() {
         "artboardOptions",
     ] {
         open_tool_dialog(&mut app, kind, json!({"x": 5, "y": 5, "index": 0}));
-        assert!(app.ui.dialog.as_ref().is_some_and(|d| d.kind == kind), "{kind}");
+        let dialog = app.ui.dialog.as_ref().filter(|d| d.kind == kind);
+        assert!(dialog.is_some(), "{kind}");
+        if kind == "spiral" {
+            let fields = &dialog.unwrap().fields;
+            assert_eq!(fields["decay"], json!(80.0));
+            assert_eq!(fields["segments"], json!(10));
+            assert_eq!(fields["clockwise"], json!(true));
+        }
         frame(&mut app, Default::default());
     }
     for (kind, fields) in [
@@ -1709,6 +1718,18 @@ fn polar_grid_shared_canvas_click_defaults_units_counts_and_history() {
     assert_eq!(app.session.doc().unwrap().doc, before);
     app.run("edit.redo", json!({})).unwrap();
     assert_eq!(app.session.doc().unwrap().doc, made);
+}
+
+/// #3447: a Spiral tool click opens its options at the pointer; OK draws a spiral there.
+#[test]
+fn spiral_click_opens_options_and_ok_draws() {
+    use vectorcraft_doc::NodeKind;
+    let mut app = app();
+    open_tool_dialog(&mut app, "spiral", json!({"x": 100.0, "y": 50.0}));
+    assert_eq!(app.ui.dialog.as_ref().unwrap().kind, "spiral");
+    super::confirm(&mut app).unwrap();
+    let n = app.session.doc().unwrap().doc.layers[0].children().unwrap().last().unwrap();
+    assert!(matches!(n.kind, NodeKind::Path { .. }));
 }
 
 /// #1377: Polar Grid's dialog has a skew slider under each divider count, Create Compound Path
