@@ -36,6 +36,13 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_procedure_nesting_is_bounded() {
+    let body = format!("{}{}", "{".repeat(257), "}".repeat(257));
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("procedures nest"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
