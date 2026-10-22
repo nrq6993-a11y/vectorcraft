@@ -20,6 +20,11 @@
 	Medium Light	Mellemlys
 	Light	Lys
 	Quit VectorCraft	Slut VectorCraft
+# Artwork drag between document tabs.
+	Drop Artwork	Slip illustration
+@msg	{key} must be [x, y] with finite coordinates	{key} skal være [x, y] med endelige koordinater
+@msg	ids must contain 1–10000 object ids	ids skal indeholde 1–10000 objekt-id’er
+
 	File	Filer
 	New…	Ny…
 	New Without Dialog	Ny uden dialog
@@ -711,7 +716,7 @@
 	Units	Enheder
 	Guides & Grid	Hjælpelinjer og gitter
 	Hyphenation	Orddeling
-	Performance & Storage	Ydeevne og lager
+	Plug-ins & Scratch Disks	Plug-ins & Midlertidige diske
 	User Interface	Brugergrænseflade
 	Performance	Ydeevne
 	File Handling	Filhåndtering
@@ -2179,11 +2184,11 @@ lighting	Light	Lys
 	Fonts whose licence doesn't allow embedding are not copied.	Skrifttyper, hvis licens ikke tillader indlejring, kopieres ikke.
 	Package collects a saved document with its linked files and fonts.	Pakning samler et gemt dokument med dets linkede filer og skrifttyper.
 	Package created	Pakke oprettet
-	Packaged {n} file(s) in {folder}{note}	Pakkede {n} fil(er) i {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	Pakkede {n} fil(er) i {folder}{note}
 	Packaged {n} file(s){note}	Pakkede {n} fil(er){note}
 	Relink Linked Files to the Document	Genopret link til dokumentets linkede filer
 	Save the document first?	Gem dokumentet først?
-	{count} file(s) in {folder}{note}. Show the package folder?	{count} fil(er) i {folder}{note}. Vis pakkemappen?
+	{count} file(s) in {folder} {note}. Show the package folder?	{count} fil(er) i {folder}{note}. Vis pakkemappen?
 	{count} linked file(s) not found	{count} linkede fil(er) ikke fundet
 	fonts not copied: {fonts}	skrifttyper ikke kopieret: {fonts}
 	Built-in presets are read-only: New… starts an editable copy.	Indbyggede forudindstillinger er skrivebeskyttede: Ny… starter en redigerbar kopi.
@@ -3857,7 +3862,7 @@ imageTrace	Outline	Kontur
 @msg	Outline Stroke: no stroked paths selected	Konturér kurve: ingen kurver med kontur er markeret
 @msg	PDF settings are not an object	PDF-indstillinger er ikke et objekt
 @msg	PDF writer error: {0}	PDF-skriverfejl: {0}
-@msg	Packaged {n} file(s) in {folder}{note}	Pakkede {n} fil(er) i {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	Pakkede {n} fil(er) i {folder}{note}
 @msg	Packaged {n} file(s){note}	Pakkede {n} fil(er){note}
 @msg	Preview in Browser needs the desktop app (the web downloads files instead)	Forhåndsvisning i browser kræver skrivebordsappen (webversionen downloader filer i stedet)
 @msg	Release Guides: no guides	Frigiv hjælpelinjer: ingen hjælpelinjer
@@ -4014,7 +4019,7 @@ imageTrace	Outline	Kontur
 @msg	give horizontal or vertical	angiv vandret eller lodret
 @msg	give the path `id` and the width point `index`	angiv `id` for kurven og `index` for breddepunktet
 @msg	guides are locked	hjælpelinjerne er låst
-@msg	image '{key}' has no pixels and was left out	billedet '{key}' har ingen pixels og blev udeladt
+@msg	an image has no pixels and was left out	et billede uden pixels blev udeladt
 @msg	image data `{_1}` is missing	billeddata `{_1}` mangler
 @msg	image would be too large; lower the resolution	billedet ville blive for stort; sænk opløsningen
 @msg	index must be a number or first, previous, next or last	indeks skal være et tal eller first, previous, next eller last
@@ -4347,6 +4352,7 @@ imageTrace	Outline	Kontur
 @msg	Saving	Gemmer
 @msg	Saving {_1}	Gemmer {_1}
 @msg	Exporting {_1}	Eksporterer {_1}
+@msg	Packaging {_1}	Pakker {_1}
 @msg	Saving recovery data for {_1}	Gemmer gendannelsesdata for {_1}
 @msg	Discarded {_1} recovered document(s)	Forkastede {_1} gendannet(e) dokument(er)
 @msg	Restored {_1} recovered document(s): save them to keep them	Genvandt {_1} gendannet(e) dokument(er): gem dem for at beholde dem
@@ -5306,6 +5312,14 @@ swatch	Bright Violet	Kraftig violet
 	Full Justify	Lige margener
 	Minimum must not exceed Desired, nor Desired Maximum.	Minimum må ikke overstige Ønsket, og Ønsket ikke Maksimum.
 	Justification	Justering
+	Add filters from the list above	Tilføj filtre fra listen ovenfor
+	Add to Stack	Tilføj til stak
+	Applied Filters	Anvendte filtre
+	Categories	Kategorier
+	Choose a filter	Vælg et filter
+	Effect Gallery	Effektgalleri
+	Filters	Filtre
+	Select artwork to apply effects	Vælg grafik for at anvende effekter
 # Select by Color (select.color)
 	Select by Color	Markér efter farve
 	Smudge Stick…	Udtværingsstift…
@@ -5351,5 +5365,30 @@ swatch	Bright Violet	Kraftig violet
 	Water Paper	Vådt papir
 	Ruby…	Ruby…
 	Ruby	Ruby
+	Ease In	Langsom start
+	Ease Out	Langsom slutning
+	Ease In Out	Langsom start og slutning
+	Ease Out In	Langsom slutning og start
+	Ramp:	Styrke:
+	Shift:	Forskydning:
 	Fresco…	Fresko…
 	Fresco	Fresko
+	Effect Gallery…	Effektgalleri…
+	Effect Gallery Dialog	Dialogboksen Effektgalleri
+	Arc Segment Tool Options	Indstillinger for buesegmentværktøj
+	Base Along:	Base langs:
+	Closed	Lukket
+	Convex	Konvex
+	Fill Arc	Udfyld bue
+	Length X-Axis:	Længde X-akse:
+	Length Y-Axis:	Længde Y-akse:
+	Slope:	Hældning:
+axis	X Axis	X-akse
+axis	Y Axis	Y-akse
+@msg	Packaged {n} file(s) in {folder}	Pakkede {n} fil(er) i {folder}
+@msg	Packaged {n} file(s) {note}	Pakkede {n} fil(er) {note}
+@msg	Packaged {n} file(s)	Pakkede {n} fil(er)
+	Packaged {n} file(s)	Pakkede {n} fil(er)
+	Packaged {n} file(s) in {folder}	Pakkede {n} fil(er) i {folder}
+	Packaged {n} file(s) {note}	Pakkede {n} fil(er) {note}
+	{count} file(s) in {folder}. Show the package folder?	{count} fil(er) i {folder}. Vis pakkemappen?

@@ -947,6 +947,11 @@
 	Fidelity:	Fidelidade:
 	Figure Space	Espaço de Figura
 	Figure:	Figura:
+# Artwork drag between document tabs.
+	Drop Artwork	Soltar arte
+@msg	{key} must be [x, y] with finite coordinates	{key} deve ser [x, y] com coordenadas finitas
+@msg	ids must contain 1–10000 object ids	ids deve conter de 1 a 10000 IDs de objetos
+
 	File	Arquivo
 	File Format:	Formato do Arquivo:
 	File Formats	Formatos de Arquivo
@@ -1868,7 +1873,7 @@
 	Percent:	Porcentagem:
 	Perceptual Scales	Escalas Perceptuais
 	Performance	Desempenho
-	Performance & Storage	Desempenho e Armazenamento
+	Plug-ins & Scratch Disks	Plug-ins & Discos de Cópia
 	Permissions	Permissões
 	Permissions password:	Senha de permissões:
 	Perspective	Perspectiva
@@ -2931,7 +2936,7 @@
 	the preset	o predefinido
 	tile {number}	bloco {number}
 	to	para
-	{count} file(s) in {folder}{note}. Show the package folder?	{count} arquivo(s) em {folder}{note}. Mostrar a pasta do pacote?
+	{count} file(s) in {folder} {note}. Show the package folder?	{count} arquivo(s) em {folder}{note}. Mostrar a pasta do pacote?
 	{count} linked file(s) not found	{count} arquivo(s) vinculado(s) não encontrado(s)
 	fonts not copied: {fonts}	fontes não copiadas: {fonts}
 	{count} linked image(s) changed since this document was saved. Show the new versions?	{count} imagem(ns) vinculada(s) alterada(s) desde que este documento foi salvo. Mostrar as novas versões?
@@ -3401,7 +3406,7 @@ axis	Both	Ambos
 @msg	Outline Stroke: no stroked paths selected	Contornar traço: nenhum traçado com traço selecionado
 @msg	PDF settings are not an object	as configurações de PDF não são um objeto
 @msg	PDF writer error: {0}	Erro do gravador de PDF: {0}
-@msg	Packaged {n} file(s) in {folder}{note}	{n} arquivo(s) empacotado(s) em {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	{n} arquivo(s) empacotado(s) em {folder}{note}
 @msg	Packaged {n} file(s){note}	{n} arquivo(s) empacotado(s){note}
 @msg	Preview in Browser needs the desktop app (the web downloads files instead)	Visualizar no navegador exige o aplicativo para desktop (na web, os arquivos são baixados)
 @msg	Release Guides: no guides	Liberar guias: não há guias
@@ -3564,7 +3569,7 @@ axis	Both	Ambos
 @msg	give the path `id` and the width point `index`	informe o `id` do traçado e o `index` do ponto de largura
 @msg	guides are locked	as guias estão bloqueadas
 @msg	handle must be in or out	handle deve ser in ou out
-@msg	image '{key}' has no pixels and was left out	a imagem '{key}' não tem pixels e foi omitida
+@msg	an image has no pixels and was left out	uma imagem sem pixels foi omitida
 @msg	image data `{_1}` is missing	os dados da imagem `{_1}` estão ausentes
 @msg	image would be too large; lower the resolution	a imagem ficaria grande demais; reduza a resolução
 @msg	index must be a number or first, previous, next or last	index deve ser um número ou first, previous, next ou last
@@ -3917,6 +3922,7 @@ axis	Both	Ambos
 @msg	Saving	Salvando
 @msg	Saving {_1}	Salvando {_1}
 @msg	Exporting {_1}	Exportando {_1}
+@msg	Packaging {_1}	Empacotando {_1}
 @msg	Saving recovery data for {_1}	Salvando dados de recuperação de {_1}
 @msg	Discarded {_1} recovered document(s)	{_1} documento(s) recuperado(s) descartado(s)
 @msg	Restored {_1} recovered document(s): save them to keep them	{_1} documento(s) recuperado(s) restaurado(s): salve-os para mantê-los
@@ -4429,7 +4435,7 @@ axis	Both	Ambos
 	Output Black	Preto de Saída
 	Output White	Branco de Saída
 	Output › Mode	Saída › Modo
-	Packaged {n} file(s) in {folder}{note}	{n} arquivo(s) empacotado(s) em {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	{n} arquivo(s) empacotado(s) em {folder}{note}
 	Packaged {n} file(s){note}	{n} arquivo(s) empacotado(s){note}
 	Page information	Informações da página
 	Paragraph Style	Estilo de Parágrafo
@@ -5250,6 +5256,7 @@ mark-style	Japanese	Japonesas
 @msg	Persistent libraries not found: {files}	Bibliotecas persistentes não encontradas: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` não é um painel de biblioteca (consulte window.swatchLibrary)
 @msg	library panel `{given}` isn't open	o painel de biblioteca `{given}` não está aberto
+@msg	library panel `{given}` isn't missing its library	a biblioteca do painel de biblioteca `{given}` não está faltando
 @msg	too many library panels were opened in this session	foram abertos painéis de biblioteca demais nesta sessão
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	A imagem tem {_1} × {_2} pixels, mais de {LARGE_TRACE_SIDE} em um lado: ela é traçada, mas mais devagar. Uma predefinição de menor fidelidade ou uma cópia menor da imagem traça mais rápido.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	A imagem foi traçada em {_1} × {_2} pixels, reduzida de {_3} × {_4} (no máximo {_5} megapixels).
@@ -5270,6 +5277,14 @@ mark-style	Japanese	Japonesas
 	Full Justify	Justificação Completa
 	Minimum must not exceed Desired, nor Desired Maximum.	O mínimo não pode passar do desejado, nem o desejado do máximo.
 	Justification	Justificação
+	Add filters from the list above	Adicione filtros da lista acima
+	Add to Stack	Adicionar à Pilha
+	Applied Filters	Filtros Aplicados
+	Categories	Categorias
+	Choose a filter	Escolha um filtro
+	Effect Gallery	Galeria de Efeitos
+	Filters	Filtros
+	Select artwork to apply effects	Selecione a arte para aplicar efeitos
 @msg	the file's variables and data sets weren't read (variables: {variables}, data sets: {data_sets}): the Variables panel doesn't list them	as variáveis e os conjuntos de dados do arquivo não foram lidos (variáveis: {variables}, conjuntos de dados: {data_sets}): o painel Variáveis não os lista
 # Select by Color (select.color)
 	Select by Color	Selecionar por Cor
@@ -5295,5 +5310,30 @@ mark-style	Japanese	Japonesas
 	Water Paper	Papel molhado
 	Ruby…	Ruby…
 	Ruby	Ruby
+	Ease In	Entrada suave
+	Ease Out	Saída suave
+	Ease In Out	Entrada e saída suaves
+	Ease Out In	Saída e entrada suaves
+	Ramp:	Intensidade:
+	Shift:	Deslocamento:
 	Fresco…	Afresco…
 	Fresco	Afresco
+	Effect Gallery…	Galeria de Efeitos…
+	Effect Gallery Dialog	Caixa de diálogo Galeria de Efeitos
+	Arc Segment Tool Options	Opções da Ferramenta Segmento de Arco
+	Base Along:	Base ao longo de:
+	Closed	Fechado
+	Convex	Convexo
+	Fill Arc	Preencher arco
+	Length X-Axis:	Comprimento eixo X:
+	Length Y-Axis:	Comprimento eixo Y:
+	Slope:	Inclinação:
+axis	X Axis	Eixo X
+axis	Y Axis	Eixo Y
+@msg	Packaged {n} file(s) in {folder}	{n} arquivo(s) empacotado(s) em {folder}
+@msg	Packaged {n} file(s) {note}	{n} arquivo(s) empacotado(s) {note}
+@msg	Packaged {n} file(s)	{n} arquivo(s) empacotado(s)
+	Packaged {n} file(s)	{n} arquivo(s) empacotado(s)
+	Packaged {n} file(s) in {folder}	{n} arquivo(s) empacotado(s) em {folder}
+	Packaged {n} file(s) {note}	{n} arquivo(s) empacotado(s) {note}
+	{count} file(s) in {folder}. Show the package folder?	{count} arquivo(s) em {folder}. Mostrar a pasta do pacote?

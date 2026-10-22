@@ -1232,6 +1232,11 @@
 	Fidelity:	Độ trung thực:
 	Figure Space	Khoảng trắng chữ số
 	Figure:	Chữ số:
+# Artwork drag between document tabs.
+	Drop Artwork	Thả hình đồ họa
+@msg	{key} must be [x, y] with finite coordinates	{key} phải là [x, y] với tọa độ hữu hạn
+@msg	ids must contain 1–10000 object ids	ids phải chứa từ 1 đến 10000 mã định danh đối tượng
+
 	File	Tệp
 	File Dimensions	Kích thước tệp
 	File Format:	Định dạng tệp:
@@ -2513,7 +2518,7 @@ file-filter	Templates	Mẫu
 	Package	Gói
 	Package collects a saved document with its linked files and fonts.	Gói thu thập tài liệu đã lưu cùng tệp liên kết và phông chữ.
 	Package created	Đã tạo gói
-	Packaged {n} file(s) in {folder}{note}	Đã đóng gói {n} tệp trong {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	Đã đóng gói {n} tệp trong {folder}{note}
 	Packaged {n} file(s){note}	Đã đóng gói {n} tệp{note}
 	Package…	Gói…
 	Page	Trang
@@ -2585,7 +2590,7 @@ file-filter	Templates	Mẫu
 	Performance	Hiệu suất
 diagnostics	render	kết xuất
 diagnostics	ui	giao diện
-	Performance & Storage	Hiệu suất & Bộ nhớ
+	Plug-ins & Scratch Disks	Plug-in & Đĩa tạm
 	Permissions	Quyền
 	Permissions password:	Mật khẩu quyền:
 	Perspective	Phối cảnh
@@ -3966,7 +3971,7 @@ mark-style	Japanese	Kiểu Nhật
 	Zoom to Selection	Thu phóng đến vùng chọn
 	Zoom Tool	Công cụ thu phóng
 	Zoom with Mouse Wheel	Thu phóng bằng con lăn chuột
-	{count} file(s) in {folder}{note}. Show the package folder?	{count} tệp trong {folder}{note}. Hiện thư mục gói?
+	{count} file(s) in {folder} {note}. Show the package folder?	{count} tệp trong {folder}{note}. Hiện thư mục gói?
 	{count} folder(s) or file(s) couldn't be read	{count} thư mục hoặc tệp không thể đọc được
 	{count} folder(s) skipped, such as other apps' and the system's folders and hidden ones	Đã bỏ qua {count} thư mục, chẳng hạn thư mục của ứng dụng khác, thư mục hệ thống và thư mục ẩn
 	{count} linked file(s) not found	Không tìm thấy {count} tệp liên kết
@@ -4231,6 +4236,7 @@ theme	Appearance	Giao diện
 @msg	Exported {what}	Đã xuất {what}
 @msg	Exported {what} with {_1} note(s): {first}	Đã xuất {what} với {_1} ghi chú: {first}
 @msg	Exporting {_1}	Đang xuất {_1}
+@msg	Packaging {_1}	Đang đóng gói {_1}
 @msg	file version {0} is newer than this VectorCraft supports ({VERSION})	phiên bản tệp {0} mới hơn VectorCraft hỗ trợ ({VERSION})
 @msg	Flatten Transparency: select objects to flatten	Dẹp phẳng độ trong suốt: hãy chọn đối tượng để dẹp phẳng
 @msg	Flatten Transparency: {e}	Dẹp phẳng độ trong suốt: {e}
@@ -4251,7 +4257,7 @@ theme	Appearance	Giao diện
 @msg	only a dock group above or below others collapses, not one beside another	chỉ thu gọn được nhóm dock nằm trên hoặc dưới các nhóm khác, không phải nhóm nằm cạnh
 @msg	guides are locked	đường căn bị khóa
 @msg	handle must be in or out	handle phải là in hoặc out
-@msg	image '{key}' has no pixels and was left out	ảnh '{key}' không có pixel và bị bỏ qua
+@msg	an image has no pixels and was left out	một ảnh không có pixel đã bị bỏ qua
 @msg	image data `{_1}` is missing	dữ liệu ảnh `{_1}` bị thiếu
 @msg	image is empty	ảnh trống
 @msg	Image Trace: the traced image is missing	Vector hóa ảnh: ảnh đã vector hóa bị thiếu
@@ -4468,7 +4474,7 @@ theme	Appearance	Giao diện
 @msg	Opened with {_1} note(s): {_2}	Đã mở với {_1} ghi chú: {_2}
 @msg	Opened {url}	Đã mở {url}
 @msg	Outline Stroke: no stroked paths selected	Đường bao nét: chưa chọn đường dẫn có nét
-@msg	Packaged {n} file(s) in {folder}{note}	Đã đóng gói {n} tệp trong {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	Đã đóng gói {n} tệp trong {folder}{note}
 @msg	Packaged {n} file(s){note}	Đã đóng gói {n} tệp{note}
 @msg	page size {w} × {h}	kích thước trang {w} × {h}
 @msg	page {0} does not exist (the PDF has {1})	trang {0} không tồn tại (PDF có {1} trang)
@@ -4927,6 +4933,7 @@ theme	Appearance	Giao diện
 @msg	Persistent libraries not found: {files}	Không tìm thấy thư viện lưu giữ: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` không phải là bảng thư viện (xem window.swatchLibrary)
 @msg	library panel `{given}` isn't open	bảng thư viện `{given}` chưa được mở
+@msg	library panel `{given}` isn't missing its library	thư viện của bảng thư viện `{given}` không bị thiếu
 @msg	too many library panels were opened in this session	đã mở quá nhiều bảng thư viện trong phiên này
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	Ảnh có kích thước {_1} × {_2} điểm ảnh, hơn {LARGE_TRACE_SIDE} ở một cạnh: ảnh vẫn được dò, nhưng chậm hơn. Một thiết lập sẵn có độ trung thực thấp hơn hoặc một bản sao nhỏ hơn của ảnh sẽ dò nhanh hơn.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	Ảnh đã được dò ở {_1} × {_2} điểm ảnh, thu nhỏ từ {_3} × {_4} (tối đa {_5} megapixel).
@@ -4948,6 +4955,14 @@ theme	Appearance	Giao diện
 	Minimum must not exceed Desired, nor Desired Maximum.	Giá trị tối thiểu không được vượt quá giá trị mong muốn, và giá trị mong muốn không được vượt quá tối đa.
 	Minimum	Tối thiểu
 	Justification	Căn đều
+	Add filters from the list above	Thêm bộ lọc từ danh sách phía trên
+	Add to Stack	Thêm vào ngăn xếp
+	Applied Filters	Bộ lọc đã áp dụng
+	Categories	Danh mục
+	Choose a filter	Chọn bộ lọc
+	Effect Gallery	Thư viện hiệu ứng
+	Filters	Bộ lọc
+	Select artwork to apply effects	Chọn đồ họa để áp dụng hiệu ứng
 @msg	the file's variables and data sets weren't read (variables: {variables}, data sets: {data_sets}): the Variables panel doesn't list them	các biến và tập dữ liệu của tệp chưa được đọc (biến: {variables}, tập dữ liệu: {data_sets}): bảng Biến không liệt kê chúng
 # Select by Color (select.color)
 	Select by Color	Chọn theo màu
@@ -4973,5 +4988,31 @@ theme	Appearance	Giao diện
 	Water Paper	Giấy ướt
 	Ruby…	Ruby…
 	Ruby	Ruby
+	Ease In	Chậm lúc đầu
+	Ease Out	Chậm lúc cuối
+	Ease In Out	Chậm lúc đầu và cuối
+	Ease Out In	Chậm lúc cuối và đầu
+	Ramp:	Cường độ:
+	Shift:	Dịch chuyển:
 	Fresco…	Bích họa…
 	Fresco	Bích họa
+	Effect Gallery…	Thư viện hiệu ứng…
+	Effect Gallery Dialog	Hộp thoại Thư viện hiệu ứng
+	Arc Segment Tool Options	Tùy chọn công cụ cung phân đoạn
+	Base Along:	Cơ sở dọc theo:
+	Closed	Đóng
+	Concave	Lõm
+	Convex	Lồi
+	Fill Arc	Tô cung
+	Length X-Axis:	Chiều dài trục X:
+	Length Y-Axis:	Chiều dài trục Y:
+	Slope:	Độ dốc:
+axis	X Axis	Trục X
+axis	Y Axis	Trục Y
+@msg	Packaged {n} file(s) in {folder}	Đã đóng gói {n} tệp trong {folder}
+@msg	Packaged {n} file(s) {note}	Đã đóng gói {n} tệp {note}
+@msg	Packaged {n} file(s)	Đã đóng gói {n} tệp
+	Packaged {n} file(s)	Đã đóng gói {n} tệp
+	Packaged {n} file(s) in {folder}	Đã đóng gói {n} tệp trong {folder}
+	Packaged {n} file(s) {note}	Đã đóng gói {n} tệp {note}
+	{count} file(s) in {folder}. Show the package folder?	{count} tệp trong {folder}. Hiện thư mục gói?

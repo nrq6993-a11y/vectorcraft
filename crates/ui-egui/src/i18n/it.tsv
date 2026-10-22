@@ -1069,6 +1069,11 @@
 	Fidelity:	Fedeltà:
 	Figure Space	Spazio cifra
 	Figure:	Cifre:
+# Artwork drag between document tabs.
+	Drop Artwork	Rilascia illustrazione
+@msg	{key} must be [x, y] with finite coordinates	{key} deve essere [x, y] con coordinate finite
+@msg	ids must contain 1–10000 object ids	ids deve contenere da 1 a 10000 identificatori di oggetti
+
 	File	File
 	File Dimensions	Dimensioni file
 	File Format:	Formato file:
@@ -2240,7 +2245,7 @@ file-filter	Templates	Modelli
 	Package	Crea pacchetto
 	Package collects a saved document with its linked files and fonts.	Il comando Crea pacchetto raccoglie un documento salvato insieme ai file collegati e ai font.
 	Package created	Pacchetto creato
-	Packaged {n} file(s) in {folder}{note}	Pacchetto creato con {n} file in {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	Pacchetto creato con {n} file in {folder} {note}
 	Packaged {n} file(s){note}	Pacchetto creato con {n} file{note}
 	Package…	Crea pacchetto…
 	Page	Pagina
@@ -2303,7 +2308,7 @@ file-filter	Templates	Modelli
 	Performance	Prestazioni
 diagnostics	render	rendering
 diagnostics	ui	interfaccia
-	Performance & Storage	Prestazioni e archiviazione
+	Plug-ins & Scratch Disks	Plug-in & Dischi di memoria virtuale
 	Permissions	Autorizzazioni
 	Permissions password:	Password autorizzazioni:
 	Perspective	Prospettiva
@@ -3613,7 +3618,7 @@ mark-style	Japanese	Giapponese
 	Zoom Tool	Strumento Zoom
 	Zoom with Mouse Wheel	Zoom con la rotellina del mouse
 	Scrub Numeric Fields by Dragging	Regola i campi numerici trascinando
-	{count} file(s) in {folder}{note}. Show the package folder?	{count} file in {folder}{note}. Vuoi mostrare la cartella del pacchetto?
+	{count} file(s) in {folder} {note}. Show the package folder?	{count} file in {folder} {note}. Vuoi mostrare la cartella del pacchetto?
 	{count} linked file(s) not found	File collegati non trovati: {count}
 	fonts not copied: {fonts}	font non copiati: {fonts}
 	{count} linked image(s) changed since this document was saved. Show the new versions?	Immagini collegate modificate dopo il salvataggio di questo documento: {count}. Vuoi mostrare le nuove versioni?
@@ -3858,7 +3863,7 @@ axis	Both	Entrambi
 @msg	Outline Stroke: no stroked paths selected	Contorna traccia: nessun tracciato con traccia selezionato
 @msg	PDF settings are not an object	Le impostazioni PDF non sono un oggetto
 @msg	PDF writer error: {0}	Errore del generatore PDF: {0}
-@msg	Packaged {n} file(s) in {folder}{note}	Pacchetto creato con {n} file in {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	Pacchetto creato con {n} file in {folder} {note}
 @msg	Packaged {n} file(s){note}	Pacchetto creato con {n} file{note}
 @msg	Preview in Browser needs the desktop app (the web downloads files instead)	Anteprima nel browser richiede l'app desktop (sul web i file vengono invece scaricati)
 @msg	Release Guides: no guides	Rilascia guide: nessuna guida
@@ -4029,7 +4034,7 @@ axis	Both	Entrambi
 @msg	give the path `id` and the width point `index`	specifica l'`id` del tracciato e l'`index` del punto di larghezza
 @msg	guides are locked	le guide sono bloccate
 @msg	handle must be in or out	handle deve essere in o out
-@msg	image '{key}' has no pixels and was left out	l'immagine '{key}' non ha pixel ed è stata omessa
+@msg	an image has no pixels and was left out	un'immagine senza pixel è stata omessa
 @msg	image data `{_1}` is missing	mancano i dati immagine `{_1}`
 @msg	image would be too large; lower the resolution	l'immagine sarebbe troppo grande; riduci la risoluzione
 @msg	index must be a number or first, previous, next or last	index deve essere un numero oppure first, previous, next o last
@@ -4386,6 +4391,7 @@ axis	Both	Entrambi
 @msg	Saving	Salvataggio
 @msg	Saving {_1}	Salvataggio di {_1}
 @msg	Exporting {_1}	Esportazione di {_1}
+@msg	Packaging {_1}	Creazione del pacchetto {_1}
 @msg	Saving recovery data for {_1}	Salvataggio dei dati di recupero per {_1}
 @msg	Discarded {_1} recovered document(s)	Documenti recuperati scartati: {_1}
 @msg	Restored {_1} recovered document(s): save them to keep them	Documenti recuperati ripristinati: {_1}. Salvali per conservarli
@@ -4947,6 +4953,7 @@ lighting	Light	Luce
 @msg	Persistent libraries not found: {files}	Librerie persistenti non trovate: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` non è un pannello libreria (vedi window.swatchLibrary)
 @msg	library panel `{given}` isn't open	il pannello libreria `{given}` non è aperto
+@msg	library panel `{given}` isn't missing its library	la libreria del pannello libreria `{given}` non è mancante
 @msg	too many library panels were opened in this session	in questa sessione sono stati aperti troppi pannelli libreria
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	L’immagine è di {_1} × {_2} pixel, più di {LARGE_TRACE_SIDE} su un lato: viene vettorializzata, ma più lentamente. Un predefinito a fedeltà più bassa o una copia più piccola dell’immagine è più veloce.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	L’immagine è stata vettorializzata a {_1} × {_2} pixel, ridotta da {_3} × {_4} (al massimo {_5} megapixel).
@@ -4968,6 +4975,14 @@ lighting	Light	Luce
 	Minimum must not exceed Desired, nor Desired Maximum.	Il minimo non può superare il valore desiderato, né il desiderato il massimo.
 	Minimum	Minimo
 	Justification	Giustificazione
+	Add filters from the list above	Aggiungi filtri dall'elenco sopra
+	Add to Stack	Aggiungi alla pila
+	Applied Filters	Filtri applicati
+	Categories	Categorie
+	Choose a filter	Scegli un filtro
+	Effect Gallery	Galleria effetti
+	Filters	Filtri
+	Select artwork to apply effects	Seleziona la grafica a cui applicare gli effetti
 @msg	the file's variables and data sets weren't read (variables: {variables}, data sets: {data_sets}): the Variables panel doesn't list them	le variabili e i set di dati del file non sono stati letti (variabili: {variables}, set di dati: {data_sets}): il pannello Variabili non li elenca
 # Select by Color (select.color)
 	Select by Color	Seleziona per colore
@@ -4993,5 +5008,31 @@ lighting	Light	Luce
 	Water Paper	Carta bagnata
 	Ruby…	Ruby…
 	Ruby	Ruby
+	Ease In	Inizio graduale
+	Ease Out	Fine graduale
+	Ease In Out	Inizio e fine graduali
+	Ease Out In	Fine e inizio graduali
+	Ramp:	Intensità:
+	Shift:	Spostamento:
 	Fresco…	Affresco…
 	Fresco	Affresco
+	Effect Gallery…	Galleria effetti…
+	Effect Gallery Dialog	Finestra di dialogo Galleria effetti
+	Arc Segment Tool Options	Opzioni strumento Segmento arco
+	Base Along:	Base lungo:
+	Closed	Chiuso
+	Concave	Concavo
+	Convex	Convesso
+	Fill Arc	Riempi arco
+	Length X-Axis:	Lunghezza asse X:
+	Length Y-Axis:	Lunghezza asse Y:
+	Slope:	Pendenza:
+axis	X Axis	Asse X
+axis	Y Axis	Asse Y
+@msg	Packaged {n} file(s) in {folder}	Pacchetto creato con {n} file in {folder}
+@msg	Packaged {n} file(s) {note}	Pacchetto creato con {n} file {note}
+@msg	Packaged {n} file(s)	Pacchetto creato con {n} file
+	Packaged {n} file(s)	Pacchetto creato con {n} file
+	Packaged {n} file(s) in {folder}	Pacchetto creato con {n} file in {folder}
+	Packaged {n} file(s) {note}	Pacchetto creato con {n} file {note}
+	{count} file(s) in {folder}. Show the package folder?	{count} file in {folder}. Vuoi mostrare la cartella del pacchetto?

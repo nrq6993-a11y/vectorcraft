@@ -1067,6 +1067,11 @@
 	Fidelity:	Точность:
 	Figure Space	Цифровая шпация
 	Figure:	Цифры:
+# Artwork drag between document tabs.
+	Drop Artwork	Поместить графику
+@msg	{key} must be [x, y] with finite coordinates	{key} должен быть [x, y] с конечными координатами
+@msg	ids must contain 1–10000 object ids	ids должен содержать от 1 до 10000 идентификаторов объектов
+
 	File	Файл
 	File Dimensions	Размеры файла
 	File Format:	Формат файла:
@@ -2236,7 +2241,7 @@ file-filter	Templates	Шаблоны
 	Package	Упаковать
 	Package collects a saved document with its linked files and fonts.	Упаковка собирает сохранённый документ с его связанными файлами и шрифтами.
 	Package created	Пакет создан
-	Packaged {n} file(s) in {folder}{note}	Упаковано файлов: {n} в {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	Упаковано файлов: {n} в {folder}{note}
 	Packaged {n} file(s){note}	Упаковано файлов: {n}{note}
 	Package…	Упаковать…
 	Page	Страница
@@ -2299,7 +2304,7 @@ file-filter	Templates	Шаблоны
 	Performance	Производительность
 diagnostics	render	отрисовка
 diagnostics	ui	интерфейс
-	Performance & Storage	Производительность и хранение
+	Plug-ins & Scratch Disks	Модули & Рабочие диски
 	Permissions	Разрешения
 	Permissions password:	Пароль разрешений:
 	Perspective	Перспектива
@@ -3609,7 +3614,7 @@ mark-style	Japanese	Японский
 	Zoom Tool	Инструмент «Масштаб»
 	Zoom with Mouse Wheel	Масштабировать колесом мыши
 	Scrub Numeric Fields by Dragging	Изменять числовые поля перетаскиванием
-	{count} file(s) in {folder}{note}. Show the package folder?	Файлов: {count} в {folder}{note}. Показать папку пакета?
+	{count} file(s) in {folder} {note}. Show the package folder?	Файлов: {count} в {folder}{note}. Показать папку пакета?
 	{count} linked file(s) not found	Не найдено связанных файлов: {count}
 	fonts not copied: {fonts}	шрифты не скопированы: {fonts}
 	{count} linked image(s) changed since this document was saved. Show the new versions?	Связанных изображений ({count}) изменились с момента сохранения этого документа. Показать новые версии?
@@ -3854,7 +3859,7 @@ axis	Both	Оба
 @msg	Outline Stroke: no stroked paths selected	Обводка контура: не выделены контуры с обводкой
 @msg	PDF settings are not an object	параметры PDF не являются объектом
 @msg	PDF writer error: {0}	ошибка записи PDF: {0}
-@msg	Packaged {n} file(s) in {folder}{note}	Упаковано файлов: {n} в {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	Упаковано файлов: {n} в {folder}{note}
 @msg	Packaged {n} file(s){note}	Упаковано файлов: {n}{note}
 @msg	Preview in Browser needs the desktop app (the web downloads files instead)	Просмотр в браузере требует настольного приложения (web-версия скачивает файлы)
 @msg	Release Guides: no guides	Освобождение направляющих: нет направляющих
@@ -4025,7 +4030,7 @@ axis	Both	Оба
 @msg	give the path `id` and the width point `index`	укажите `id` контура и `index` точки ширины
 @msg	guides are locked	направляющие заблокированы
 @msg	handle must be in or out	handle должен быть in или out
-@msg	image '{key}' has no pixels and was left out	изображение '{key}' не имеет пикселей и было пропущено
+@msg	an image has no pixels and was left out	изображение без пикселей пропущено
 @msg	image data `{_1}` is missing	данные изображения `{_1}` отсутствуют
 @msg	image would be too large; lower the resolution	изображение было бы слишком большим; уменьшите разрешение
 @msg	index must be a number or first, previous, next or last	index должен быть числом или first, previous, next, last
@@ -4382,6 +4387,7 @@ axis	Both	Оба
 @msg	Saving	Сохранение
 @msg	Saving {_1}	Сохранение {_1}
 @msg	Exporting {_1}	Экспорт {_1}
+@msg	Packaging {_1}	Упаковка {_1}
 @msg	Saving recovery data for {_1}	Сохранение данных восстановления для {_1}
 @msg	Discarded {_1} recovered document(s)	Отменено восстановленных документов: {_1}
 @msg	Restored {_1} recovered document(s): save them to keep them	Восстановлено документов: {_1}: сохраните их, чтобы оставить
@@ -4943,6 +4949,7 @@ lighting	Light	Свет
 @msg	Persistent libraries not found: {files}	Постоянные библиотеки не найдены: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` — не панель библиотеки (см. window.swatchLibrary)
 @msg	library panel `{given}` isn't open	панель библиотеки `{given}` не открыта
+@msg	library panel `{given}` isn't missing its library	библиотека панели библиотеки `{given}` не отсутствует
 @msg	too many library panels were opened in this session	в этом сеансе открыто слишком много панелей библиотек
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	Изображение {_1} × {_2} пикселей, больше {LARGE_TRACE_SIDE} по одной стороне: трассировка выполняется, но медленнее. Стиль с меньшей точностью или уменьшенная копия изображения трассируются быстрее.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	Изображение трассировано в размере {_1} × {_2} пикселей, уменьшенное с {_3} × {_4} (не более {_5} мегапикселей).
@@ -4964,6 +4971,14 @@ lighting	Light	Свет
 	Minimum must not exceed Desired, nor Desired Maximum.	Минимум не может превышать желательное значение, а желательное — максимум.
 	Minimum	Минимум
 	Justification	Выключка
+	Add filters from the list above	Добавьте фильтры из списка выше
+	Add to Stack	Добавить в стек
+	Applied Filters	Применённые фильтры
+	Categories	Категории
+	Choose a filter	Выберите фильтр
+	Effect Gallery	Галерея эффектов
+	Filters	Фильтры
+	Select artwork to apply effects	Выберите графику, чтобы применить эффекты
 @msg	the file's variables and data sets weren't read (variables: {variables}, data sets: {data_sets}): the Variables panel doesn't list them	переменные и наборы данных файла не прочитаны (переменных: {variables}, наборов данных: {data_sets}): панель «Переменные» их не показывает
 # Select by Color (select.color)
 	Select by Color	Выделить по цвету
@@ -4989,5 +5004,31 @@ lighting	Light	Свет
 	Water Paper	Мокрая бумага
 	Ruby…	Руби…
 	Ruby	Руби
+	Ease In	Плавное начало
+	Ease Out	Плавное окончание
+	Ease In Out	Плавное начало и окончание
+	Ease Out In	Плавное окончание и начало
+	Ramp:	Сила:
+	Shift:	Сдвиг:
 	Fresco…	Фреска…
 	Fresco	Фреска
+	Effect Gallery…	Галерея эффектов…
+	Effect Gallery Dialog	Диалог «Галерея эффектов»
+	Arc Segment Tool Options	Параметры инструмента «Дуговой сегмент»
+	Base Along:	Основание вдоль:
+	Closed	Замкнутый
+	Concave	Вогнутый
+	Convex	Выпуклый
+	Fill Arc	Заливка дуги
+	Length X-Axis:	Длина по оси X:
+	Length Y-Axis:	Длина по оси Y:
+	Slope:	Уклон:
+axis	X Axis	Ось X
+axis	Y Axis	Ось Y
+@msg	Packaged {n} file(s) in {folder}	Упаковано файлов: {n} в {folder}
+@msg	Packaged {n} file(s) {note}	Упаковано файлов: {n} {note}
+@msg	Packaged {n} file(s)	Упаковано файлов: {n}
+	Packaged {n} file(s)	Упаковано файлов: {n}
+	Packaged {n} file(s) in {folder}	Упаковано файлов: {n} в {folder}
+	Packaged {n} file(s) {note}	Упаковано файлов: {n} {note}
+	{count} file(s) in {folder}. Show the package folder?	Файлов: {count} в {folder}. Показать папку пакета?

@@ -431,6 +431,7 @@ each of `items` is {{id, corners?}} with an object id, not {it}
 each row needs `from`
 each stop needs a position
 each subpath needs an anchors array
+easingType must be easeIn, easeOut, easeInOut or easeOutIn
 editingData must be true or false
 editingData must be true, false or "always"
 edits overlap
@@ -701,7 +702,7 @@ no design named `{n}`
 no design named `{old}`
 no encoder for {_1} yet
 no export preset `{name}` (see document.exportPresets.list)
-no folder: pass `path` or set Preferences › Performance & Storage › Additional Plug-ins Folder
+no folder: pass `path` or set Preferences › Plug-ins & Scratch Disks › Additional Plug-ins Folder
 no fonts to look for: they are all available
 no formats to export
 no graphic style `{n}` in `{_1}`
@@ -935,6 +936,7 @@ scope must be selection or all (got {other})
 scribble is too long
 segment does not exist
 select a Shaper group
+select a blend to set easing or color shift
 select a graph
 select a group or layer with visible, unlocked members
 select a layer
@@ -1255,6 +1257,7 @@ zoom must be positive
 {key} must be 0–{MAX_ADD_AROUND} pt
 {key} must be Unix seconds (an integer) or null
 {key} must be [x,y]
+{key} must be a percentage {min}..100
 {key} must be a positive number, not {v}
 {key} must be an array of non-negative integer object ids
 {key} must be one of {_1}

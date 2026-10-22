@@ -1063,6 +1063,11 @@
 	Fidelity:	Точність:
 	Figure Space	Цифрова шпація
 	Figure:	Цифри:
+# Artwork drag between document tabs.
+	Drop Artwork	Розмістити графіку
+@msg	{key} must be [x, y] with finite coordinates	{key} має бути [x, y] зі скінченними координатами
+@msg	ids must contain 1–10000 object ids	ids має містити від 1 до 10000 ідентифікаторів об’єктів
+
 	File	Файл
 	File Dimensions	Розміри файлу
 	File Format:	Формат файлу:
@@ -2232,7 +2237,7 @@ file-filter	Templates	Шаблони
 	Package	Упакувати
 	Package collects a saved document with its linked files and fonts.	Упаковка збирає збережений документ із його пов’язаними файлами та шрифтами.
 	Package created	Пакет створено
-	Packaged {n} file(s) in {folder}{note}	Упаковано файли: {n} {folder}{note}
+	Packaged {n} file(s) in {folder} {note}	Упаковано файли: {n} {folder}{note}
 	Packaged {n} file(s){note}	Упаковано файли: {n}{note}
 	Package…	Упакувати…
 	Page	Сторінка
@@ -2295,7 +2300,7 @@ file-filter	Templates	Шаблони
 	Performance	Продуктивність
 diagnostics	render	відмальовування
 diagnostics	ui	інтерфейс
-	Performance & Storage	Продуктивність та зберігання
+	Plug-ins & Scratch Disks	Модулі & Робочі диски
 	Permissions	Дозволи
 	Permissions password:	Пароль дозволів:
 	Perspective	Перспектива
@@ -3606,7 +3611,7 @@ effect	Points	Точки
 	Zoom Tool	Інструмент «Масштаб»
 	Zoom with Mouse Wheel	Масштабувати колесом миші
 	Scrub Numeric Fields by Dragging	Змінювати числові поля перетягуванням
-	{count} file(s) in {folder}{note}. Show the package folder?	файлів: {count} {folder}{note}. Показати папку пакета?
+	{count} file(s) in {folder} {note}. Show the package folder?	файлів: {count} {folder}{note}. Показати папку пакета?
 	{count} linked file(s) not found	не знайдено пов’язаних файлів: {count}
 	fonts not copied: {fonts}	шрифти не скопійовано: {fonts}
 	{count} linked image(s) changed since this document was saved. Show the new versions?	пов’язані зображення ({count}) змінилися з моменту збереження цього документа. Показати нові версії?
@@ -3842,7 +3847,7 @@ axis	Both	Обидві
 @msg	Outline Stroke: no stroked paths selected	Обведення контуру: не виділено контури з обведенням
 @msg	PDF settings are not an object	Параметри PDF не є об’єктом
 @msg	PDF writer error: {0}	Помилка запису PDF: {0}
-@msg	Packaged {n} file(s) in {folder}{note}	Упаковано файли: {n} {folder}{note}
+@msg	Packaged {n} file(s) in {folder} {note}	Упаковано файли: {n} {folder}{note}
 @msg	Packaged {n} file(s){note}	Упаковано файли: {n}{note}
 @msg	Preview in Browser needs the desktop app (the web downloads files instead)	Перегляд у браузері вимагає настільної програми (web-версія завантажує файли)
 @msg	Release Guides: no guides	Звільнення напрямних: немає напрямних
@@ -4013,7 +4018,7 @@ axis	Both	Обидві
 @msg	give the path `id` and the width point `index`	вкажіть `id` контуру та `index` точки ширини
 @msg	guides are locked	напрямні заблоковані
 @msg	handle must be in or out	handle має бути in або out
-@msg	image '{key}' has no pixels and was left out	зображення '{key}' не має пікселів і було пропущено
+@msg	an image has no pixels and was left out	зображення без пікселів пропущено
 @msg	image data `{_1}` is missing	дані зображення `{_1}` відсутні
 @msg	image would be too large; lower the resolution	зображення буде завеликим; зменште роздільну здатність
 @msg	index must be a number or first, previous, next or last	index має бути числом або first, previous, next, last
@@ -4370,6 +4375,7 @@ axis	Both	Обидві
 @msg	Saving	Збереження
 @msg	Saving {_1}	Збереження {_1}
 @msg	Exporting {_1}	Експорт {_1}
+@msg	Packaging {_1}	Пакування {_1}
 @msg	Saving recovery data for {_1}	Збереження даних відновлення для {_1}
 @msg	Discarded {_1} recovered document(s)	Скасовано відновлених документів: {_1}
 @msg	Restored {_1} recovered document(s): save them to keep them	Відновлено документів: {_1}: збережіть їх, щоб залишити
@@ -4927,6 +4933,7 @@ lighting	Light	Світло
 @msg	Persistent libraries not found: {files}	Постійні бібліотеки не знайдено: {files}
 @msg	`{given}` isn't a library panel (see window.swatchLibrary)	`{given}` — не панель бібліотеки (див. window.swatchLibrary)
 @msg	library panel `{given}` isn't open	панель бібліотеки `{given}` не відкрита
+@msg	library panel `{given}` isn't missing its library	бібліотека панелі бібліотеки `{given}` не відсутня
 @msg	too many library panels were opened in this session	у цьому сеансі відкрито забагато панелей бібліотек
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	Зображення {_1} × {_2} пікселів, понад {LARGE_TRACE_SIDE} з одного боку: трасування виконується, але повільніше. Стиль із нижчою точністю або менша копія зображення трасуються швидше.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	Зображення трасовано в розмірі {_1} × {_2} пікселів, зменшене з {_3} × {_4} (щонайбільше {_5} мегапікселів).
@@ -4948,6 +4955,14 @@ lighting	Light	Світло
 	Minimum must not exceed Desired, nor Desired Maximum.	Мінімум не може перевищувати бажане значення, а бажане — максимум.
 	Minimum	Мінімум
 	Justification	Вирівнювання за шириною
+	Add filters from the list above	Додайте фільтри зі списку вище
+	Add to Stack	Додати до стека
+	Applied Filters	Застосовані фільтри
+	Categories	Категорії
+	Choose a filter	Виберіть фільтр
+	Effect Gallery	Галерея ефектів
+	Filters	Фільтри
+	Select artwork to apply effects	Виберіть графіку, щоб застосувати ефекти
 @msg	the file's variables and data sets weren't read (variables: {variables}, data sets: {data_sets}): the Variables panel doesn't list them	змінні та набори даних файлу не прочитано (змінних: {variables}, наборів даних: {data_sets}): панель «Змінні» їх не показує
 # Select by Color (select.color)
 	Select by Color	Виділити за кольором
@@ -4973,5 +4988,31 @@ lighting	Light	Світло
 	Water Paper	Мокрий папір
 	Ruby…	Рубі…
 	Ruby	Рубі
+	Ease In	Плавний початок
+	Ease Out	Плавне завершення
+	Ease In Out	Плавний початок і завершення
+	Ease Out In	Плавне завершення і початок
+	Ramp:	Сила:
+	Shift:	Зсув:
 	Fresco…	Фреска…
 	Fresco	Фреска
+	Effect Gallery…	Галерея ефектів…
+	Effect Gallery Dialog	Діалог «Галерея ефектів»
+	Arc Segment Tool Options	Параметри інструменту «Дуговий сегмент»
+	Base Along:	Основа вздовж:
+	Closed	Замкнений
+	Concave	Увігнутий
+	Convex	Опуклий
+	Fill Arc	Заливка дуги
+	Length X-Axis:	Довжина вздовж осі X:
+	Length Y-Axis:	Довжина вздовж осі Y:
+	Slope:	Ухил:
+axis	X Axis	Вісь X
+axis	Y Axis	Вісь Y
+@msg	Packaged {n} file(s) in {folder}	Упаковано файли: {n} {folder}
+@msg	Packaged {n} file(s) {note}	Упаковано файли: {n} {note}
+@msg	Packaged {n} file(s)	Упаковано файли: {n}
+	Packaged {n} file(s)	Упаковано файли: {n}
+	Packaged {n} file(s) in {folder}	Упаковано файли: {n} {folder}
+	Packaged {n} file(s) {note}	Упаковано файли: {n} {note}
+	{count} file(s) in {folder}. Show the package folder?	файлів: {count} {folder}. Показати папку пакета?
