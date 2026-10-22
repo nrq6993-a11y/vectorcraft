@@ -55,6 +55,7 @@ const OFFSET: &str = "Adobe Offset Path"; // brand-ok: the filter's name in the 
 const TRANSFORM: &str = "Adobe Transform"; // brand-ok: the filter's name in the files
 const GAUSSIAN: &str = "Adobe PSL Gaussian Blur"; // brand-ok: the filter's name in the files
 const BAS_RELIEF: &str = "PSAdapter_plugin_BsRl";
+const DARK_STROKES: &str = "PSAdapter_plugin_DrkS"; // brand-ok: the filter's name in the files
 
 const CHAIN: &str = "Chain Style Filter";
 const STACK: &str = "Stack Style Filter";
@@ -499,6 +500,7 @@ fn effect(f: &Filter) -> Option<Effect> {
         GAUSSIAN => ("blur.gaussian", json!({"radius": param("blur").unwrap_or(5.0).clamp(0.0, 1000.0)})),
         // Its settings are in a Photoshop plug-in's binary block: the effect's defaults stand in.
         BAS_RELIEF => ("sketch.basRelief", json!({"detail": 13.0, "smoothness": 3.0, "lightDirection": "bottom"})),
+        DARK_STROKES => ("brushStrokes.darkStrokes", json!({"balance": 5.0, "blackIntensity": 6.0, "whiteIntensity": 2.0})),
         _ => return None,
     };
     Some(Effect { id: id.into(), params, visible: f.visible })
@@ -651,7 +653,10 @@ fn style(filters: &[Filter]) -> ArtStyle {
         && count(false) <= 1
         && st.items.iter().all(|i| matches!(i, StyleItem::Fill(_) | StyleItem::Stroke { .. } | StyleItem::Gradient { .. }))
         && st.looks.iter().all(|l| l.visible && l.opacity >= 1.0 && l.blend == BlendMode::Normal && l.effects.is_empty())
-        && st.effects.iter().all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow"));
+        && st
+            .effects
+            .iter()
+            .all(|e| matches!(e.id.as_str(), "stylize.outerGlow" | "stylize.feather" | "stylize.dropShadow" | "brushStrokes.darkStrokes"));
     st
 }
 
@@ -762,6 +767,23 @@ mod tests {
         let styles = art_styles(bare);
         let [feather] = styles["Soft"].effects.as_slice() else { panic!() };
         assert_eq!(feather.params["radius"].as_f64(), Some(5.0));
+    }
+
+    #[test]
+    fn a_dark_strokes_art_style_maps_to_a_live_brush_strokes_effect() {
+        let style = art_styles(
+            b"/KnownStyle :\n(Chiaroscuro) /Name ,\n/ActiveStyle :\n/CompoundFilter :\n(Chain Style Filter) 0 0 /Filter ,\n1 /Visible ,\n\
+            /BasicFilter :\n(PSAdapter_plugin_DrkS) 1 0 /Filter ,\n1 /Visible ,\n/Dictionary : /NotRecorded ,\n; /Dict ;\n /Part ,\n;\n",
+        )
+        .remove("Chiaroscuro")
+        .unwrap_or_default();
+        assert!(style.plain, "{style:?}");
+        assert!(style.simple, "{style:?}");
+        let [ds] = style.effects.as_slice() else { panic!("{style:?}") };
+        assert_eq!(
+            (ds.id.as_str(), &ds.params["balance"], &ds.params["blackIntensity"], &ds.params["whiteIntensity"]),
+            ("brushStrokes.darkStrokes", &json!(5.0), &json!(6.0), &json!(2.0))
+        );
     }
 
     #[test]
