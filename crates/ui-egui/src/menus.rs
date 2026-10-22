@@ -1986,6 +1986,7 @@ pub fn checked(app: &VectorcraftApp, id: &str, p: &Value) -> Option<bool> {
         "document.setUnits" => {
             p.get("units").and_then(Value::as_str).and_then(vectorcraft_engine::doc::Unit::named) == Some(app.session.general_unit())
         }
+        "document.activate" => p.get("index").and_then(Value::as_u64).map(|i| i as usize) == app.session.active_index(),
         _ => return None,
     })
 }
@@ -2087,6 +2088,7 @@ fn shows_a_name(id: &str, label: &str) -> bool {
         || saved_selection_slot(id).is_some()
         || matches!(id, "text.setStyle" | "plugin.dialog")
         || (id == "window.workspace" && !crate::workspaces::is_builtin(label))
+        || id == "document.activate"
         || (matches!(id, "effect.apply" | "effect.dialog") && vectorcraft_effects::plugin_effects().iter().any(|e| e.label == label))
 }
 
@@ -3367,7 +3369,11 @@ pub fn menu_bar(app: &mut VectorcraftApp, ui: &mut egui::Ui) -> f32 {
     let tree = menu_tree_named(app.session.prefs.font_names_in_english);
     // No application menu in the window (as in Illustrator): the bar starts at File on every
     // platform. The VectorCraft menu stays in the tree: the native Mac bar takes it from there.
-    let tree: Vec<(&str, Vec<Item>)> = tree.into_iter().filter(|(title, _)| *title != "VectorCraft").collect();
+    let tree: Vec<(&str, Vec<Item>)> = tree
+        .into_iter()
+        .filter(|(title, _)| *title != "VectorCraft")
+        .map(|(title, items)| if title == "Window" { (title, crate::document_switch::inject_window_menu(app, items)) } else { (title, items) })
+        .collect();
     let (end, open) = egui::MenuBar::new()
         .ui(ui, |ui| {
             let mut titles = Vec::with_capacity(tree.len());
@@ -4775,6 +4781,20 @@ mod tests {
 
     /// #543: Object › Image Trace › Make and Make and Expand trace with the Default preset at once,
     /// with no form asking for a preset's name.
+    #[test]
+    fn open_documents_as_tabs_off_lists_open_documents_in_the_window_menu() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 100, "height": 100, "name": "one.svg"})).unwrap();
+        app.run("file.new", json!({"width": 100, "height": 100, "name": "two.svg"})).unwrap();
+        assert!(crate::document_switch::menu_items(&app).is_empty());
+        app.run("prefs.set", json!({"key": "openDocumentsAsTabs", "value": false})).unwrap();
+        let items = crate::document_switch::menu_items(&app);
+        assert_eq!(items.len(), 2);
+        app.run("document.activate", json!({"index": 1})).unwrap();
+        let (_, checked) = shown_state(&app, "document.activate", &json!({"index": 1})).unwrap();
+        assert_eq!(checked, Some(true));
+    }
+
     #[test]
     fn image_trace_make_traces_with_the_default_preset() {
         let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
