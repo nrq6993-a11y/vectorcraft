@@ -179,6 +179,20 @@ fn shared_para_field(app: &VectorcraftApp, field: impl Fn(&ParaStyle) -> f64) ->
     acc.value().map(|m| m.0)
 }
 
+/// Roman Hanging Punctuation shared by every paragraph in scope, or `None` when they differ (menu unchecked).
+fn shared_roman_hanging(app: &VectorcraftApp) -> Option<bool> {
+    let mut acc = Shared::None;
+    let mut any = false;
+    visit_paragraphs(app, |p| {
+        any = true;
+        acc.add(p.roman_hanging);
+    });
+    if !any {
+        return text_style(app).map(|(_, p)| p.roman_hanging);
+    }
+    acc.value()
+}
+
 /// The composer every paragraph in scope shares, or `None` when they differ (neither menu item checked).
 fn shared_composer(app: &VectorcraftApp) -> Option<Composer> {
     let mut acc = Shared::None;
@@ -357,9 +371,9 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
     ui.separator();
     // Quotation marks, hyphens, full stops and commas at a line's ends hang outside the margin.
-    let roman = style.as_ref().is_some_and(|(_, p)| p.roman_hanging);
-    if menu_item(ui, tl!("Roman Hanging Punctuation"), has, roman) {
-        format(app, json!({"romanHangingPunctuation": !roman}));
+    let roman = shared_roman_hanging(app);
+    if menu_item(ui, tl!("Roman Hanging Punctuation"), has, roman == Some(true)) {
+        format(app, json!({"romanHangingPunctuation": roman != Some(true)}));
     }
     if menu_item(ui, tl!("Justification…"), has, false)
         && let Err(e) = app.run("ui.justification", json!({}))
@@ -502,6 +516,17 @@ mod tests {
         assert_eq!(shared_composer(&app), None);
         app.run("text.setFormat", json!({"id": id, "composer": "everyLine"})).unwrap();
         assert_eq!(shared_composer(&app), Some(Composer::EveryLine));
+    }
+
+    #[test]
+    fn paragraph_mixed_roman_hanging_checks_off() {
+        let (mut app, id) = editing_text("A\nB\n");
+        app.run("text.setFormat", json!({"id": id, "romanHangingPunctuation": true})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "romanHangingPunctuation": false})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_roman_hanging(&app), None);
+        app.run("text.setFormat", json!({"id": id, "romanHangingPunctuation": true})).unwrap();
+        assert_eq!(shared_roman_hanging(&app), Some(true));
     }
 
     #[test]
