@@ -421,7 +421,7 @@ pub fn matrix_param(p: &Value, key: &str) -> Option<Affine> {
     }
     Some(Affine::new(c))
 }
-/// A colour from `"#rrggbb"`, a colour key (`"cmyk 0 100 100 0"`, `"lab 55 60 40"`), `[r,g,b]` (0..1),
+/// A colour from `"#rrggbb"`, `"currentColor"`, a colour key (`"cmyk 0 100 100 0"`, `"lab 55 60 40"`), `[r,g,b]` (0..1),
 /// `{"c":..,"m":..,"y":..,"k":..}` (percent when any component is above 1, else 0..1), `{"gray":..}` or `{"l":..,"a":..,"b":..}` (CIE Lab: L 0..100, a and b about
 /// −128..127).
 pub fn color_value(v: &Value) -> Option<Color> {

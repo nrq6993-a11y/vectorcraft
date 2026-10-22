@@ -47,6 +47,9 @@ pub enum Color {
         a: f32,
         b: f32,
     },
+    /// CSS/SVG [`currentColor`](https://www.w3.org/TR/css-color-4/#currentcolor-color): inherits the
+    /// computed `color` property. With no CSS context the canvas uses black ([`Color::BLACK`]).
+    CurrentColor,
 }
 
 impl Default for Color {
@@ -74,12 +77,24 @@ impl Color {
     pub fn lab(l: f32, a: f32, b: f32) -> Self {
         Color::Lab { l, a, b }
     }
+    pub const CURRENT_COLOR: Color = Color::CurrentColor;
+
+    /// True when this is the SVG/CSS `currentColor` keyword.
+    pub fn is_current_color(&self) -> bool {
+        matches!(self, Color::CurrentColor)
+    }
+
+    /// A fill or stroke colour in SVG (`#rrggbb` or `currentColor`).
+    pub fn to_svg_color(&self) -> String {
+        if self.is_current_color() { "currentColor".into() } else { self.to_hex() }
+    }
 
     /// Display (sRGB) colour through the active colour settings ([`cms::active`]): RGB is
     /// converted from the working RGB space, CMYK through the working CMYK profile (relative
     /// colorimetric). Grey is ink percentage (0 = white).
     pub fn to_rgb(&self) -> [f32; 3] {
         match *self {
+            Color::CurrentColor => Color::BLACK.to_rgb(),
             Color::Rgb { r, g, b } if cms::rgb_is_srgb() => [r, g, b],
             Color::Cmyk { c, m, y, k } if cms::cmyk_is_device() => cms::naive_cmyk_to_rgb([c, m, y, k]),
             // Illustrator's Gray is ink percentage: 0 = white, 1 = black.
@@ -92,6 +107,7 @@ impl Color {
     /// device independent, is its sRGB colour).
     pub fn to_rgb_uncalibrated(&self) -> [f32; 3] {
         match *self {
+            Color::CurrentColor => [0.0, 0.0, 0.0],
             Color::Rgb { r, g, b } => [r, g, b],
             Color::Cmyk { c, m, y, k } => cms::naive_cmyk_to_rgb([c, m, y, k]),
             Color::Gray { k } => [1.0 - k; 3],
@@ -120,6 +136,7 @@ impl Color {
     /// separations use [`Color::to_cmyk_managed`].
     pub fn to_cmyk(&self) -> [f32; 4] {
         match *self {
+            Color::CurrentColor => Color::BLACK.to_cmyk(),
             Color::Cmyk { c, m, y, k } => [c, m, y, k],
             _ => {
                 let [r, g, b] = self.to_rgb();
@@ -173,6 +190,7 @@ impl Color {
     pub fn from_hex(s: &str) -> Option<Self> {
         let s = s.trim();
         match s.to_ascii_lowercase().as_str() {
+            "currentcolor" => return Some(Color::CurrentColor),
             "black" => return Some(Color::BLACK),
             "white" => return Some(Color::WHITE),
             "red" => return Some(Color::rgb(1.0, 0.0, 0.0)),
@@ -205,6 +223,7 @@ impl Color {
     /// [`Color::to_cmyk`]; a grey's ink is inverted).
     pub fn invert_keep_model(&self) -> Self {
         match *self {
+            Color::CurrentColor => Color::CurrentColor,
             Color::Rgb { .. } => self.invert(),
             Color::Cmyk { .. } => {
                 let [c, m, y, k] = self.invert().to_cmyk();
@@ -223,6 +242,7 @@ impl Color {
             v.map(|x| (s - x).clamp(0.0, 1.0))
         };
         match *self {
+            Color::CurrentColor => Color::CurrentColor,
             Color::Rgb { r, g, b } => {
                 let [r, g, b] = flip([r, g, b]);
                 Color::Rgb { r, g, b }
@@ -246,6 +266,7 @@ impl Color {
     pub fn lerp_keep_model(&self, other: &Color, t: f32) -> Color {
         let l = |x: f32, y: f32| x + (y - x) * t;
         match (*self, *other) {
+            (Color::CurrentColor, Color::CurrentColor) => Color::CurrentColor,
             (Color::Cmyk { c, m, y, k }, Color::Cmyk { c: c2, m: m2, y: y2, k: k2 }) => Color::cmyk(l(c, c2), l(m, m2), l(y, y2), l(k, k2)),
             (Color::Gray { k }, Color::Gray { k: k2 }) => Color::gray(l(k, k2)),
             (Color::Lab { l: l1, a, b }, Color::Lab { l: l2, a: a2, b: b2 }) => Color::lab(l(l1, l2), l(a, a2), l(b, b2)),
@@ -255,6 +276,7 @@ impl Color {
     /// The colour model this colour is authored in.
     pub fn model(&self) -> cms::Model {
         match self {
+            Color::CurrentColor => cms::Model::Rgb,
             Color::Rgb { .. } => cms::Model::Rgb,
             Color::Cmyk { .. } => cms::Model::Cmyk,
             Color::Gray { .. } => cms::Model::Gray,
@@ -296,6 +318,7 @@ impl Color {
             return self;
         }
         match self {
+            Color::CurrentColor => Color::CurrentColor,
             Color::Cmyk { c, m, y, k } => Color::Cmyk { c: c * t, m: m * t, y: y * t, k: k * t },
             Color::Gray { k } => Color::Gray { k: k * t },
             Color::Rgb { r, g, b } => {
@@ -307,6 +330,7 @@ impl Color {
     }
     pub fn model_name(&self) -> &'static str {
         match self {
+            Color::CurrentColor => "currentColor",
             Color::Rgb { .. } => "RGB",
             Color::Cmyk { .. } => "CMYK",
             Color::Gray { .. } => "Grayscale",
@@ -435,6 +459,14 @@ mod tests {
     }
 
     #[test]
+    fn currentcolor_keyword() {
+        let c = Color::from_hex("currentColor").unwrap();
+        assert!(c.is_current_color());
+        assert_eq!(c.to_svg_color(), "currentColor");
+        assert_eq!(c.to_hex(), "#000000");
+    }
+
+    #[test]
     fn hex_rejects_sign_characters() {
         for bad in ["#+1+2+3", "+f+f+f", "#-1-2-3", "#+12+34+56", "#+f+f+f+f", "#12345+"] {
             assert_eq!(Color::from_hex(bad), None, "{bad}");
@@ -505,6 +537,7 @@ mod tests {
     fn tints_scale_inks_and_mix_rgb_toward_white() {
         let close = |a: Color, b: Color| {
             let v = |c: Color| match c {
+                Color::CurrentColor => vec![0.0, 0.0, 0.0],
                 Color::Cmyk { c, m, y, k } => vec![c, m, y, k],
                 Color::Rgb { r, g, b } => vec![r, g, b],
                 Color::Gray { k } => vec![k],
@@ -512,6 +545,7 @@ mod tests {
             };
             a.model() == b.model() && v(a).iter().zip(v(b)).all(|(x, y)| (x - y).abs() < 1e-6)
         };
+        assert_eq!(Color::CurrentColor.tinted(0.5), Color::CurrentColor);
         assert!(close(Color::cmyk(0.5, 1.0, 0.0, 0.2).tinted(0.4), Color::cmyk(0.2, 0.4, 0.0, 0.08)));
         assert!(close(Color::gray(0.5).tinted(0.5), Color::gray(0.25)));
         assert!(close(Color::rgb(1.0, 0.0, 0.5).tinted(0.4), Color::rgb(1.0, 0.6, 0.8)), "RGB mixes toward white");

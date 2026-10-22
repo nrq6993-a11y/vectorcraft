@@ -765,6 +765,7 @@ fn q(v: f32) -> u8 {
 
 fn color(c: &Color) -> krilla::color::Color {
     match *c {
+        Color::CurrentColor => color(&Color::BLACK),
         Color::Rgb { r, g, b } => rgb::Color::new(q(r), q(g), q(b)).into(),
         Color::Cmyk { c, m, y, k } => cmyk::Color::new(q(c), q(m), q(y), q(k)).into(),
         // VectorCraft grey is ink coverage (0 = white); PDF DeviceGray is lightness.

@@ -2273,6 +2273,7 @@ fn stain_bits(stain: Option<(vectorcraft_color::Color, f32)>) -> [u32; 6] {
     use vectorcraft_color::Color;
     let Some((color, amount)) = stain else { return [0; 6] };
     let (model, [p, q, r, s]) = match color {
+        Color::CurrentColor => (5, [0.0, 0.0, 0.0, 0.0]),
         Color::Rgb { r, g, b } => (1, [r, g, b, 0.0]),
         Color::Cmyk { c, m, y, k } => (2, [c, m, y, k]),
         Color::Gray { k } => (3, [k, 0.0, 0.0, 0.0]),

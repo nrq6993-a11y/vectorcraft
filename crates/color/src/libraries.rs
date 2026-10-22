@@ -449,6 +449,7 @@ mod tests {
     /// Every component of every colour (solid or gradient stop).
     fn components(lib: &SwatchLibrary) -> Vec<f32> {
         let comps = |c: &Color| match *c {
+            Color::CurrentColor => vec![0.0, 0.0, 0.0],
             Color::Rgb { r, g, b } => vec![r, g, b],
             Color::Cmyk { c, m, y, k } => vec![c, m, y, k],
             Color::Gray { k } => vec![k],

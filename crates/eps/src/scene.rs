@@ -172,6 +172,7 @@ impl<'a> Scene<'a> {
     /// A process colour in the space it is written in.
     fn process(&self, c: &Color) -> Ink {
         match *c {
+            Color::CurrentColor => Ink::Process(Space::Gray, [0.0, 0.0, 0.0, 0.0]),
             Color::Cmyk { c, m, y, k } => Ink::Process(Space::Cmyk, [c, m, y, k].map(unit)),
             // Grey is ink coverage; PostScript's grey is lightness.
             Color::Gray { k } => Ink::Process(Space::Gray, [unit(1.0 - k), 0.0, 0.0, 0.0]),

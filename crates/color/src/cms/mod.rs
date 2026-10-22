@@ -444,6 +444,7 @@ impl Cms {
     /// Display sRGB of any colour.
     pub fn display_rgb(&self, c: &Color) -> [f32; 3] {
         match *c {
+            Color::CurrentColor => [0.0, 0.0, 0.0],
             Color::Rgb { r, g, b } => self.rgb_to_srgb([r, g, b]),
             Color::Cmyk { c, m, y, k } => self.cmyk_to_srgb([c, m, y, k], false),
             Color::Gray { k } => [1.0 - k.clamp(0.0, 1.0); 3],
@@ -464,6 +465,7 @@ impl Cms {
     /// Lab separates from its own values).
     pub fn to_cmyk(&self, c: &Color, intent: Intent) -> [f32; 4] {
         match *c {
+            Color::CurrentColor => [0.0, 0.0, 0.0, 1.0],
             Color::Cmyk { c, m, y, k } => [c, m, y, k],
             Color::Gray { k } => [0.0, 0.0, 0.0, k],
             Color::Rgb { .. } => self.srgb_to_cmyk(self.display_rgb(c), intent),
@@ -474,6 +476,7 @@ impl Cms {
     /// Convert `c` into `model` (a colour already in `model` is returned unchanged).
     pub fn convert(&self, c: &Color, model: Model, intent: Intent) -> Color {
         match (c, model) {
+            (Color::CurrentColor, _) => *c,
             (Color::Rgb { .. }, Model::Rgb)
             | (Color::Cmyk { .. }, Model::Cmyk)
             | (Color::Gray { .. }, Model::Gray)
@@ -523,7 +526,7 @@ impl Cms {
                     }
                 }
             }
-            Color::Cmyk { .. } | Color::Gray { .. } => 0.0,
+            Color::Cmyk { .. } | Color::Gray { .. } | Color::CurrentColor => 0.0,
         }
     }
 

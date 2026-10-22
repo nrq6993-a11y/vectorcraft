@@ -19,7 +19,7 @@ pub fn is_black_ink(c: &Color, min_k: f32, rich: bool) -> bool {
     match *c {
         Color::Cmyk { c, m, y, k } => k >= min_k - E && (rich || (c <= E && m <= E && y <= E)),
         Color::Gray { k } => k >= min_k - E,
-        Color::Rgb { .. } | Color::Lab { .. } => false,
+        Color::Rgb { .. } | Color::Lab { .. } | Color::CurrentColor => false,
     }
 }
 
@@ -126,6 +126,7 @@ pub fn is_white(p: &Paint) -> bool {
         Color::Cmyk { c, m, y, k } => c.max(m).max(y).max(k) <= 0.0,
         Color::Gray { k } => k <= 0.0,
         Color::Lab { l, a, b } => l >= 100.0 && a == 0.0 && b == 0.0,
+        Color::CurrentColor => false,
     }
 }
 

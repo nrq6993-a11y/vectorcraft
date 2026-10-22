@@ -227,6 +227,7 @@ fn tiling_hash(proc: &Shared<Obj>, tile: Rect, under: Option<&Paint>) -> u64 {
     [tile.x0, tile.y0, tile.x1, tile.y1].map(|v| (v + 0.0).to_bits()).hash(&mut h);
     if let Some(Paint::Solid { color, swatch, tint }) = under {
         let c = match *color {
+            Color::CurrentColor => [0.0, 0.0, 0.0, 0.0],
             Color::Rgb { r, g, b } => [r, g, b, 0.0],
             Color::Cmyk { c, m, y, k } => [c, m, y, k],
             Color::Gray { k } => [k, 0.0, 0.0, 0.0],

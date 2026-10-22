@@ -28,6 +28,7 @@ impl ColorKey {
         let rgb = |x: f32| (x.clamp(0.0, 1.0) * RGB_Q).round() as i32;
         let ink = |x: f32| (x.clamp(0.0, 1.0) * INK_Q).round() as i32;
         match *c {
+            Color::CurrentColor => Self::of(&Color::BLACK),
             Color::Rgb { r, g, b } => Self { model: 0, v: [rgb(r), rgb(g), rgb(b), 0] },
             Color::Cmyk { c, m, y, k } => Self { model: 1, v: [ink(c), ink(m), ink(y), ink(k)] },
             Color::Gray { k } => Self { model: 2, v: [ink(k), 0, 0, 0] },
@@ -114,6 +115,7 @@ impl Neutral {
                     (hi - lo <= E).then_some(Neutral::Gray)
                 }
             }
+            Color::CurrentColor => Some(Neutral::Black),
         }
     }
 }
@@ -218,6 +220,7 @@ fn mean_l(labs: &[(Color, Lab)]) -> f32 {
 /// white (as [`Color::tinted`] scales it).
 fn ink(c: Color, model: crate::cms::Model) -> [f32; 4] {
     match c.in_model(model) {
+        Color::CurrentColor => [1.0, 1.0, 1.0, 0.0],
         Color::Cmyk { c, m, y, k } => [c, m, y, k],
         Color::Gray { k } => [k, 0.0, 0.0, 0.0],
         Color::Rgb { r, g, b } => [1.0 - r, 1.0 - g, 1.0 - b, 0.0],
@@ -248,6 +251,7 @@ pub fn is_tint(c: Color, base: Color) -> bool {
 pub fn shaded(c: Color, f: f32) -> Color {
     let f = f.clamp(0.0, 1.0);
     match c {
+        Color::CurrentColor => Color::CurrentColor,
         Color::Cmyk { c, m, y, k } => Color::cmyk(c, m, y, k + (1.0 - k) * f),
         Color::Gray { k } => Color::gray(k + (1.0 - k) * f),
         Color::Lab { l, a, b } => Color::lab(l * (1.0 - f), a * (1.0 - f), b * (1.0 - f)),
@@ -463,6 +467,7 @@ mod tests {
 
     fn close(a: Color, b: Color) -> bool {
         let v = |c: Color| match c {
+            Color::CurrentColor => vec![0.0, 0.0, 0.0],
             Color::Cmyk { c, m, y, k } => vec![c, m, y, k],
             Color::Rgb { r, g, b } => vec![r, g, b],
             Color::Gray { k } => vec![k],

@@ -195,6 +195,7 @@ fn unit(v: f32) -> f32 {
 /// `c` with its components in range.
 fn clamp_color(c: Color) -> Color {
     match c {
+        Color::CurrentColor => Color::CurrentColor,
         Color::Rgb { r, g, b } => Color::Rgb { r: unit(r), g: unit(g), b: unit(b) },
         Color::Cmyk { c, m, y, k } => Color::Cmyk { c: unit(c), m: unit(m), y: unit(y), k: unit(k) },
         Color::Gray { k } => Color::Gray { k: unit(k) },

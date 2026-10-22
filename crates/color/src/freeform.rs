@@ -274,6 +274,7 @@ impl Freeform {
     pub fn model_field(&self, scale: f64) -> ModelField {
         let Some(model) = self.shared_model() else { return ModelField { model: None, first: self.field(scale), k: None } };
         let parts = |c: &Color| match *c {
+            Color::CurrentColor => [0.0, 0.0, 0.0, 0.0],
             Color::Rgb { r, g, b } => [r, g, b, 0.0],
             Color::Cmyk { c, m, y, k } => [c, m, y, k],
             Color::Gray { k } => [k, 0.0, 0.0, 0.0],

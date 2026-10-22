@@ -182,6 +182,7 @@ pub fn color_name(c: Color) -> String {
     let pct = |v: f32| (v.clamp(0.0, 1.0) * 100.0).round();
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round();
     match c {
+        Color::CurrentColor => "currentColor".into(),
         Color::Cmyk { c, m, y, k } => format!("C={} M={} Y={} K={}", pct(c), pct(m), pct(y), pct(k)),
         Color::Rgb { r, g, b } => format!("R={} G={} B={}", byte(r), byte(g), byte(b)),
         Color::Gray { k } => format!("Gray K={}", pct(k)),

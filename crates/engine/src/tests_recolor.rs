@@ -40,6 +40,7 @@ fn keys(v: &Value) -> Vec<String> {
 
 fn close(a: Color, b: Color) -> bool {
     let v = |c: Color| match c {
+        Color::CurrentColor => vec![0.0, 0.0, 0.0],
         Color::Cmyk { c, m, y, k } => vec![c, m, y, k],
         Color::Rgb { r, g, b } => vec![r, g, b],
         Color::Gray { k } => vec![k],

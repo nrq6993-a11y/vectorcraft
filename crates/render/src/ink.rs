@@ -122,6 +122,7 @@ impl Renderer {
 /// separated with the colour settings' intent (cached: separating searches the profile).
 fn inks(c: &Color) -> [f32; 4] {
     let key = match *c {
+        Color::CurrentColor => return Color::BLACK.to_cmyk(),
         Color::Cmyk { c, m, y, k } => return [c, m, y, k],
         Color::Gray { k } => return [0.0, 0.0, 0.0, k],
         Color::Rgb { r, g, b } => [0, r.to_bits(), g.to_bits(), b.to_bits()],

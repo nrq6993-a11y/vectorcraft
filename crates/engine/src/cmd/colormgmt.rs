@@ -373,6 +373,7 @@ pub(crate) fn set_color_mode(d: &mut vectorcraft_doc::Document, mode: ColorMode,
 
 fn values(c: &Color) -> Vec<f32> {
     match *c {
+        Color::CurrentColor => vec![0.0, 0.0, 0.0],
         Color::Rgb { r, g, b } => vec![r, g, b],
         Color::Cmyk { c, m, y, k } => vec![c, m, y, k],
         Color::Gray { k } => vec![k],

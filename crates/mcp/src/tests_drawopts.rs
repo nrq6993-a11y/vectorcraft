@@ -74,6 +74,14 @@ fn draw_shape_takes_the_same_options() {
 }
 
 #[test]
+fn draw_path_accepts_currentcolor_stroke() {
+    let mut h = headless();
+    let (id, _) = draw(&mut h, "draw_path", json!({"d": "M4 12h16", "fill": "none", "stroke": "currentColor", "strokeWidth": 2}));
+    let color = node(&h, id).appearance.stroke_paint().color().unwrap();
+    assert!(color.is_current_color());
+}
+
+#[test]
 fn without_the_options_nothing_changes() {
     let mut h = headless();
     let (id, reply) = draw(&mut h, "draw_path", json!({"d": "M0 0 L100 0 L50 80 Z", "fill": "#550505", "stroke": "none"}));

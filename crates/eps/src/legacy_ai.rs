@@ -1017,6 +1017,7 @@ impl<'a> Writer<'a> {
             return Ink::Spot { cmyk: self.cms.to_cmyk(&full, intent).map(unit), name: name.clone(), tint: unit(*tint) };
         }
         match *color {
+            Color::CurrentColor => Ink::Gray(0.0),
             // Grey is ink coverage; the format's grey is lightness.
             Color::Gray { k } => Ink::Gray(unit(1.0 - k)),
             Color::Cmyk { c, m, y, k } => Ink::Cmyk([c, m, y, k].map(unit)),

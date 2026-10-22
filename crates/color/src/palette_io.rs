@@ -259,6 +259,7 @@ fn put_ase_colors(out: &mut Vec<u8>, list: &[Swatch]) -> Result<usize, String> {
         let mut body = vec![];
         put_ase_name(&mut body, &w.name)?;
         let (model, values): (&[u8; 4], Vec<f32>) = match color {
+            Color::CurrentColor => continue,
             Color::Rgb { r, g, b } => (b"RGB ", vec![unit(r), unit(g), unit(b)]),
             Color::Cmyk { c, m, y, k } => (b"CMYK", vec![unit(c), unit(m), unit(y), unit(k)]),
             Color::Lab { l, a, b } => (b"LAB ", vec![unit(l / 100.0), ab(a), ab(b)]),
@@ -553,6 +554,7 @@ fn value_name(c: Color) -> String {
     let pct = |v: f32| (v * 100.0).round();
     let byte = |v: f32| (v * 255.0).round();
     match c {
+        Color::CurrentColor => "currentColor".into(),
         Color::Cmyk { c, m, y, k } => format!("C={} M={} Y={} K={}", pct(c), pct(m), pct(y), pct(k)),
         Color::Rgb { r, g, b } => format!("R={} G={} B={}", byte(r), byte(g), byte(b)),
         Color::Gray { k } => format!("Gray K={}", pct(k)),
