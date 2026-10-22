@@ -181,14 +181,19 @@ fn shared_para_field(app: &VectorcraftApp, field: impl Fn(&ParaStyle) -> f64) ->
 
 /// The composer every paragraph in scope shares, or `None` when they differ (neither menu item checked).
 fn shared_composer(app: &VectorcraftApp) -> Option<Composer> {
+    shared_para(app, |p| p.composer)
+}
+
+/// A paragraph attribute shared by every paragraph in scope, or `None` when they differ.
+fn shared_para<T: PartialEq>(app: &VectorcraftApp, field: impl Fn(&ParaStyle) -> T) -> Option<T> {
     let mut acc = Shared::None;
     let mut any = false;
     visit_paragraphs(app, |p| {
         any = true;
-        acc.add(p.composer);
+        acc.add(field(p));
     });
     if !any {
-        return text_style(app).map(|(_, p)| p.composer);
+        return text_style(app).map(|(_, p)| field(&p));
     }
     acc.value()
 }
@@ -311,7 +316,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
                 (tl!("Stylistic"), Kashida::Stylistic, "stylistic"),
             ];
             let names = kinds.map(|k| k.0);
-            let current = kinds.iter().find(|k| k.1 == para.kashida).map_or(names[0], |k| k.0);
+            let current = shared_para(app, |p| p.kashida).and_then(|k| kinds.iter().find(|kind| kind.1 == k).map(|kind| kind.0)).unwrap_or("");
             // Already translated: shown as they are.
             if let Some(i) = widgets::dropdown_names(ui, "pa-kashida", current, &names, ui.available_width() - 4.0)
                 && let Some((_, _, key)) = kinds.get(i)
@@ -502,6 +507,23 @@ mod tests {
         assert_eq!(shared_composer(&app), None);
         app.run("text.setFormat", json!({"id": id, "composer": "everyLine"})).unwrap();
         assert_eq!(shared_composer(&app), Some(Composer::EveryLine));
+    }
+
+    #[test]
+    fn paragraph_mixed_kashida_show_blank_dropdown() {
+        use vectorcraft_doc::text::Kashida;
+        let (mut app, id) = editing_text("A\nB\n");
+        app.session.prefs.show_indic_options = true;
+        app.run("text.setFormat", json!({"id": id, "kashida": "short"})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "kashida": "long"})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.kashida), None);
+        let text = crate::tests_labels::painted_text(&mut app, show);
+        assert!(text.contains("Insert Kashidas"));
+        assert!(!text.contains("Short") && !text.contains("Long"), "{text}");
+        app.run("text.setFormat", json!({"id": id, "kashida": "long"})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.kashida), Some(Kashida::Long));
+        assert!(crate::tests_labels::painted_text(&mut app, show).contains("Long"));
     }
 
     #[test]
