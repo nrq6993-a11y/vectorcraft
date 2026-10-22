@@ -36,7 +36,7 @@ pub use journal::Journal;
 pub use tooling::{UiRequest, ViewInfo};
 pub use vectorcraft_doc as doc;
 pub use vectorcraft_doc::cancel;
-pub use vectorcraft_pathops::{SIMPLIFY_LEVEL, simplify_level_tolerance};
+pub use vectorcraft_pathops::{SIMPLIFY_LEVEL, auto_simplify_level, simplify_level_tolerance};
 pub use vectorcraft_tools as tools;
 
 #[derive(Debug, thiserror::Error)]
