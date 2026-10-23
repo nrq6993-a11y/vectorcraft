@@ -246,6 +246,17 @@ mod archive {
     }
 
     #[test]
+    fn archive_charge_beyond_total_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: usize::MAX, max_total: 100 }).unwrap();
+        assert_eq!(a.charge(101).unwrap_err(), Error::Limit("document too large"));
+        a.charge(50).unwrap();
+        assert_eq!(a.extracted(), 50);
+        assert_eq!(a.charge(51).unwrap_err(), Error::Limit("document too large"));
+    }
+
+    #[test]
     fn checksums_sizes_and_budgets_are_enforced() {
         let d = doc();
         let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
