@@ -246,6 +246,18 @@ mod archive {
     }
 
     #[test]
+    fn archive_entry_stored_length_beyond_addressable_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let fat = u64::from_le_bytes(file[16..24].try_into().unwrap()) as usize;
+        let compressed_at = fat + 59 + 21;
+        file[compressed_at..compressed_at + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+        let mut a = Archive::open(&file, Limits::default()).unwrap();
+        let err = a.read("doc.dat").unwrap_err();
+        assert!(matches!(err, Error::Malformed("offset beyond addressable memory") | Error::Malformed("length overflow")), "{err:?}",);
+    }
+
+    #[test]
     fn checksums_sizes_and_budgets_are_enforced() {
         let d = doc();
         let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
