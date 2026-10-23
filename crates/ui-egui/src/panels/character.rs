@@ -772,6 +772,41 @@ fn char_direction_items(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
 }
 
+/// Character Alignment submenu: the alignment the characters the panel acts on share is checked,
+/// and none is checked when they differ.
+fn char_alignment_items(app: &mut VectorcraftApp, ui: &mut Ui) {
+    use vectorcraft_doc::CharAlign;
+    let align = shared(app, |s| s.char_align);
+    for (label, a, key) in [
+        (tl!("Roman Baseline"), CharAlign::RomanBaseline, "romanBaseline"),
+        (tl!("Em Box Top/Right"), CharAlign::EmBoxTop, "emBoxTop"),
+        (tl!("Em Box Center"), CharAlign::EmBoxCenter, "emBoxCenter"),
+        (tl!("Em Box Bottom/Left"), CharAlign::EmBoxBottom, "emBoxBottom"),
+        (tl!("ICF Top/Right"), CharAlign::IcfTop, "icfTop"),
+        (tl!("ICF Bottom/Left"), CharAlign::IcfBottom, "icfBottom"),
+    ] {
+        if menu_item(ui, label, true, align == Some(a)) {
+            format(app, json!({"charAlign": key}));
+        }
+    }
+}
+
+/// Digits submenu: the numeral system the characters share is checked, and none when they differ.
+fn digits_items(app: &mut VectorcraftApp, ui: &mut Ui) {
+    use vectorcraft_doc::Digits;
+    let digits = shared(app, |s| s.digits);
+    for (label, d, key) in [
+        (tl!("Default"), Digits::Default, "default"),
+        (tl!("Arabic"), Digits::Arabic, "arabic"),
+        (tl!("Hindi"), Digits::Hindi, "hindi"),
+        (tl!("Farsi"), Digits::Farsi, "farsi"),
+    ] {
+        if menu_item(ui, label, true, digits == Some(d)) {
+            format(app, json!({"digits": key}));
+        }
+    }
+}
+
 pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     let st = text_style(app);
     let has = st.is_some();
@@ -805,32 +840,17 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     // Character Alignment: where characters smaller than the largest on their line line up, with
     // the East Asian options.
     if app.session.prefs.show_east_asian_options {
-        let align = s.as_ref().map(|s| s.char_align);
         ui.add_enabled_ui(has, |ui| {
             // Indented like the items beside it (their check column).
-            ui.menu_button(format!("   {}", tl!("Character Alignment")), |ui| {
-                use vectorcraft_doc::CharAlign;
-                for (label, a, key) in [
-                    (tl!("Roman Baseline"), CharAlign::RomanBaseline, "romanBaseline"),
-                    (tl!("Em Box Top/Right"), CharAlign::EmBoxTop, "emBoxTop"),
-                    (tl!("Em Box Center"), CharAlign::EmBoxCenter, "emBoxCenter"),
-                    (tl!("Em Box Bottom/Left"), CharAlign::EmBoxBottom, "emBoxBottom"),
-                    (tl!("ICF Top/Right"), CharAlign::IcfTop, "icfTop"),
-                    (tl!("ICF Bottom/Left"), CharAlign::IcfBottom, "icfBottom"),
-                ] {
-                    if menu_item(ui, label, true, align == Some(a)) {
-                        format(app, json!({"charAlign": key}));
-                    }
-                }
-            });
+            ui.menu_button(format!("   {}", tl!("Character Alignment")), |ui| char_alignment_items(app, ui));
         });
         // Proportional Metrics: full-width glyphs on the font's proportional widths (`palt`, `vpal`).
-        let proportional = s.as_ref().is_some_and(|s| s.proportional_metrics);
+        let proportional = shared(app, |s| s.proportional_metrics) == Some(true);
         if menu_item(ui, tl!("Proportional Metrics"), has, proportional) {
             format(app, json!({"proportionalMetrics": !proportional}));
         }
         // Tate-chu-yoko: the selected characters stand side by side across one em of a vertical column.
-        let tcy = s.as_ref().is_some_and(|s| s.tate_chu_yoko);
+        let tcy = shared(app, |s| s.tate_chu_yoko) == Some(true);
         if menu_item(ui, tl!("Tate-chu-yoko"), has, tcy) {
             format(app, json!({"tateChuYoko": !tcy}));
         }
@@ -839,21 +859,8 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     // Digits: the numeral system the selected characters' digits are drawn in, with the Middle
     // Eastern (Indic) options, as Paragraph Direction is in the Paragraph panel.
     if app.session.prefs.show_indic_options {
-        let digits = s.as_ref().map(|s| s.digits);
         ui.add_enabled_ui(has, |ui| {
-            ui.menu_button(format!("   {}", tl!("Digits")), |ui| {
-                use vectorcraft_doc::Digits;
-                for (label, d, key) in [
-                    (tl!("Default"), Digits::Default, "default"),
-                    (tl!("Arabic"), Digits::Arabic, "arabic"),
-                    (tl!("Hindi"), Digits::Hindi, "hindi"),
-                    (tl!("Farsi"), Digits::Farsi, "farsi"),
-                ] {
-                    if menu_item(ui, label, true, digits == Some(d)) {
-                        format(app, json!({"digits": key}));
-                    }
-                }
-            });
+            ui.menu_button(format!("   {}", tl!("Digits")), |ui| digits_items(app, ui));
         });
         ui.add_enabled_ui(has, |ui| {
             ui.menu_button(format!("   {}", tl!("Character Direction")), |ui| char_direction_items(app, ui));
@@ -861,7 +868,7 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
         ui.separator();
     }
     // No Break: the selected characters stay on one line.
-    let no_break = s.as_ref().is_some_and(|s| s.no_break);
+    let no_break = shared(app, |s| s.no_break) == Some(true);
     if menu_item(ui, tl!("No Break"), has, no_break) {
         format(app, json!({"noBreak": !no_break}));
     }
@@ -1415,6 +1422,58 @@ mod tests {
         assert_eq!(checked(&mut app), ["Left to Right"]);
         app.session.set_tool_option("select", &json!({"start": 0, "end": 8}));
         assert_eq!(checked(&mut app), ["Default"]);
+    }
+
+    /// Character Alignment, Proportional Metrics, Tate-chu-yoko, Digits and No Break menu checks
+    /// stay off when the selection mixes them.
+    #[test]
+    fn character_mixed_east_asian_indic_and_no_break_menu_show_off() {
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        app.run("file.new", json!({"width": 300, "height": 200})).unwrap();
+        let a = app.run("text.create", json!({"x": 20, "y": 50, "text": "A"})).unwrap()["id"].clone();
+        let b = app.run("text.create", json!({"x": 20, "y": 90, "text": "B"})).unwrap()["id"].clone();
+        app.run(
+            "text.setRangeStyle",
+            json!({
+                "id": a, "start": 0, "end": 1,
+                "charAlign": "emBoxCenter", "proportionalMetrics": true, "tateChuYoko": true, "noBreak": true, "digits": "hindi"
+            }),
+        )
+        .unwrap();
+        app.run(
+            "text.setRangeStyle",
+            json!({
+                "id": b, "start": 0, "end": 1,
+                "charAlign": "romanBaseline", "proportionalMetrics": false, "tateChuYoko": false, "noBreak": false, "digits": "arabic"
+            }),
+        )
+        .unwrap();
+        app.run("select.set", json!({"ids": [a, b]})).unwrap();
+        app.session.prefs.show_east_asian_options = true;
+        app.session.prefs.show_indic_options = true;
+        assert_eq!(shared(&app, |s| s.char_align), None);
+        assert_eq!(shared(&app, |s| s.proportional_metrics), None);
+        assert_eq!(shared(&app, |s| s.tate_chu_yoko), None);
+        assert_eq!(shared(&app, |s| s.no_break), None);
+        assert_eq!(shared(&app, |s| s.digits), None);
+        let ctx = egui::Context::default();
+        let texts = super::super::tests_appearance::frame_events(&ctx, &mut app, vec![], menu);
+        for label in ["Proportional Metrics", "Tate-chu-yoko", "No Break"] {
+            assert!(
+                !texts.iter().any(|(t, _)| t.trim_start_matches(['✓', ' ']) == label && t.starts_with('✓')),
+                "{label}: {texts:?}"
+            );
+        }
+        let align_checked = |app: &mut VectorcraftApp| {
+            let text = crate::tests_labels::painted_text(app, char_alignment_items);
+            text.lines().filter_map(|l| l.strip_prefix("✓ ")).map(str::to_string).collect::<Vec<_>>()
+        };
+        assert!(align_checked(&mut app).is_empty());
+        let digits_checked = |app: &mut VectorcraftApp| {
+            let text = crate::tests_labels::painted_text(app, digits_items);
+            text.lines().filter_map(|l| l.strip_prefix("✓ ")).map(str::to_string).collect::<Vec<_>>()
+        };
+        assert!(digits_checked(&mut app).is_empty());
     }
 
     /// No Break is in the panel menu, and choosing it marks the selected characters.
