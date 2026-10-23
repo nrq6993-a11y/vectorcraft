@@ -3,10 +3,30 @@
 
 use egui::{Key, KeyboardShortcut, Modifiers};
 use serde_json::json;
+use vectorcraft_doc::NodeKind;
 use vectorcraft_engine::cmd::clipboard::{Flavour, TEXT};
 use vectorcraft_tools::{Mods, ToolKey};
 
 use crate::VectorcraftApp;
+
+/// Whether the selection includes at least one type object (for Alt+arrow stepping).
+fn selection_has_type_objects(app: &VectorcraftApp) -> bool {
+    app.session.active().is_some_and(|st| st.selection.objects.iter().any(|id| st.doc.node(*id).is_some_and(|n| matches!(n.kind, NodeKind::Text(_)))))
+}
+
+/// The `type.step` attribute and direction for Alt+arrow (the Type tool uses the same mapping).
+fn type_step_from_arrow(key: Key, shift: bool) -> Option<(&'static str, f64)> {
+    let sign = |positive: bool| if positive { 1.0 } else { -1.0 };
+    match (key, shift) {
+        (Key::ArrowLeft, false) => Some(("tracking", sign(false))),
+        (Key::ArrowRight, false) => Some(("tracking", sign(true))),
+        (Key::ArrowUp, false) => Some(("leading", sign(false))),
+        (Key::ArrowDown, false) => Some(("leading", sign(true))),
+        (Key::ArrowUp, true) => Some(("baselineShift", sign(true))),
+        (Key::ArrowDown, true) => Some(("baselineShift", sign(false))),
+        _ => None,
+    }
+}
 
 /// Parse "Cmd+Shift+]" into an egui shortcut. `Cmd` is Command on macOS and Ctrl elsewhere.
 /// `+` and `=` name one chord key ([`Key::Equals`]): `+` is Shift+`=` on many layouts, so a
@@ -627,6 +647,23 @@ pub fn handle(app: &mut VectorcraftApp, ctx: &egui::Context) {
             crate::menus::invoke(app, id, p);
         }
         return;
+    }
+    // Alt+arrows step selected type (tracking, leading, baseline shift), as the Type tool does.
+    let m = ctx.input(|i| i.modifiers);
+    if m.alt && !m.ctrl && selection_has_type_objects(app) {
+        let mut stepped = false;
+        for k in [Key::ArrowLeft, Key::ArrowRight, Key::ArrowUp, Key::ArrowDown] {
+            if let Some((attribute, by)) = type_step_from_arrow(k, m.shift)
+                && ctx.input_mut(|i| i.consume_key(m, k))
+            {
+                let by = by * if m.command { 5.0 } else { 1.0 };
+                let _ = app.run("type.step", json!({"attribute": attribute, "by": by}));
+                stepped = true;
+            }
+        }
+        if stepped {
+            return;
+        }
     }
     // Arrow nudges (Shift = ×10, Alt = copy).
     let arrows = [(Key::ArrowLeft, -1.0, 0.0), (Key::ArrowRight, 1.0, 0.0), (Key::ArrowUp, 0.0, -1.0), (Key::ArrowDown, 0.0, 1.0)];

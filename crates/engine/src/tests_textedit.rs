@@ -1160,3 +1160,18 @@ fn clicking_the_out_port_then_the_canvas_threads_the_text_into_a_new_frame() {
     assert_eq!(format!("{}{}", obj(&s, id).plain_text(), obj(&s, thread[1]).plain_text()), long);
     assert_eq!(&undo_labels(&s)[steps..], ["Thread Text"]);
 }
+
+/// #3786: Alt+arrow stepping applies to selected type objects without the Type tool editing.
+#[test]
+fn type_step_steps_selected_text_with_the_selection_tool() {
+    let mut s = session();
+    let id = text(&mut s, "Hello");
+    s.execute("select.set", &json!({"ids": [id.0]})).unwrap();
+    s.select_tool("selection", ViewInfo::default()).unwrap();
+    let before = obj(&s, id).first_style().tracking;
+    s.execute("type.step", &json!({"attribute": "tracking", "by": 1})).unwrap();
+    assert_eq!(obj(&s, id).first_style().tracking, before + 20.0);
+    s.execute("type.step", &json!({"attribute": "leading", "by": 1})).unwrap();
+    let leading = obj(&s, id).first_style().leading.unwrap();
+    assert!(leading > 20.0 * 1.2);
+}
