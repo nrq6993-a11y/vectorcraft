@@ -228,20 +228,6 @@ impl AnchorTool {
                     None => st,
                 }
             }
-            State::Handle { id, si, ai, start, .. } => match Self::anchor_pos(cx, id, si, ai) {
-                Some(from) => State::Move { id, si, ai, from, start, began: false },
-                None => st,
-            },
-            State::SpineHandle { id, ai, start, .. } => {
-                match crate::direct::spines(cx)
-                    .into_iter()
-                    .find(|(blend, _)| *blend == id)
-                    .and_then(|(_, path)| path.subpaths.first()?.anchors.get(ai).map(|a| a.p))
-                {
-                    Some(from) => State::SpineMove { id, ai, from, start, began: false },
-                    None => st,
-                }
-            }
             _ => st,
         }
     }
@@ -341,7 +327,7 @@ impl Tool for AnchorTool {
             ("anchorPoint", PointerKind::Down) => {
                 self.space_resume = None;
                 self.state = Self::press_target(cx, p);
-                if ev.mods.shift || ev.mods.space {
+                if ev.mods.shift {
                     self.state = Self::moving(cx, self.state);
                 }
                 if matches!(self.state, State::Handle { .. }) {

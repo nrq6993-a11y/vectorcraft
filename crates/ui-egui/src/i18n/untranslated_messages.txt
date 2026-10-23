@@ -1291,3 +1291,4 @@ zoom must be positive
 {what} points outside memory
 {what} would print more than {MAX_COPIES_PER_SHEET} copies on a sheet: scale it up
 {what} would print on more than {MAX_TILES} tiles: scale it down
+PDF security settings are not an object
