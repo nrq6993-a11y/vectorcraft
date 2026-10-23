@@ -90,6 +90,15 @@ mod preview {
     }
 
     #[test]
+    fn encoded_preview_larger_than_sixteen_mebibytes_is_refused() {
+        let mut b = fixture();
+        let huge = MAX_PREVIEW_BYTES + 1;
+        b[84..88].copy_from_slice(&((huge + 13) as u32).to_le_bytes());
+        b[96..100].copy_from_slice(&(huge as u32).to_le_bytes());
+        assert_eq!(preview(&b).unwrap_err(), Error::Limit("encoded preview exceeds 16 MiB"));
+    }
+
+    #[test]
     fn an_unindexed_png_or_resource_is_never_used() {
         let mut b = fixture();
         b[24..32].copy_from_slice(&0u64.to_le_bytes());
