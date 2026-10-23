@@ -30,6 +30,8 @@ mod control_server;
 mod cursor_theme;
 #[cfg(feature = "wgpu")]
 mod gpu;
+#[cfg(target_os = "linux")]
+mod linux_stylus;
 mod logging;
 #[cfg(target_os = "macos")]
 mod mac_fonts;
@@ -51,6 +53,7 @@ mod printing;
 mod system_fonts;
 mod window;
 mod window_frame;
+mod windows_stylus;
 mod xwayland;
 
 use vectorcraft_engine::Session;
@@ -95,6 +98,9 @@ impl eframe::App for App {
         if self.app.services.native_menu.is_some() {
             mac_menu::raw_input_hook(raw);
         }
+        // A pen contact with the barrel button held presses the secondary button (Windows Ink).
+        #[cfg(all(windows, not(target_vendor = "win7")))]
+        windows_stylus::raw_input_hook(raw);
         file_access::unconfined(|| self.app.raw_input_hook(raw));
     }
     #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
@@ -908,6 +914,18 @@ fn main() -> std::process::ExitCode {
         }
         options
     };
+    // With Windows Ink, winit reports a pen as a touch and drops its barrel button; the message
+    // hook notes each pointer contact and whether it starts with the barrel button held
+    // (`windows_stylus`).
+    #[cfg(all(windows, not(target_vendor = "win7")))]
+    let options = {
+        use winit::platform::windows::EventLoopBuilderExtWindows as _;
+        let mut options = options;
+        options.event_loop_builder = Some(Box::new(|builder| {
+            builder.with_msg_hook(windows_stylus::msg_hook);
+        }));
+        options
+    };
     #[cfg(feature = "wgpu")]
     let options = {
         let mut options = options;
@@ -952,9 +970,18 @@ fn main() -> std::process::ExitCode {
     #[cfg(feature = "wgpu")]
     let created = startup.clone();
     // A panic that ends the window (egui-wgpu's own, #502) is caught here: never a crash.
+    let run = |options: eframe::NativeOptions, app_creator: eframe::AppCreator<'_>| {
+        #[cfg(target_os = "linux")]
+        {
+            linux_stylus::run_native("VectorCraft", options, app_creator)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            eframe::run_native("VectorCraft", options, app_creator)
+        }
+    };
     let outcome = vectorcraft_engine::guard::catch_panic(|| {
-        eframe::run_native(
-            "VectorCraft",
+        run(
             options,
             Box::new(move |cc| {
                 let mut session = Session::new();
