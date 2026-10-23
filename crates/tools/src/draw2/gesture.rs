@@ -43,6 +43,8 @@ pub struct GestureTool {
     /// "Alt key toggles to Smooth Tool": holding Alt with the Pencil tool smooths selected paths
     /// instead of closing the path (Pencil only, off by default).
     pub alt_smooth: bool,
+    /// Live preview (#3796): off, the stroke shows as a thin overlay until release.
+    pub live_preview: bool,
     /// Active drag is smoothing with the Pencil tool.
     smoothing: bool,
     /// Where the pointer was for each Blob Brush point dragged since Shift went down: the last
@@ -87,6 +89,7 @@ impl GestureTool {
             keep_selected: id != "blobBrush",
             // Off, as Pencil Tool Options ships it: Alt keeps drawing a closed path until it is on.
             alt_smooth: false,
+            live_preview: true,
             smoothing: false,
             shift_raw: vec![],
             shift_next: None,
@@ -325,7 +328,9 @@ impl Tool for GestureTool {
                     self.began = true;
                     out.push(Action::Begin(self.label().into()));
                 }
-                out.push(Action::Preview("path.freehand".into(), self.freehand_params(false)));
+                if self.id != "pencil" || self.live_preview {
+                    out.push(Action::Preview("path.freehand".into(), self.freehand_params(false)));
+                }
                 out
             }
             PointerKind::Up => {
@@ -393,7 +398,11 @@ impl Tool for GestureTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
-        if !self.active || self.points.len() < 2 || self.began {
+        if !self.active || self.points.len() < 2 {
+            return o;
+        }
+        let wireframe = self.id == "pencil" && !self.live_preview && self.draws_path() && !self.smoothing;
+        if self.began && !wireframe {
             return o;
         }
         let width = match self.id {
@@ -432,6 +441,7 @@ impl Tool for GestureTool {
                     "fidelity": self.fidelity,
                     "fill": self.fill,
                     "altSmooth": self.alt_smooth,
+                    "livePreview": self.live_preview,
                     "keepSelected": self.keep_selected,
                     "editWithin": self.edit_within,
                     "closeWithin": self.close_within
@@ -458,6 +468,7 @@ impl Tool for GestureTool {
             "size" => self.size = v.as_f64().unwrap_or(self.size).clamp(0.1, 1000.0),
             "fill" => self.fill = v.as_bool().unwrap_or(self.fill),
             "altSmooth" => self.alt_smooth = v.as_bool().unwrap_or(self.alt_smooth),
+            "livePreview" => self.live_preview = v.as_bool().unwrap_or(self.live_preview),
             "keepSelected" => self.keep_selected = v.as_bool().unwrap_or(self.keep_selected),
             "mergeOnlySelection" => self.merge_only_selection = v.as_bool().unwrap_or(self.merge_only_selection),
             "editWithin" => self.edit_within = v.as_f64().unwrap_or(self.edit_within).clamp(0.0, 100.0),
@@ -533,6 +544,23 @@ mod tests {
         assert_eq!(stroke("paintbrush", [0.25, 0.5, 1.0]), json!([[0.0, 0.0, 0.25], [40.0, 0.0, 0.5], [80.0, 0.0, 1.0]]));
         assert_eq!(stroke("paintbrush", [1.0; 3]), json!([[0.0, 0.0], [40.0, 0.0], [80.0, 0.0]]));
         assert_eq!(stroke("pencil", [0.25, 0.5, 1.0]), json!([[0.0, 0.0], [40.0, 0.0], [80.0, 0.0]]));
+    }
+
+    /// #3796: Live preview off shows a wireframe overlay while drawing, not a document preview.
+    #[test]
+    fn pencil_live_preview_off_uses_wireframe_while_drawing() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = GestureTool::new("pencil");
+        t.set_option("livePreview", &json!(false));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        let drag_acts = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 40.0, 0.0));
+        assert!(drag_acts.iter().all(|a| !matches!(a, Action::Preview(_, _))));
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Path { .. })));
+        let up = t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 80.0, 0.0));
+        assert!(matches!(&up[0], Action::Preview(_, v) if v["style"] == "pencil"));
     }
 
     #[test]
