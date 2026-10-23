@@ -22,6 +22,12 @@ pub(super) fn read(body: &str) -> crate::Imported {
 /// #1714: arrays and dictionaries a program links into themselves or each other are freed with
 /// the interpreter, also the ones it no longer reaches and when it stops on an error.
 #[test]
+fn postscript_array_count_beyond_alloc_cap_is_refused() {
+    let err = import(&eps("4194305 array pop")).unwrap_err();
+    assert!(err.contains("rangecheck") && err.contains("count"));
+}
+
+#[test]
 fn arrays_and_dictionaries_holding_themselves_are_freed() {
     // The arrays still alive once a program's interpreter has released what it made: the ones
     // the interpreter itself holds, the same for every program here.
