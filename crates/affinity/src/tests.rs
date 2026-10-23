@@ -246,6 +246,15 @@ mod archive {
     }
 
     #[test]
+    fn container_header_fat_offset_past_end_of_file_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let past_end = (file.len() as u64 + 1).to_le_bytes();
+        file[16..24].copy_from_slice(&past_end);
+        assert_eq!(Archive::open(&file, Limits::default()).unwrap_err(), Error::Malformed("truncated data"));
+    }
+
+    #[test]
     fn checksums_sizes_and_budgets_are_enforced() {
         let d = doc();
         let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
