@@ -1,8 +1,9 @@
 //! The Pen tool (P).
 //!
-//! Click adds a corner anchor; click-drag adds a smooth anchor with symmetric handles (Alt breaks
-//! them: the incoming handle stays where it was when Alt went down and only the outgoing one
-//! follows the pointer; Space held moves the anchor, handles and all); Shift constrains to 45°.
+//! Click adds a corner anchor; click-drag adds a smooth anchor with symmetric handles (Ctrl/Cmd
+//! keeps them collinear but unequal in length; Alt breaks them: the incoming handle stays where it
+//! was when Alt went down and only the outgoing one follows the pointer; Space held moves the
+//! anchor, handles and all); Shift constrains to 45°.
 //! A press on the first anchor closes the path, the drag shaping the closing curve. Clicking the
 //! last one retracts its outgoing handle, so the next segment leaves it as a corner; dragging from
 //! it pulls a new one out on its own.
@@ -63,6 +64,35 @@ pub struct PenTool {
 
 /// Screen pixels the pointer must move after a press before it shapes handles instead of clicking.
 const DRAG_THRESHOLD: f64 = 3.0;
+
+/// Ctrl (Windows) or Command (macOS) while dragging a smooth anchor: paired handles stay collinear
+/// but their lengths may differ.
+fn pen_unequal_handles(m: Mods) -> bool {
+    (m.cmd || m.ctrl) && !m.alt
+}
+
+/// Incoming and outgoing handles for a smooth anchor being placed at `a`.
+fn smooth_handle_pair(a: Point, out_h: Point, stored_in: Point, alt: bool, unequal: bool) -> (Point, Point) {
+    if alt {
+        return (stored_in, out_h);
+    }
+    if unequal {
+        let in_h = if stored_in.distance(a) > 1e-12 { stored_in } else { a - (out_h - a) };
+        let dx = in_h.x - a.x;
+        let dy = in_h.y - a.y;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len > 1e-12 {
+            let ux = dx / len;
+            let uy = dy / len;
+            let ox = out_h.x - a.x;
+            let oy = out_h.y - a.y;
+            let out_len = -(ox * ux + oy * uy);
+            return (in_h, Point::new(a.x - ux * out_len, a.y - uy * out_len));
+        }
+    }
+    let in_h = a - (out_h - a);
+    (in_h, out_h)
+}
 
 /// An anchor being placed, as the press decided: where it is, the path it goes on (none: the
 /// first anchor of a new path) and whether it closes that path (the press was on its first
@@ -323,9 +353,11 @@ impl Tool for PenTool {
                     out_h = a + vectorcraft_geom::constrain_angle_from(ev.pos - a, 45.0, cx.constrain_angle);
                 }
                 let alt = ev.mods.alt;
+                let unequal = pen_unequal_handles(ev.mods);
                 let Some(id) = path else {
                     // First anchor of a new path: re-issue create with handles.
-                    let in_h = a - (out_h - a);
+                    let (in_h, out_h) = smooth_handle_pair(a, out_h, self.in_h, alt, unequal);
+                    self.in_h = in_h;
                     return vec![Action::Preview(
                         "path.create".into(),
                         json!({"anchors": [{"x": a.x, "y": a.y, "out": [out_h.x, out_h.y], "in": [in_h.x, in_h.y]}]}),
@@ -339,7 +371,7 @@ impl Tool for PenTool {
                 }
                 // Alt pressed mid-drag keeps the curve already shaped into the anchor: only the
                 // outgoing handle follows. Held from the start, the incoming handle stays retracted.
-                let in_h = if alt { self.in_h } else { a - (out_h - a) };
+                let (in_h, out_h) = smooth_handle_pair(a, out_h, self.in_h, alt, unequal);
                 self.in_h = in_h;
                 vec![Action::Preview(
                     "path.appendAnchor".into(),
@@ -737,6 +769,33 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 300.0, 440.0).with_mods(alt));
         let drag = PointerEvent::new(PointerKind::Drag, 340.0, 440.0).with_mods(alt);
         assert_eq!(handles(t.pointer(&cx, &drag)), (json!([300.0, 440.0]), json!([340.0, 440.0])));
+    }
+
+    /// #3843: Ctrl/Cmd while dragging keeps smooth handles collinear but unequal in length.
+    #[test]
+    fn ctrl_pressed_mid_drag_keeps_collinear_unequal_handles() {
+        let (mut d, _) = doc_with_rect();
+        let l = d.layers[0].id;
+        let id = d.alloc_id();
+        let line = vectorcraft_geom::shapes::line(Point::new(10.0, 300.0), Point::new(60.0, 300.0));
+        d.insert(Some(l), 1, vectorcraft_doc::Node::path(id, line, vectorcraft_doc::Appearance::default_art())).unwrap();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let mut t = PenTool { drawing: true, ..PenTool::default() };
+        let ctrl = Mods { ctrl: true, ..Mods::default() };
+        let handles = |acts: Vec<Action>| match acts.as_slice() {
+            [Action::Preview(c, v)] if c == "path.appendAnchor" => (v["in"].clone(), v["out"].clone()),
+            other => panic!("not an anchor preview: {other:?}"),
+        };
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 400.0, 420.0));
+        let drag = PointerEvent::new(PointerKind::Drag, 450.0, 420.0);
+        assert_eq!(handles(t.pointer(&cx, &drag)), (json!([350.0, 420.0]), json!([450.0, 420.0])));
+        let drag = PointerEvent::new(PointerKind::Drag, 480.0, 420.0).with_mods(ctrl);
+        assert_eq!(handles(t.pointer(&cx, &drag)), (json!([350.0, 420.0]), json!([480.0, 420.0])));
+        let drag = PointerEvent::new(PointerKind::Drag, 480.0, 500.0).with_mods(ctrl);
+        assert_eq!(handles(t.pointer(&cx, &drag)), (json!([350.0, 420.0]), json!([480.0, 420.0])));
     }
 
     #[test]
