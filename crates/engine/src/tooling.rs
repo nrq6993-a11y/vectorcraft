@@ -176,6 +176,8 @@ impl Session {
         let r = self.apply_actions(acts);
         self.keep_tool_settings();
         self.tool = lender;
+        // The lent selection tool may have changed the selection (#3779).
+        self.after_command();
         r.map(drop)
     }
 
