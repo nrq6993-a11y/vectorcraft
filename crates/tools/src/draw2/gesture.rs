@@ -3,7 +3,9 @@
 //!
 //! Pencil and Paintbrush preview the fitted path live (`path.freehand` re-applied on the snapshot)
 //! and commit on release; Alt on release (or ending near the start) closes the path, and starting
-//! near an end of a selected open path continues it. The Pencil's new path starts and ends on
+//! near an end of a selected open path continues it. With Alt held from the press, the Pencil draws
+//! one straight segment (#3799); Alt pressed after the stroke has begun still closes on release.
+//! The Pencil's new path starts and ends on
 //! Smart Guides ([`DrawSnap`]: an anchor, a path, in line with the art), hovering too; the points
 //! between follow the hand. The Paintbrush records the pen pressure of each point (a stroke a pen
 //! pressed less than fully on sends `[x, y, pressure]` points) for pressure-sensitive brushes. The
@@ -45,6 +47,10 @@ pub struct GestureTool {
     pub alt_smooth: bool,
     /// Active drag is smoothing with the Pencil tool.
     smoothing: bool,
+    /// Alt was held on press: the Pencil draws one straight segment (#3799).
+    straight_alt: bool,
+    /// Alt went down mid-stroke: the Pencil closes on release (not straight-segment mode).
+    alt_close: bool,
     /// Where the pointer was for each Blob Brush point dragged since Shift went down: the last
     /// `shift_raw.len()` of `points`.
     shift_raw: Vec<Point>,
@@ -88,6 +94,8 @@ impl GestureTool {
             // Off, as Pencil Tool Options ships it: Alt keeps drawing a closed path until it is on.
             alt_smooth: false,
             smoothing: false,
+            straight_alt: false,
+            alt_close: false,
             shift_raw: vec![],
             shift_next: None,
             merge_only_selection: false,
@@ -145,6 +153,18 @@ impl GestureTool {
             *q = on_line(*raw);
         }
         on_line(p)
+    }
+
+    /// The end of a straight Pencil segment from `start` to `p`, optionally on 0°/45°/90° steps.
+    fn straight_end(cx: &ToolContext, start: Point, p: Point, shift: bool) -> Point {
+        if (p - start).hypot() < vectorcraft_geom::EPS {
+            return start;
+        }
+        if shift {
+            let d = vectorcraft_geom::constrain_angle_from(p - start, 45.0, cx.constrain_angle);
+            return start + d;
+        }
+        p
     }
 
     /// Forget the stroke.
@@ -247,7 +267,11 @@ impl GestureTool {
                 }
                 // Close Paths When Ends Are Within is off at 0 pixels.
                 let near = self.close_within > 0.0 && pts.len() > 2 && pts[0].distance(pts[pts.len() - 1]) <= cx.tol(self.close_within);
-                let closed = (m.alt && !self.alt_smooth) || (self.extend.is_none() && near);
+                let closed = if self.id == "pencil" {
+                    if self.straight_alt { false } else { (self.alt_close && m.alt && !self.alt_smooth) || (self.extend.is_none() && near) }
+                } else {
+                    (m.alt && !self.alt_smooth) || (self.extend.is_none() && near)
+                };
                 vec![Action::Preview("path.freehand".into(), self.freehand_params(closed)), Action::Commit]
             }
             "blobBrush" => vec![Action::Exec(
@@ -288,6 +312,8 @@ impl Tool for GestureTool {
             PointerKind::Down => {
                 self.active = true;
                 self.began = false;
+                self.straight_alt = self.id == "pencil" && !self.alt_smooth && ev.mods.alt;
+                self.alt_close = false;
                 self.smoothing = self.id == "pencil" && self.alt_smooth && ev.mods.alt;
                 self.extend = if self.draws_path() && !self.smoothing { self.find_extend(cx, p) } else { None };
                 self.redraw = if self.draws_path() && !self.smoothing && self.extend.is_none() { self.find_redraw(cx, p) } else { None };
@@ -305,18 +331,30 @@ impl Tool for GestureTool {
                 if !self.active {
                     return vec![];
                 }
-                let p = self.constrained(cx, p, ev.mods);
+                let p = if self.straight_alt && self.id == "pencil" {
+                    let start = self.points.first().copied().unwrap_or(p);
+                    Self::straight_end(cx, start, p, ev.mods.shift)
+                } else {
+                    self.constrained(cx, p, ev.mods)
+                };
                 if !self.began && self.id == "pencil" && self.alt_smooth && ev.mods.alt {
                     self.smoothing = true;
                 }
-                if self.snaps() && !self.smoothing {
+                if self.snaps() && !self.smoothing && !self.straight_alt {
                     // Where the stroke would end: shown, taken on release.
                     self.snap.drag(cx, p, None);
                 }
-                if self.points.last().is_some_and(|l| l.distance(p) < cx.tol(1.0)) {
+                if self.straight_alt {
+                    if self.points.len() > 1 {
+                        self.points.truncate(1);
+                        self.pressures.truncate(1);
+                    }
+                    self.push(p, ev.pressure);
+                } else if self.points.last().is_some_and(|l| l.distance(p) < cx.tol(1.0)) {
                     return vec![];
+                } else {
+                    self.push(p, ev.pressure);
                 }
-                self.push(p, ev.pressure);
                 if !self.draws_path() || self.smoothing {
                     return vec![];
                 }
@@ -325,6 +363,9 @@ impl Tool for GestureTool {
                     self.began = true;
                     out.push(Action::Begin(self.label().into()));
                 }
+                if !self.straight_alt && self.id == "pencil" && !self.alt_smooth && ev.mods.alt {
+                    self.alt_close = true;
+                }
                 out.push(Action::Preview("path.freehand".into(), self.freehand_params(false)));
                 out
             }
@@ -332,8 +373,19 @@ impl Tool for GestureTool {
                 if !self.active {
                     return vec![];
                 }
-                let p = self.constrained(cx, p, ev.mods);
-                let end = if self.snaps() && !self.smoothing { self.snap.drag(cx, p, None) } else { p };
+                let p = if self.straight_alt && self.id == "pencil" {
+                    let start = self.points.first().copied().unwrap_or(p);
+                    Self::straight_end(cx, start, p, ev.mods.shift)
+                } else {
+                    self.constrained(cx, p, ev.mods)
+                };
+                let end = if self.snaps() && !self.smoothing && !self.straight_alt {
+                    self.snap.drag(cx, p, None)
+                } else if self.straight_alt && self.snaps() && !self.smoothing {
+                    self.snap.press(cx, p, &[], None)
+                } else {
+                    p
+                };
                 self.snap.clear();
                 if self.points.last().is_some_and(|l| l.distance(p) >= cx.tol(1.0)) {
                     self.push(end, ev.pressure);
@@ -349,6 +401,8 @@ impl Tool for GestureTool {
                 self.active = false;
                 self.began = false;
                 self.smoothing = false;
+                self.straight_alt = false;
+                self.alt_close = false;
                 self.clear();
                 self.extend = None;
                 self.redraw = None;
@@ -369,6 +423,8 @@ impl Tool for GestureTool {
                 self.active = false;
                 self.began = false;
                 self.smoothing = false;
+                self.straight_alt = false;
+                self.alt_close = false;
                 self.clear();
                 if began { vec![Action::Cancel] } else { vec![] }
             }
@@ -410,9 +466,16 @@ impl Tool for GestureTool {
         if self.smoothing || (self.id == "pencil" && self.alt_smooth && m.alt && !self.began) {
             return Cursor::Smooth;
         }
-        // Alt held at the release closes the path (`finish`).
-        if self.draws_path() && !self.alt_smooth && m.alt {
-            return if self.id == "paintbrush" { Cursor::PaintbrushClose } else { Cursor::PencilClose };
+        if self.id == "paintbrush" && !self.alt_smooth && m.alt {
+            return Cursor::PaintbrushClose;
+        }
+        if self.id == "pencil" && !self.alt_smooth && m.alt {
+            if self.straight_alt || !self.active {
+                return Cursor::Pencil;
+            }
+            if self.alt_close || self.began {
+                return Cursor::PencilClose;
+            }
         }
         match self.id {
             "paintbrush" => Cursor::Paintbrush,
@@ -572,9 +635,8 @@ mod tests {
         }
     }
 
-    /// Holding Alt shows the Pencil's and the Paintbrush's closing cursor, before the press and while
-    /// drawing; a release with Alt still held closes the path, and Alt let go before the release
-    /// leaves it open.
+    /// The Paintbrush shows its closing cursor with Alt held. The Pencil shows a straight-segment
+    /// cursor with Alt before the press (#3799); Alt pressed after the stroke begins still closes.
     #[test]
     fn alt_shows_the_closing_cursor_and_a_release_with_alt_closes() {
         let (d, _) = doc_with_rect();
@@ -583,16 +645,17 @@ mod tests {
         let cx = cx(&d, &s, &p);
         let alt = Mods { alt: true, ..Default::default() };
         let at = Point::new(10.0, 5.0);
-        for (id, own, closing, style) in
-            [("pencil", Cursor::Pencil, Cursor::PencilClose, "pencil"), ("paintbrush", Cursor::Paintbrush, Cursor::PaintbrushClose, "brush")]
-        {
+        for (id, own, idle_alt, drawing_alt, style) in [
+            ("pencil", Cursor::Pencil, Cursor::Pencil, Cursor::PencilClose, "pencil"),
+            ("paintbrush", Cursor::Paintbrush, Cursor::PaintbrushClose, Cursor::PaintbrushClose, "brush"),
+        ] {
             let mut t = GestureTool::new(id);
             assert_eq!(t.cursor(&cx, at, Mods::default()), own, "{id}");
-            assert_eq!(t.cursor(&cx, at, alt), closing, "{id}");
+            assert_eq!(t.cursor(&cx, at, alt), idle_alt, "{id}");
             for alt_at_release in [true, false] {
                 t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
                 t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 10.0, 5.0).with_mods(alt));
-                assert_eq!(t.cursor(&cx, at, alt), closing, "{id} while drawing");
+                assert_eq!(t.cursor(&cx, at, alt), drawing_alt, "{id} while drawing");
                 assert_eq!(t.cursor(&cx, at, Mods::default()), own, "{id} while drawing");
                 let up = Mods { alt: alt_at_release, ..Default::default() };
                 let acts = t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 20.0, 0.0).with_mods(up));
@@ -826,15 +889,41 @@ mod tests {
         // When altSmooth is disabled:
         t.set_option("altSmooth", &json!(false));
         assert_eq!(t.options()["altSmooth"], json!(false));
-        assert_eq!(t.cursor(&cx, Point::new(50.0, 50.0), alt_mod), Cursor::PencilClose);
+        assert_eq!(t.cursor(&cx, Point::new(50.0, 50.0), alt_mod), Cursor::Pencil);
 
-        // Alt-drag draws a closed pencil path.
+        // Alt from the press draws one open straight segment (#3799).
         let empty_sel = Selection::default();
         let cx_empty = crate::testutil::cx(&d, &empty_sel, &p);
-        let acts = drag(&mut t, &cx_empty, &[(0.0, 0.0), (10.0, 5.0), (20.0, 0.0)], alt_mod);
+        let acts = drag_held(&mut t, &cx_empty, &[(0.0, 0.0), (10.0, 5.0), (20.0, 0.0)], alt_mod);
         assert_eq!(acts[1][0], Action::Begin("Pencil".into()));
         let last = acts.last().unwrap();
-        assert!(matches!(&last[0], Action::Preview(_, v) if v["closed"] == true && v["style"] == "pencil"));
+        assert!(
+            matches!(&last[0], Action::Preview(_, v) if v["closed"] == false && v["style"] == "pencil" && v["points"] == json!([[0.0, 0.0], [20.0, 0.0]]))
+        );
         assert_eq!(last[1], Action::Commit);
+    }
+
+    /// #3799: Alt held from the press draws a straight segment; Alt after the stroke begins still closes.
+    #[test]
+    fn pencil_alt_straight_segment_and_mid_stroke_alt_still_closes() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = cx(&d, &s, &p);
+        let alt = Mods { alt: true, ..Default::default() };
+        let mut t = GestureTool::new("pencil");
+        let acts = drag_held(&mut t, &cx, &[(10.0, 10.0), (110.0, 60.0)], alt);
+        let Some(Action::Preview(_, v)) = acts.last().and_then(|a| a.first()) else { panic!("{acts:?}") };
+        assert_eq!(v["points"], json!([[10.0, 10.0], [110.0, 60.0]]));
+        assert_eq!(v["closed"], json!(false));
+
+        let mut t = GestureTool::new("pencil");
+        let mut v = vec![t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 50.0, 50.0))];
+        v.push(t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 80.0, 50.0)));
+        v.push(t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 80.0)));
+        v.push(t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 70.0, 100.0).with_mods(alt)));
+        v.push(t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 50.0, 50.0).with_mods(alt)));
+        let last = v.last().unwrap();
+        assert!(matches!(&last[0], Action::Preview(_, pv) if pv["closed"] == true && pv["style"] == "pencil"));
     }
 }
