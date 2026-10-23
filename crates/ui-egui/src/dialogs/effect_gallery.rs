@@ -1,11 +1,20 @@
 //! Effect → Effect Gallery: browse Photoshop-style raster filters by category, build a stack, and
 //! apply it as separate appearance effects in one undo step.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+
 use egui;
 use serde_json::{Map, Value, json};
+use vectorcraft_color::{Color, Paint};
+use vectorcraft_doc::{Appearance, Document, Effect, Node};
 use vectorcraft_effects::{EffectInfo, PIXEL_EFFECTS};
+use vectorcraft_geom::{Rect, shapes};
+use vectorcraft_render::{RenderOptions, Renderer};
 
 use super::{DialogSpec, effect, form};
+use crate::graphics::TexCache;
 use crate::state::Dialog;
 use crate::theme::Tokens;
 use crate::{VectorcraftApp, widgets};
@@ -28,10 +37,79 @@ pub(super) const SPEC: DialogSpec = DialogSpec {
     body,
     confirm,
     preview: true,
-    min_width: 720.0,
-    max_width: Some(820.0),
+    min_width: 860.0,
+    max_width: Some(920.0),
     ..DialogSpec::FORM
 };
+
+/// The sample art the gallery previews each filter on (a filled stroked square on a grey field).
+const SAMPLE_SIZE: f64 = 48.0;
+const SAMPLE_ART: Rect = Rect::new(6.0, 6.0, 42.0, 42.0);
+
+/// A small document with one shape and a single raster effect, for gallery thumbnails.
+fn gallery_sample_doc(effect: &str, params: &Map<String, Value>) -> Document {
+    let mut d = Document::new(SAMPLE_SIZE, SAMPLE_SIZE);
+    let id = d.alloc_id();
+    let mut n = Node::path(
+        id,
+        shapes::rectangle(SAMPLE_ART),
+        Appearance::basic(Paint::solid(Color::rgb(0.82, 0.55, 0.28)), Paint::solid(Color::rgb(0.15, 0.35, 0.65)), 1.25),
+    );
+    n.appearance.effects = vec![Effect { id: effect.to_string(), params: Value::Object(params.clone()), visible: true }];
+    let layer = d.layers[0].id;
+    d.insert(Some(layer), 0, n).unwrap();
+    d
+}
+
+fn preview_cache_key(effect: &str, params: &Map<String, Value>, px: u32) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    effect.hash(&mut h);
+    serde_json::to_string(params).unwrap_or_default().hash(&mut h);
+    px.hash(&mut h);
+    h.finish()
+}
+
+thread_local! {
+    static GALLERY_RENDERER: RefCell<Renderer> = RefCell::new(Renderer::new());
+    static GALLERY_TEX: TexCache<HashMap<u64, egui::TextureHandle>> = TexCache::default();
+}
+
+/// A rendered preview of `effect` at `params` on the gallery sample art.
+fn filter_preview_texture(ui: &egui::Ui, effect: &str, params: &Map<String, Value>, px: u32) -> Option<egui::TextureHandle> {
+    if effect.is_empty() {
+        return None;
+    }
+    let key = preview_cache_key(effect, params, px);
+    if let Some(tex) = GALLERY_TEX.with(|c| c.borrow().get(&key).cloned()) {
+        return Some(tex);
+    }
+    let doc = gallery_sample_doc(effect, params);
+    let id = doc.layers[0].children().and_then(|c| c.first()).map(|n| n.id)?;
+    let opts = RenderOptions { background: Some([220, 220, 220, 255]), ..Default::default() };
+    let rendered = GALLERY_RENDERER.with(|r| r.borrow_mut().render_thumbnail_with(&doc, id, px.max(16), &opts))?;
+    let color = crate::canvas::color_image(&rendered);
+    let tex = ui.ctx().load_texture(format!("effect-gallery-{key}"), color, egui::TextureOptions::LINEAR);
+    GALLERY_TEX.with(|c| {
+        let mut cache = c.borrow_mut();
+        if cache.len() > 400 {
+            cache.clear();
+        }
+        cache.insert(key, tex.clone());
+    });
+    Some(tex)
+}
+
+fn paint_filter_preview(ui: &mut egui::Ui, effect: &str, params: &Map<String, Value>, side: f32) {
+    let px = (side * ui.ctx().pixels_per_point()).round() as u32;
+    if let Some(tex) = filter_preview_texture(ui, effect, params, px) {
+        let size = egui::vec2(side, side);
+        ui.add(egui::Image::new((tex.id(), size)));
+        return;
+    }
+    let t = Tokens::get(ui.ctx());
+    let (r, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
+    ui.painter().rect_filled(r, 2.0, t.panel);
+}
 
 #[derive(Clone)]
 struct StackEntry {
@@ -292,27 +370,42 @@ fn body(app: &mut VectorcraftApp, ui: &mut egui::Ui, d: &mut Dialog) -> bool {
         ui.add_space(8.0);
         ui.vertical(|ui| {
             widgets::subheader(ui, tl!("Filters"));
-            ui.set_width(220.0);
+            ui.set_width(248.0);
             egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
                 for e in &effects {
                     let picked = e.id == sel;
-                    let name = tl!(e.label).trim_end_matches('…').to_string();
-                    let resp = ui.add(egui::Button::selectable(picked, name));
-                    if resp.clicked() {
-                        set_selected(d, e.id);
-                        set_stack_focus(d, false);
-                    }
-                    if resp.double_clicked() {
-                        set_selected(d, e.id);
-                        set_stack_focus(d, false);
-                        add_selected(d, e.id);
-                        stack = stack_of(d);
-                    }
+                    ui.horizontal(|ui| {
+                        paint_filter_preview(ui, e.id, &default_params(e.id), 28.0);
+                        let name = tl!(e.label).trim_end_matches('…').to_string();
+                        let resp = ui.add(egui::Button::selectable(picked, name));
+                        if resp.clicked() {
+                            set_selected(d, e.id);
+                            set_stack_focus(d, false);
+                        }
+                        if resp.double_clicked() {
+                            set_selected(d, e.id);
+                            set_stack_focus(d, false);
+                            add_selected(d, e.id);
+                            stack = stack_of(d);
+                        }
+                    });
                 }
             });
             if widgets::flat_button(ui, tl!("Add to Stack"), 120.0).clicked() && !sel.is_empty() {
                 add_selected(d, &sel);
                 stack = stack_of(d);
+            }
+        });
+        ui.add_space(8.0);
+        ui.vertical(|ui| {
+            widgets::subheader(ui, tl!("Preview"));
+            ui.set_width(176.0);
+            let (param_effect, param_values) = param_target(d, &stack, stack_sel, &sel);
+            if param_effect.is_empty() {
+                ui.label(egui::RichText::new(tl!("Choose a filter")).color(t.text_dim));
+            } else {
+                paint_filter_preview(ui, &param_effect, &param_values, 160.0);
+                ui.label(egui::RichText::new(effect_label(&param_effect)).color(t.text_strong));
             }
         });
     });
@@ -446,6 +539,16 @@ mod tests {
         crate::dialogs::cancel(&mut app);
         assert!(!app.session.in_interaction());
         assert!(app.session.active().unwrap().doc.node(vectorcraft_doc::NodeId(id)).unwrap().appearance.effects.is_empty());
+    }
+
+    #[test]
+    fn gallery_sample_doc_carries_the_chosen_filter() {
+        let params = super::default_params("artistic.cutout");
+        let doc = super::gallery_sample_doc("artistic.cutout", &params);
+        let n = doc.layers[0].children().unwrap()[0].clone();
+        assert_eq!(n.appearance.effects.len(), 1);
+        assert_eq!(n.appearance.effects[0].id, "artistic.cutout");
+        assert_eq!(n.appearance.effects[0].params["levels"].as_f64(), Some(4.0));
     }
 
     #[test]
