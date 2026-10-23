@@ -306,8 +306,14 @@ impl Tool for FreeTransformTool {
             }
         }
         o.extend(self.guides.iter().cloned());
-        if let Some((p, t)) = &self.measure {
-            o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: t.clone() });
+        if let (Some((p, t)), Some(d)) = (&self.measure, self.drag) {
+            let show = match d.op {
+                Op::Move | Op::Corners(_, _) => cx.measurement_labels,
+                Op::Scale(_) | Op::Shear(_) | Op::Rotate => cx.transform_tools_guides,
+            };
+            if show {
+                o.push(Overlay::Measure { p: *p + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: t.clone() });
+            }
         }
         o
     }
@@ -420,6 +426,49 @@ mod tests {
         assert_eq!(t.cursor(&c, Point::new(150.0, 100.0), Mods::default()), Cursor::ResizeH, "top-middle");
         assert_eq!(t.cursor(&c, Point::new(200.0, 200.0), Mods::default()), Cursor::ResizeNeSw, "bottom-right");
         assert_eq!(t.cursor(&c, Point::new(207.0, 93.0), Mods::default()), Cursor::RotateToward(3), "out from the top right");
+    }
+
+    #[test]
+    fn transform_readouts_in_overlays_follow_transform_tools_guides() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let r = Rect::new(100.0, 100.0, 200.0, 200.0);
+        let measures = |t: &FreeTransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
+        let on = ToolContext { transform_tools_guides: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { transform_tools_guides: false, ..cx(&d, &s, &p) };
+        let mut t = FreeTransformTool::default();
+        t.pointer(&on, &ev(PointerKind::Down, 200.0, 200.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 220.0, 230.0));
+        let a = scale_for_drag(r, Handle::BottomRight, Point::new(220.0, 230.0), false, false);
+        let nr = a.transform_rect_bbox(r);
+        let want = on.size_label(nr.width(), nr.height());
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert_eq!(measures(&t, &off), 0);
+        t.pointer(&on, &ev(PointerKind::Up, 220.0, 230.0));
+        t.pointer(&on, &ev(PointerKind::Down, 207.0, 93.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 150.0, 80.0));
+        let (_, deg) = rotate_for_drag(r.center(), Point::new(207.0, 93.0), Point::new(150.0, 80.0), false);
+        let angle = format!("{:.1}°", -deg);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &angle)));
+        assert_eq!(measures(&t, &off), 0);
+    }
+
+    #[test]
+    fn move_readouts_in_overlays_follow_measurement_labels() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = FreeTransformTool::default();
+        t.pointer(&on, &ev(PointerKind::Down, 150.0, 150.0));
+        t.pointer(&on, &ev(PointerKind::Drag, 170.0, 180.0));
+        let want = on.offset_label(20.0, 30.0);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
