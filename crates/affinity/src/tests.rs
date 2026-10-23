@@ -90,6 +90,13 @@ mod preview {
     }
 
     #[test]
+    fn preview_dimensions_above_four_thousand_ninety_six_are_refused() {
+        let mut b = fixture();
+        b[117..121].copy_from_slice(&4097u32.to_be_bytes());
+        assert_eq!(preview(&b).unwrap_err(), Error::Limit("preview dimensions must be 1..4096"));
+    }
+
+    #[test]
     fn an_unindexed_png_or_resource_is_never_used() {
         let mut b = fixture();
         b[24..32].copy_from_slice(&0u64.to_le_bytes());
