@@ -869,8 +869,8 @@ mod tests {
         db.add_font(variable_font().unwrap());
         assert!(db.family_traits(VARIABLE_FAMILY).variable);
         let families = db.menu_family_list();
-        let static_family = families.into_iter().find(|f| !db.family_traits(f).variable).unwrap();
-        assert!(!db.family_traits(&static_family).variable);
+        let static_family = families.iter().find(|f| !db.family_traits(f).variable).unwrap().clone();
+        assert!(!db.family_traits(static_family.as_str()).variable);
         let ctx = egui::Context::default();
         let mut st = super::MenuState { variable_only: true, ..Default::default() };
         let mut rows = vec![];
@@ -878,7 +878,14 @@ mod tests {
             let mut out = ctx.run_ui(
                 egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(600.0, 800.0))), ..Default::default() },
                 |ui| {
-                    super::list(ui, egui::Id::new("variable-filter"), &mut st, &static_family, None, super::MenuLook { samples: false, ..Default::default() });
+                    super::list(
+                        ui,
+                        egui::Id::new("variable-filter"),
+                        &mut st,
+                        static_family.as_str(),
+                        None,
+                        super::MenuLook { samples: false, ..Default::default() },
+                    );
                     rows = st.rows.to_vec();
                 },
             );
