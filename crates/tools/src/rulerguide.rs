@@ -12,7 +12,7 @@
 //! or locked layer, can't be picked.
 
 use serde_json::json;
-use vectorcraft_geom::{Point, Rect};
+use vectorcraft_geom::{Point, Rect, Vec2};
 
 use crate::guides::Targets;
 use crate::{Action, Cursor, Overlay, PointerEvent, PointerKind, ToolContext};
@@ -147,12 +147,21 @@ impl GuideSnap {
     }
 
     /// The target the guide at `at` snapped to, and its position by the `pointer`.
-    fn overlays(&self, cx: &ToolContext, vertical: bool, at: f64, pointer: Point) -> Vec<Overlay> {
+    /// A moved guide passes `move_delta` so Measurement Labels show dX/dY; a new guide from a
+    /// ruler shows its position on that axis.
+    fn overlays(&self, cx: &ToolContext, vertical: bool, at: f64, pointer: Point, move_delta: Option<(f64, f64)>) -> Vec<Overlay> {
         let mut o = self.snapped.clone();
         if cx.measurement_labels {
-            let origin = cx.ruler_origin;
-            let (axis, zero) = if vertical { ("X", origin.x) } else { ("Y", origin.y) };
-            o.push(Overlay::Measure { p: pointer, text: format!("{axis}: {}", cx.len(at - zero)) });
+            let p = pointer + Vec2::new(cx.tol(12.0), cx.tol(12.0));
+            let text = match move_delta {
+                Some((dx, dy)) => cx.offset_label(dx, dy),
+                None => {
+                    let origin = cx.ruler_origin;
+                    let (axis, zero) = if vertical { ("X", origin.x) } else { ("Y", origin.y) };
+                    format!("{axis}: {}", cx.len(at - zero))
+                }
+            };
+            o.push(Overlay::Measure { p, text });
         }
         o
     }
@@ -211,7 +220,7 @@ impl NewGuide {
 
     /// While the guide shows: the target it snapped to and its position by the pointer.
     pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
-        self.at.map(|(vertical, at)| self.snap.overlays(cx, vertical, at, self.pointer)).unwrap_or_default()
+        self.at.map(|(vertical, at)| self.snap.overlays(cx, vertical, at, self.pointer, None)).unwrap_or_default()
     }
 }
 
@@ -332,7 +341,9 @@ impl GuideEdit {
     /// While a guide is dragged: the smart guide it snapped to and its position by the pointer.
     pub fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let Some(d) = self.drag.filter(|d| d.began) else { return vec![] };
-        self.snap.overlays(cx, d.vertical, d.at, d.pointer)
+        let moved = d.pointer - d.start;
+        let (dx, dy) = if d.vertical { (d.at - d.from, moved.y) } else { (moved.x, d.at - d.from) };
+        self.snap.overlays(cx, d.vertical, d.at, d.pointer, Some((dx, dy)))
     }
 }
 
@@ -388,7 +399,8 @@ mod tests {
         let a = g.pointer(&c, &ev(PointerKind::Drag, 340.0, 60.0, m)).unwrap();
         assert_eq!(a[0], Action::Begin("Move Guide".into()));
         assert_eq!(a[1], Action::Preview("guide.move".into(), json!({"dx": 40.0, "dy": 10.0, "copy": false})));
-        assert!(matches!(g.overlays(&c).last(), Some(Overlay::Measure { text, .. }) if text == "X: 340.00 pt"));
+        let want = c.offset_label(40.0, 10.0);
+        assert!(matches!(g.overlays(&c).last(), Some(Overlay::Measure { text, .. }) if text == &want));
         assert_eq!(g.cursor(&c, Point::ZERO), Some(Cursor::ResizeH));
         assert_eq!(g.pointer(&c, &ev(PointerKind::Up, 340.0, 60.0, m)), Some(vec![Action::Commit]));
         assert!(!g.busy() && g.pointer(&c, &ev(PointerKind::Drag, 0.0, 0.0, m)).is_none());
@@ -897,7 +909,9 @@ mod tests {
                         let (start, to) = if vertical { ((from, 50.0), (222.0, 50.0)) } else { ((50.0, from), (50.0, 238.0)) };
                         moved.press(&c, &ev(PointerKind::Down, start.0, start.1, Mods::default())).unwrap();
                         moved.pointer(&c, &ev(PointerKind::Drag, to.0, to.1, Mods { alt: copy, ..Default::default() })).unwrap();
-                        check(moved.overlays(&c));
+                        let (dx, dy) = if vertical { (222.0 - from, 0.0) } else { (0.0, 238.0 - from) };
+                        let move_want = c.offset_label(dx, dy);
+                        assert!(matches!(moved.overlays(&c).last(), Some(Overlay::Measure { text, .. }) if text == &move_want), "want {move_want}");
                     }
                     let quiet = ToolContext { measurement_labels: false, ..c };
                     assert!(new.overlays(&quiet).is_empty(), "measurement-label preference is preserved");
