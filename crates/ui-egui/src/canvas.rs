@@ -9136,7 +9136,8 @@ mod tests {
             assert!(texts.iter().any(|t| t == &Unit::Points.format(shown)), "{texts:?}");
             let view = app.view_info();
             let overlays = app.session.overlays(view);
-            let want = format!("{}: {shown:.2} pt", if vertical { "X" } else { "Y" });
+            let (dx, dy) = if vertical { (target - 100.0, 0.0) } else { (0.0, target - 100.0) };
+            let want = format!("dX: {:.2} pt\ndY: {:.2} pt", dx, dy);
             assert!(
                 overlays.iter().any(|o| matches!(o, vectorcraft_tools::Overlay::Measure { text, .. } if text == &want)),
                 "{overlays:?}, field={shown}"
