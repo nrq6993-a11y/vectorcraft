@@ -1037,6 +1037,7 @@
 	Fill new strokes	为新描边应用填色
 	Alt key toggles to Smooth Tool	Alt 键切换为平滑工具
 	Keep selected	保持选择状态
+	Live preview	实时预览
 	Merge only with selection	仅与所选对象合并
 	Consider Open Filled Paths as Closed	将有填色的开放路径视为闭合路径
 	In Merge Mode, Clicking Stroke Splits the Path	在合并模式下，单击描边可分割路径

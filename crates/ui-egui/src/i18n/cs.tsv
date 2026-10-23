@@ -2282,6 +2282,7 @@ lighting	Light	Světlo
 	Fill new strokes	Vyplňovat nové tahy
 	Alt key toggles to Smooth Tool	Klávesa Alt přepíná na nástroj Vyhlazení
 	Keep selected	Ponechat vybrané
+	Live preview	Živý náhled
 	Merge only with selection	Sloučit jen s výběrem
 	Consider Open Filled Paths as Closed	Považovat otevřené vyplněné cesty za uzavřené
 	In Merge Mode, Clicking Stroke Splits the Path	V režimu sloučení rozdělí kliknutí na tah cestu

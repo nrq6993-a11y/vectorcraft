@@ -2197,6 +2197,7 @@ lighting	Light	Światło
 	Fill new strokes	Wypełniaj nowe pociągnięcia
 	Alt key toggles to Smooth Tool	Klawisz Alt przełącza na narzędzie Wygładzanie
 	Keep selected	Zachowaj zaznaczenie
+	Live preview	Podgląd na żywo
 	Merge only with selection	Scalaj tylko z zaznaczeniem
 	Consider Open Filled Paths as Closed	Traktuj otwarte wypełnione ścieżki jako zamknięte
 	In Merge Mode, Clicking Stroke Splits the Path	W trybie scalania kliknięcie obrysu dzieli ścieżkę

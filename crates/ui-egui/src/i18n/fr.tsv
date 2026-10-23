@@ -1096,6 +1096,7 @@
 	Fill new strokes	Remplir les nouveaux contours
 	Alt key toggles to Smooth Tool	La touche Alt bascule sur l’outil Arrondi
 	Keep selected	Garder sélectionné
+	Live preview	Aperçu dynamique
 	Merge only with selection	Fusionner uniquement avec la sélection
 	Consider Open Filled Paths as Closed	Traiter les tracés ouverts avec fond comme fermés
 	In Merge Mode, Clicking Stroke Splits the Path	En mode fusion, un clic sur le contour scinde le tracé

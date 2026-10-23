@@ -975,6 +975,7 @@
 	Fill new strokes	Preencher novos traçados
 	Alt key toggles to Smooth Tool	A tecla Alt alterna para a ferramenta Suavizar
 	Keep selected	Manter selecionado
+	Live preview	Visualização ao vivo
 	Merge only with selection	Mesclar somente com a seleção
 	Consider Open Filled Paths as Closed	Tratar caminhos abertos preenchidos como fechados
 	In Merge Mode, Clicking Stroke Splits the Path	No modo de mesclagem, clicar no traçado divide o caminho

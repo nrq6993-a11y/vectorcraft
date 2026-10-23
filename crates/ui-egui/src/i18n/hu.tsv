@@ -1383,6 +1383,7 @@
 	Fill new strokes	Új vonások kitöltése
 	Alt key toggles to Smooth Tool	Az Alt billentyű a Simítás eszközre vált
 	Keep selected	Kijelölés megtartása
+	Live preview	Élő előnézet
 	Merge only with selection	Összeolvasztás csak a kijelöléssel
 	Consider Open Filled Paths as Closed	A nyitott kitöltött útvonalak zártnak számítanak
 	In Merge Mode, Clicking Stroke Splits the Path	Összeolvasztáskor a körvonalra kattintás kettévágja az útvonalat

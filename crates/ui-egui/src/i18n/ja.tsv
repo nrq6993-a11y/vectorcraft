@@ -1499,6 +1499,7 @@
 	Fill new strokes	新しいストロークに塗りを適用
 	Alt key toggles to Smooth Tool	Alt キーでスムーズツールに切り替え
 	Keep selected	選択を保持
+	Live preview	ライブプレビュー
 	Merge only with selection	選択範囲とのみ結合
 	Consider Open Filled Paths as Closed	塗りのある開いたパスを閉じたパスとみなす
 	In Merge Mode, Clicking Stroke Splits the Path	結合モードで線をクリックするとパスを分割

@@ -5199,6 +5199,7 @@ theme	Appearance	Външен вид
 	Darkness	Затъмняване
 	Isolate Selected Object	Изолиране на избрания обект
 	Keep selected	Запазване на избора
+	Live preview	Жив преглед
 	Merge only with selection	Сливане само с избраното
 	Consider Open Filled Paths as Closed	Отворените запълнени пътища се смятат за затворени
 	In Merge Mode, Clicking Stroke Splits the Path	В режим на сливане щракване върху щриха разделя пътя
