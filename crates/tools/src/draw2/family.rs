@@ -489,6 +489,28 @@ mod tests {
     /// The start and the dragged corner snap to Smart Guides (#506), Shift sliding the corner of
     /// a square grid along its diagonal into line.
     #[test]
+    fn grid_drag_measure_label_includes_divider_counts() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = ToolContext { measurement_labels: true, smart_guides: false, ..cx(&d, &s, &p) };
+        let mut t = FamilyTool::new("rectangularGrid");
+        t.rows = 4;
+        t.columns = 7;
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 100.0, 100.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 200.0, 150.0));
+        let label = t
+            .overlays(&cx)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert!(label.contains("Rows: 4"), "{label}");
+        assert!(label.contains("Columns: 7"), "{label}");
+    }
+
     fn corners_snap_to_smart_guides() {
         let (d, _) = doc_with_rect();
         let s = Selection::default();
