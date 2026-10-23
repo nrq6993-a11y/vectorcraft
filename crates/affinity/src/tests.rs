@@ -288,6 +288,17 @@ mod archive {
     }
 
     #[test]
+    fn archive_entry_declared_size_beyond_addressable_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let fat = u64::from_le_bytes(file[16..24].try_into().unwrap()) as usize;
+        let size_at = fat + 59 + 5 + 8;
+        file[size_at..size_at + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+        let mut a = Archive::open(&file, Limits::default()).unwrap();
+        assert_eq!(a.read("doc.dat").unwrap_err(), Error::Limit("archive entry too large"));
+    }
+
+    #[test]
     fn a_declared_size_smaller_than_the_data_is_rejected_not_truncated() {
         let big = vec![7u8; 1 << 20];
         let mut file = synth::container(&[("doc.dat", &big, Method::Zlib)], None);
