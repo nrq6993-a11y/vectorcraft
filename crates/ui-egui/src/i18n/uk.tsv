@@ -271,6 +271,8 @@
 	Average…	Усереднити…
 	Axis:	Вісь:
 	Background Color:	Колір тла:
+	Show Center Mark	Показати центральну позначку
+	Show Cross Hairs	Показати перехрестя
 	Background Contents	Вміст фону
 	Background Contents:	Вміст фону:
 	Background:	Фон:
@@ -3812,6 +3814,7 @@ axis	Both	Обидві
 @msg	Couldn't copy to the system clipboard: {e}	Не вдалося скопіювати до системного буфера обміну: {e}
 @msg	Couldn't open {name}: {e}	Не вдалося відкрити {name}: {e}
 @msg	Couldn't place {name}: the document it was dropped on was closed	Не вдалося помістити {name}: документ, у який його перетягли, було закрито
+@msg	Couldn't place {name}: the document it was placed in was closed	Не вдалося помістити {name}: документ, у який його поміщали, було закрито
 @msg	Couldn't read {name}: {e}	Неможливо прочитати {name}: {e}
 @msg	Couldn't save recovery data: {e}	Не вдалося зберегти дані відновлення: {e}
 @msg	Create Outlines: select text objects	Створення контурів: виділіть текстові об’єкти
@@ -4179,6 +4182,7 @@ axis	Both	Обидві
 @msg	path is already closed	контур вже замкнутий
 @msg	paths contain invalid coordinates	контури містять неприпустимі координати
 @msg	paths: give at least one file	paths: вкажіть щонайменше один файл
+@msg	replace: the object to replace was changed or deleted	replace: об’єкт для заміни було змінено або видалено
 @msg	pattern missing	візерунок відсутній
 @msg	patterns nested too deeply are filled with mid-grey	надто глибоко вкладені візерунки заповнюються сірим
 @msg	percent must be above 0 and at most 6400, not {p}	відсоток має бути більше 0 і не більше 6400, а не {p}
@@ -4380,6 +4384,7 @@ axis	Both	Обидві
 @msg	Saving {_1}	Збереження {_1}
 @msg	Exporting {_1}	Експорт {_1}
 @msg	Packaging {_1}	Пакування {_1}
+@msg	Placing {_1}	Розміщення {_1}
 @msg	Saving recovery data for {_1}	Збереження даних відновлення для {_1}
 @msg	Discarded {_1} recovered document(s)	Скасовано відновлених документів: {_1}
 @msg	Restored {_1} recovered document(s): save them to keep them	Відновлено документів: {_1}: збережіть їх, щоб залишити
@@ -4953,6 +4958,7 @@ lighting	Light	Світло
 @msg	unknown snap option `{key}` (use {options})	невідомий параметр прив’язки `{key}` (використовуйте {options})
 	Gap Length:	Довжина проміжку:
 	Artboard {n} of {total}	Монтажна область {n} з {total}
+	File {n} of {total}	Файл {n} з {total}
 	Encoding and writing the file…	Кодування та запис файлу…
 @plural	{n} more export waiting|{n} more exports waiting	Ще {n} експорт в очікуванні|Ще {n} експорти в очікуванні|Ще {n} експортів в очікуванні
 	Continue in Background	Продовжити у фоні
@@ -5039,3 +5045,15 @@ axis	Y Axis	Вісь Y
 @msg	`dither` must be true or false	`dither` має бути true або false
 	Perceptual	Перцептивний
 @msg	`method` must be classic or perceptual	`method` має бути classic або perceptual
+# Heavy plug-in filters (plugin.inspect, plug-in runs)
+	Install “{name}”, which asks for a heavy budget?	Встановити «{name}», якому потрібен великий обчислювальний бюджет?
+	Each run may take up to {minutes} minutes and do {times} times the work other plug-ins may. It runs in the background, and you can cancel it.	Кожен запуск може тривати до {minutes} хвилин і виконувати в {times} разів більше роботи, ніж дозволено іншим модулям. Він працює у фоні, і його можна скасувати.
+	It may take minutes, so it runs in the background, where you can cancel it.	Це може тривати кілька хвилин, тож модуль працює у фоні, де його можна скасувати.
+	The plug-in is computing…	Модуль виконує обчислення…
+	Inspect Plug-in	Перевірити модуль
+	Cancel Plug-in Run	Скасувати запуск модуля
+@msg	{_1} finished, but the document or the plug-in changed meanwhile: run it again	{_1} завершився, але документ або модуль тим часом змінився: запустіть його знову
+@msg	Running “{name}”…	Виконується «{name}»…
+@msg	a live effect runs while the document is drawn, so it can't be `heavy`	динамічний ефект виконується під час відмальовування документа, тому він не може бути `heavy`
+@msg	an exporter always gets an export's budget: leave `budget` out	модуль експорту завжди отримує бюджет експорту: не вказуйте `budget`
+@msg	“{_1}” asks for a heavy budget (each run up to {minutes} minutes and {times} times the usual instructions): install it with `allowHeavy: true` once the user agrees	«{_1}» запитує великий обчислювальний бюджет (кожен запуск до {minutes} хвилин і в {times} разів більше інструкцій, ніж зазвичай): встановіть його з `allowHeavy: true`, коли користувач погодиться

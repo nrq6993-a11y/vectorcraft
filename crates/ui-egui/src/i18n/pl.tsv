@@ -2349,6 +2349,8 @@ lighting	Light	Światło
 	File Dimensions	Wymiary pliku
 	Transforms	Przekształcenia
 	Background Color:	Kolor tła:
+	Show Center Mark	Pokaż znacznik środka
+	Show Cross Hairs	Pokaż krzyż nitkowy
 	Client-side (.html)	Po stronie klienta (.html)
 	Color Reduction:	Redukcja kolorów:
 	Lossless (lossy WebP isn't available yet)	Bezstratny (stratny WebP nie jest jeszcze dostępny)
@@ -3914,6 +3916,7 @@ imageTrace	Outline	Kontur
 @msg	Couldn't copy to the system clipboard: {e}	Nie udało się skopiować do schowka systemowego: {e}
 @msg	Couldn't open {name}: {e}	Nie udało się otworzyć {name}: {e}
 @msg	Couldn't place {name}: the document it was dropped on was closed	Nie udało się umieścić {name}: dokument, na który go upuszczono, został zamknięty
+@msg	Couldn't place {name}: the document it was placed in was closed	Nie udało się umieścić {name}: dokument, w którym był umieszczany, został zamknięty
 @msg	Couldn't read {name}: {e}	Nie udało się odczytać {name}: {e}
 @msg	Couldn't save recovery data: {e}	Nie udało się zapisać danych odzyskiwania: {e}
 @msg	Create Outlines: select text objects	Utwórz kontury: zaznacz obiekty tekstowe
@@ -4281,6 +4284,7 @@ imageTrace	Outline	Kontur
 @msg	path is already closed	ścieżka jest już zamknięta
 @msg	paths contain invalid coordinates	ścieżki zawierają nieprawidłowe współrzędne
 @msg	paths: give at least one file	paths: podaj co najmniej jeden plik
+@msg	replace: the object to replace was changed or deleted	replace: obiekt do zastąpienia został zmieniony lub usunięty
 @msg	pattern missing	brak wzorka
 @msg	patterns nested too deeply are filled with mid-grey	zbyt głęboko zagnieżdżone wzorki są wypełniane średnią szarością
 @msg	percent must be above 0 and at most 6400, not {p}	procent musi być większy od 0 i nie większy niż 6400, nie {p}
@@ -4482,6 +4486,7 @@ imageTrace	Outline	Kontur
 @msg	Saving {_1}	Zapisywanie {_1}
 @msg	Exporting {_1}	Eksportowanie {_1}
 @msg	Packaging {_1}	Pakowanie {_1}
+@msg	Placing {_1}	Umieszczanie {_1}
 @msg	Saving recovery data for {_1}	Zapisywanie danych odzyskiwania dla {_1}
 @msg	Discarded {_1} recovered document(s)	Odrzucone odzyskane dokumenty: {_1}
 @msg	Restored {_1} recovered document(s): save them to keep them	Przywrócone odzyskane dokumenty: {_1} — zapisz je, aby je zachować
@@ -5211,6 +5216,7 @@ mark-style	Japanese	Japońskie
 @msg	unknown snap option `{key}` (use {options})	nieznana opcja przyciągania `{key}` (użyj: {options})
 	Gap Length:	Długość przerwy:
 	Artboard {n} of {total}	Obszar kompozycji {n} z {total}
+	File {n} of {total}	Plik {n} z {total}
 	Encoding and writing the file…	Kodowanie i zapisywanie pliku…
 @plural	{n} more export waiting|{n} more exports waiting	Czeka jeszcze {n} eksport|Czekają jeszcze {n} eksporty|Czeka jeszcze {n} eksportów
 	Continue in Background	Kontynuuj w tle
@@ -5294,3 +5300,15 @@ axis	Y Axis	Oś Y
 @msg	`dither` applies to gradient fills (paint.setFill)	`dither` dotyczy wypełnień gradientem (paint.setFill)
 @msg	`dither` must be true or false	`dither` musi mieć wartość true lub false
 @msg	`method` must be classic or perceptual	`method` musi mieć wartość classic lub perceptual
+# Heavy plug-in filters (plugin.inspect, plug-in runs)
+	Install “{name}”, which asks for a heavy budget?	Zainstalować „{name}”, wtyczkę, która prosi o duży budżet obliczeń?
+	Each run may take up to {minutes} minutes and do {times} times the work other plug-ins may. It runs in the background, and you can cancel it.	Każde uruchomienie może trwać do {minutes} minut i wykonać {times} razy więcej pracy, niż mogą inne wtyczki. Działa w tle i można je anulować.
+	It may take minutes, so it runs in the background, where you can cancel it.	Może to potrwać kilka minut, dlatego działa w tle, gdzie można to anulować.
+	The plug-in is computing…	Wtyczka wykonuje obliczenia…
+	Inspect Plug-in	Sprawdź wtyczkę
+	Cancel Plug-in Run	Anuluj działanie wtyczki
+@msg	{_1} finished, but the document or the plug-in changed meanwhile: run it again	{_1} zakończył działanie, ale w międzyczasie zmienił się dokument lub wtyczka: uruchom ją ponownie
+@msg	Running “{name}”…	Uruchamianie „{name}”…
+@msg	a live effect runs while the document is drawn, so it can't be `heavy`	efekt na żywo działa podczas rysowania dokumentu, więc nie może być `heavy`
+@msg	an exporter always gets an export's budget: leave `budget` out	wtyczka eksportu zawsze dostaje budżet eksportu: pomiń `budget`
+@msg	“{_1}” asks for a heavy budget (each run up to {minutes} minutes and {times} times the usual instructions): install it with `allowHeavy: true` once the user agrees	„{_1}” prosi o duży budżet obliczeń (każde uruchomienie do {minutes} minut i {times} razy więcej instrukcji niż zwykle): zainstaluj wtyczkę z `allowHeavy: true`, gdy użytkownik się zgodzi

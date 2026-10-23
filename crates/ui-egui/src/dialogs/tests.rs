@@ -531,6 +531,8 @@ struct PluginIntField {
 }
 
 impl PluginIntField {
+    /// The dialog for a `seed` in `min..=max` showing `start`, drawn once to find the number,
+    /// where drags start (`pos`).
     fn new(min: i64, max: i64, start: i64) -> Self {
         let ctx = egui::Context::default();
         theme::install_fonts(&ctx);
@@ -544,6 +546,7 @@ impl PluginIntField {
             author: String::new(),
             params: vec![("seed".into(), vectorcraft_plugins::ParamSpec::Int { min, max, default: 0 }.into())],
             extensions: Vec::new(),
+            budget: Default::default(),
         };
         let mut f = PluginIntField { ctx, d: Dialog::new(plugin::KIND, json!({ "seed": start })), m, pos: egui::Pos2::ZERO };
         fn number_rect(shape: &egui::Shape, text: &str) -> Option<egui::Rect> {
@@ -1096,6 +1099,56 @@ fn new_artboard_options_give_the_new_artboard_its_background_color() {
         super::confirm(&mut app).unwrap();
         let ab = app.session.doc().unwrap().doc.artboards.last().cloned().unwrap();
         assert_eq!(ab.color.map(|c| c.to_hex()).as_deref(), want);
+    }
+}
+
+/// Artboard Options shows Show Center Mark and Show Cross Hairs, ticked as the artboard has them
+/// whether it opens from the Artboards panel or from a double-click with the Artboard tool. OK
+/// sets them in one undo step, and a new artboard's Artboard Options gives it the ones ticked.
+#[test]
+fn artboard_options_show_center_mark_and_cross_hairs() {
+    use vectorcraft_tools::{PointerEvent, PointerKind};
+    let mut app = app();
+    let marks = |app: &VectorcraftApp, i: usize| {
+        let a = &app.session.doc().unwrap().doc.artboards[i];
+        (a.show_center_mark, a.show_cross_hairs)
+    };
+    crate::dialogs::artboard_options::open(&mut app).unwrap();
+    let text = crate::tests_labels::painted_text(&mut app, |app, ui| show(app, ui.ctx()));
+    assert!(text.contains("Show Center Mark") && text.contains("Show Cross Hairs"), "{text}");
+    let d = app.ui.dialog.as_mut().unwrap();
+    assert!(!d.bool("showCenterMark") && !d.bool("showCrossHairs"));
+    d.fields.insert("showCenterMark".into(), json!(true));
+    let undo = app.session.doc().unwrap().history.undo.len();
+    super::confirm(&mut app).unwrap();
+    assert_eq!(marks(&app, 0), (true, false));
+    assert_eq!(app.session.doc().unwrap().history.undo.len(), undo + 1);
+    // Opened again, it shows them; unticking one clears it.
+    crate::dialogs::artboard_options::open(&mut app).unwrap();
+    let d = app.ui.dialog.as_mut().unwrap();
+    assert!(d.bool("showCenterMark"));
+    d.fields.insert("showCenterMark".into(), json!(false));
+    d.fields.insert("showCrossHairs".into(), json!(true));
+    super::confirm(&mut app).unwrap();
+    assert_eq!(marks(&app, 0), (false, true));
+    // A double-click with the Artboard tool on the artboard's empty space.
+    app.select_tool("artboard");
+    let view = app.view_info();
+    for kind in [PointerKind::Down, PointerKind::Up, PointerKind::Down, PointerKind::Up, PointerKind::DoubleClick] {
+        crate::canvas::dispatch(&mut app, &PointerEvent::new(kind, 100.0, 100.0), view);
+    }
+    let d = app.ui.dialog.clone().expect("Artboard Options opened");
+    assert_eq!((d.kind.as_str(), d.bool("showCenterMark"), d.bool("showCrossHairs")), ("artboardOptions", false, true));
+    cancel(&mut app);
+    // A new artboard takes the ones ticked, and none when none is.
+    for (ticked, want) in [(Some("showCenterMark"), (true, false)), (None, (false, false))] {
+        app.run("ui.newArtboard", json!({})).unwrap();
+        if let Some(k) = ticked {
+            app.ui.dialog.as_mut().unwrap().fields.insert(k.into(), json!(true));
+        }
+        super::confirm(&mut app).unwrap();
+        let last = app.session.doc().unwrap().doc.artboards.len() - 1;
+        assert_eq!(marks(&app, last), want);
     }
 }
 

@@ -300,6 +300,8 @@
 	Axis:	Trục:
 	Back	Sau
 	Background Color:	Màu nền:
+	Show Center Mark	Hiện dấu tâm
+	Show Cross Hairs	Hiện đường chữ thập
 	Background Contents	Nội dung nền
 	Background Contents:	Nội dung nền:
 	Background:	Nền:
@@ -4204,6 +4206,7 @@ theme	Appearance	Giao diện
 @msg	Couldn't open {name}: {e}	Không thể mở {name}: {e}
 @msg	Couldn't paste from the clipboard: {e}	Không thể dán từ khay nhớ tạm: {e}
 @msg	Couldn't place {name}: the document it was dropped on was closed	Không thể đặt {name}: tài liệu mà nó được thả vào đã đóng
+@msg	Couldn't place {name}: the document it was placed in was closed	Không thể đặt {name}: tài liệu mà nó được đặt vào đã đóng
 @msg	Couldn't place {name}: {e}	Không thể đặt {name}: {e}
 @msg	Couldn't read {name}: {e}	Không thể đọc {name}: {e}
 @msg	Couldn't save recovery data: {e}	Không thể lưu dữ liệu phục hồi: {e}
@@ -4241,6 +4244,7 @@ theme	Appearance	Giao diện
 @msg	Exported {what} with {_1} note(s): {first}	Đã xuất {what} với {_1} ghi chú: {first}
 @msg	Exporting {_1}	Đang xuất {_1}
 @msg	Packaging {_1}	Đang đóng gói {_1}
+@msg	Placing {_1}	Đang đặt {_1}
 @msg	file version {0} is newer than this VectorCraft supports ({VERSION})	phiên bản tệp {0} mới hơn VectorCraft hỗ trợ ({VERSION})
 @msg	Flatten Transparency: select objects to flatten	Dẹp phẳng độ trong suốt: hãy chọn đối tượng để dẹp phẳng
 @msg	Flatten Transparency: {e}	Dẹp phẳng độ trong suốt: {e}
@@ -4490,6 +4494,7 @@ theme	Appearance	Giao diện
 @msg	path is already closed	đường dẫn đã được đóng
 @msg	paths contain invalid coordinates	đường dẫn chứa tọa độ không hợp lệ
 @msg	paths: give at least one file	đường dẫn: hãy cung cấp ít nhất một tệp
+@msg	replace: the object to replace was changed or deleted	thay thế: đối tượng cần thay thế đã bị thay đổi hoặc xóa
 @msg	pattern missing	thiếu họa tiết
 @msg	patterns nested too deeply are filled with mid-grey	họa tiết lồng nhau quá sâu được tô bằng màu xám trung tính
 @msg	PDF settings are not an object	Cài đặt PDF không phải là đối tượng
@@ -4953,6 +4958,7 @@ theme	Appearance	Giao diện
 @msg	unknown snap option `{key}` (use {options})	tùy chọn hút không hợp lệ `{key}` (dùng {options})
 	Gap Length:	Độ dài khoảng hở:
 	Artboard {n} of {total}	Bảng vẽ {n} / {total}
+	File {n} of {total}	Tệp {n} / {total}
 	Encoding and writing the file…	Đang mã hóa và ghi tệp…
 @plural	{n} more export waiting|{n} more exports waiting	Còn {n} lượt xuất đang chờ
 	Continue in Background	Tiếp tục trong nền
@@ -5039,3 +5045,15 @@ axis	Y Axis	Trục Y
 @msg	`dither` must be true or false	`dither` phải là true hoặc false
 	Perceptual	Theo cảm nhận
 @msg	`method` must be classic or perceptual	`method` phải là classic hoặc perceptual
+# Heavy plug-in filters (plugin.inspect, plug-in runs)
+	Install “{name}”, which asks for a heavy budget?	Cài đặt “{name}”, plug-in yêu cầu ngân sách tính toán lớn?
+	Each run may take up to {minutes} minutes and do {times} times the work other plug-ins may. It runs in the background, and you can cancel it.	Mỗi lần chạy có thể mất tới {minutes} phút và làm khối lượng việc gấp {times} lần mức cho phép với các plug-in khác. Plug-in chạy trong nền và bạn có thể hủy.
+	It may take minutes, so it runs in the background, where you can cancel it.	Việc này có thể mất vài phút nên plug-in chạy trong nền, nơi bạn có thể hủy.
+	The plug-in is computing…	Plug-in đang tính toán…
+	Inspect Plug-in	Kiểm tra plug-in
+	Cancel Plug-in Run	Hủy lần chạy plug-in
+@msg	{_1} finished, but the document or the plug-in changed meanwhile: run it again	{_1} đã chạy xong, nhưng tài liệu hoặc plug-in đã thay đổi trong lúc đó: hãy chạy lại
+@msg	Running “{name}”…	Đang chạy “{name}”…
+@msg	a live effect runs while the document is drawn, so it can't be `heavy`	hiệu ứng trực tiếp chạy trong lúc tài liệu được vẽ nên không thể là `heavy`
+@msg	an exporter always gets an export's budget: leave `budget` out	plug-in xuất luôn nhận ngân sách của một lần xuất: hãy bỏ `budget`
+@msg	“{_1}” asks for a heavy budget (each run up to {minutes} minutes and {times} times the usual instructions): install it with `allowHeavy: true` once the user agrees	“{_1}” yêu cầu ngân sách tính toán lớn (mỗi lần chạy tới {minutes} phút và gấp {times} lần số lệnh thông thường): hãy cài đặt với `allowHeavy: true` khi người dùng đồng ý

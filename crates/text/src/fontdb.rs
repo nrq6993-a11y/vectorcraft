@@ -140,6 +140,8 @@ pub struct FontFace {
     colour_bitmaps: bool,
     /// Has `COLR` colour glyphs ([`FontDb::glyph_colour`]).
     colour_layers: bool,
+    /// Has an `SVG ` table: OpenType SVG glyphs ([`FontDb::glyph_colour`]).
+    svg_glyphs: bool,
 }
 
 /// Where the ideographic character face (ICF) lies inside the ideographic em box: its distance
@@ -420,9 +422,11 @@ type CanonicalNames = HashMap<(String, String), (String, String)>;
 
 /// [`FontDb::glyph_image`]'s answers by face and glyph.
 type GlyphImages = GlyphCache<(u32, u32), Arc<GlyphImage>>;
-/// [`FontDb::glyph_colour`]'s answers by face and glyph, and the foreground colour for glyphs that
-/// paint with it.
-type GlyphColours = GlyphCache<(u32, u32, Option<[u8; 4]>), ColourContent>;
+/// [`FontDb::glyph_colour`]'s answers by face and glyph, and the text's fill and stroke colours for
+/// glyphs that paint with them.
+type GlyphColours = GlyphCache<(u32, u32, Option<TextColours>), ColourContent>;
+/// The text's fill and stroke colours, as a cache key.
+type TextColours = ([u8; 4], Option<[u8; 4]>);
 
 /// What a glyph's colour content (an image, layers) takes of memory, in bytes.
 trait Weight {
@@ -1079,12 +1083,15 @@ fn named_instances(
     (out, renamed)
 }
 
+/// The most faces read from a (possibly damaged) collection.
+const MAX_FACES: u32 = 256;
+
 /// Parse every face in `data` (a font file or collection) and the named instances of its variable
 /// ones. Returns each style with the index of its face.
 fn enumerate_faces(data: &[u8]) -> Vec<(u32, FaceStyle)> {
     let count = match FileRef::new(data) {
         Ok(FileRef::Font(_)) => 1,
-        Ok(FileRef::Collection(c)) => c.len(),
+        Ok(FileRef::Collection(c)) => c.len().min(MAX_FACES),
         Err(_) => 0,
     };
     (0..count)
@@ -1115,8 +1122,6 @@ const OUTLINE_TABLES: [&[u8; 4]; 6] = [b"glyf", b"CFF ", b"CFF2", b"VARC", b"sbi
 /// are left out.
 #[cfg(not(target_arch = "wasm32"))]
 fn file_face_names(path: &Path) -> Vec<FaceStyle> {
-    /// The most faces read from a (possibly damaged) collection.
-    const MAX_FACES: u32 = 256;
     file_face_names_within(path, MAX_FACES, u64::MAX)
 }
 
@@ -1597,6 +1602,7 @@ fn make_face(bytes: FontBytes, index: u32, spec: FaceStyle, path: Option<std::pa
     let strikeout = decoration(m.strikeout, (x_height * 0.5 + 0.025 * upem, 0.05 * upem));
     let colour_bitmaps = crate::bitmap::has_colour_bitmaps(&f);
     let colour_layers = crate::colr::has_colour_layers(&f);
+    let svg_glyphs = crate::svg_glyph::has_svg_glyphs(&f);
     Some(FontFace {
         keys,
         traits,
@@ -1625,6 +1631,7 @@ fn make_face(bytes: FontBytes, index: u32, spec: FaceStyle, path: Option<std::pa
         icf_margins: std::sync::OnceLock::new(),
         colour_bitmaps,
         colour_layers,
+        svg_glyphs,
     })
 }
 
@@ -2513,24 +2520,50 @@ impl FontDb {
         image
     }
 
-    /// Glyph `gid`'s COLR colour content in `face`, its foreground layers in `foreground`, cached
-    /// per (face, glyph), and per foreground colour for the glyphs that paint with it.
-    pub(crate) fn glyph_colour(&self, face: &FontFace, gid: u32, foreground: Color) -> Option<ColourContent> {
-        if !face.colour_layers {
+    /// Is glyph `gid` of face `face_id` drawn from its SVG document (it has one, and no COLR
+    /// layers, which come first)? Writers that draw a font's own glyphs can draw COLR and bitmap
+    /// glyphs, not always SVG ones.
+    pub fn is_svg_glyph(&self, face_id: u32, gid: u32) -> bool {
+        let Some(face) = self.face_by_id(face_id) else { return false };
+        face.skrifa().is_some_and(|f| svg_drawn(&face, &f, gid) && crate::svg_glyph::has_document(&f, gid))
+    }
+
+    /// Glyph `gid`'s colour content in `face`, from its COLR layers or else its SVG document, in
+    /// the text's `foreground` (fill) and `stroke` colours where it uses them; cached per (face,
+    /// glyph), and per text colours for the glyphs that paint with them.
+    pub(crate) fn glyph_colour(&self, face: &FontFace, gid: u32, foreground: Color, stroke: Option<Color>) -> Option<ColourContent> {
+        if !face.colour_layers && !face.svg_glyphs {
             return None;
         }
-        let keyed = Some(foreground.to_rgba8(1.0));
+        let f = face.skrifa()?;
+        // COLR first; SVG for glyphs without COLR layers (those whose layers don't read keep their
+        // outlines, as in fonts without SVG).
+        let svg = svg_drawn(face, &f, gid);
+        // Kept without colours, or by the text's colours it uses: the fill, and for SVG art the
+        // stroke too.
+        let coloured = Some((foreground.to_rgba8(1.0), stroke.filter(|_| svg).map(|c| c.to_rgba8(1.0))));
         {
             let cache = self.colours.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(c) = cache.kept.get(&(face.id, gid, None)).or_else(|| cache.kept.get(&(face.id, gid, keyed))) {
+            if let Some(c) = [None, coloured].iter().find_map(|k| cache.kept.get(&(face.id, gid, *k))) {
                 return c.clone();
             }
         }
-        let (content, used) = face.skrifa().map_or((None, false), |f| crate::colr::colour_glyph(&f, face.location(), face.upem, gid, foreground));
-        let key = (face.id, gid, if used { keyed } else { None });
+        let (content, used) = if svg {
+            let (art, used) = crate::svg_glyph::svg_glyph(&f, gid, face.upem, foreground, stroke);
+            (art.map(ColourContent::Art), used)
+        } else {
+            crate::colr::colour_glyph(&f, face.location(), face.upem, gid, foreground)
+        };
+        let key = (face.id, gid, if used { coloured } else { None });
         self.colours.lock().unwrap_or_else(|e| e.into_inner()).keep(key, content.clone());
         content
     }
+}
+
+/// Is glyph `gid` of `face` (as `font`) drawn from an SVG document, if it has one: the face has
+/// SVG glyphs, and the glyph no COLR layers, which come first.
+fn svg_drawn(face: &FontFace, font: &skrifa::FontRef<'_>, gid: u32) -> bool {
+    face.svg_glyphs && !crate::colr::has_colour_glyph(font, gid)
 }
 
 /// A pen drawing outlines y down, as text space has them.
@@ -2582,6 +2615,26 @@ mod alias_tests {
         }
         font.extend(head);
         font
+    }
+
+    #[test]
+    fn a_collection_lists_at_most_max_faces() {
+        let mut font = name_font(&[(3, 0x0409, 1, "Fam"), (3, 0x0409, 2, "Regular")]);
+        let n = 1000u32;
+        let base = 12 + 4 * n;
+        let table = u32::from_be_bytes(font[20..24].try_into().unwrap()) + base;
+        font[20..24].copy_from_slice(&table.to_be_bytes());
+        let mut ttc = b"ttcf".to_vec();
+        for v in [0x0001_0000, n] {
+            ttc.extend_from_slice(&u32::to_be_bytes(v));
+        }
+        for _ in 0..n {
+            ttc.extend_from_slice(&base.to_be_bytes());
+        }
+        ttc.extend(font);
+        let faces = enumerate_faces(&ttc);
+        assert!(!faces.is_empty());
+        assert!(faces.len() <= MAX_FACES as usize, "{} faces", faces.len());
     }
 
     fn keys(records: &[(u16, u16, u16, &str)]) -> (String, String, FaceKeys) {
