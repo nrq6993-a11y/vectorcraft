@@ -1424,16 +1424,8 @@ mod tests {
         app.run("file.new", json!({"width": 300, "height": 200})).unwrap();
         let a = app.run("text.create", json!({"x": 20, "y": 50, "text": "A"})).unwrap()["id"].clone();
         let b = app.run("text.create", json!({"x": 20, "y": 90, "text": "B"})).unwrap()["id"].clone();
-        app.run(
-            "text.setRangeStyle",
-            json!({"id": a, "start": 0, "end": 1, "smallCaps": true, "position": "superscript"}),
-        )
-        .unwrap();
-        app.run(
-            "text.setRangeStyle",
-            json!({"id": b, "start": 0, "end": 1, "smallCaps": false, "position": "subscript"}),
-        )
-        .unwrap();
+        app.run("text.setRangeStyle", json!({"id": a, "start": 0, "end": 1, "smallCaps": true, "position": "superscript"})).unwrap();
+        app.run("text.setRangeStyle", json!({"id": b, "start": 0, "end": 1, "smallCaps": false, "position": "subscript"})).unwrap();
         app.run("select.set", json!({"ids": [a, b]})).unwrap();
         assert_eq!(shared(&app, |s| s.small_caps.is_some()), None);
         assert_eq!(shared(&app, |s| s.position), None);
