@@ -13,7 +13,7 @@ use support::text_fixture::*;
 use vectorcraft_affinity::{
     Document, Error, Limits,
     model::{Kind, Node},
-    read,
+    read, stream,
     synth::{self, F, Method, tag},
 };
 
@@ -179,4 +179,17 @@ fn embedding_one_document_many_times_shares_one_budget() {
     // Embedded fewer times, it opens.
     let d = read(&embedding(&inner, (0..50).map(|_| embedded(Vec::new())).collect()), Limits::default()).unwrap();
     assert_eq!(all(&d.spreads[0].nodes).len(), 50 + 50 * 2000);
+}
+
+/// The terminator tag is checked after `break`, so 65 levels fit; a 66th intermediate level is refused.
+#[test]
+fn object_class_chain_longer_than_sixty_four_is_refused() {
+    let chain: Vec<_> = (0..66)
+        .map(|i| {
+            let b = [b'C', b'0' + (i / 100) as u8, b'0' + ((i / 10) % 10) as u8, b'0' + (i % 10) as u8];
+            tag(&b)
+        })
+        .collect();
+    let data = synth::stream(&[(tag(b"Root"), F::Def(1, chain, vec![]))]);
+    assert_eq!(stream::parse(&data).unwrap_err(), Error::Limit("object class chain too long"));
 }
