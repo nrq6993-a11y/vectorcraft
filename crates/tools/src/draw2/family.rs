@@ -9,7 +9,7 @@
 use serde_json::{Value, json};
 use vectorcraft_geom::Point;
 
-use crate::guides::{DrawSnap, Leave};
+use crate::guides::{DrawSnap, Leave, square};
 use crate::shape::{box_params, drag_rect, turned_box};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
 
@@ -97,6 +97,12 @@ impl FamilyTool {
 
     fn is_grid(&self) -> bool {
         matches!(self.id, "rectangularGrid" | "polarGrid")
+    }
+
+    /// Arc endpoints for a drag from `start` to `p` (the chord the measurement label reports).
+    fn arc_endpoints(&self, start: Point, p: Point, m: Mods) -> (Point, Point) {
+        let d = if m.shift { square(p - start) } else { p - start };
+        if m.alt { (start - d, start + d) } else { (start, start + d) }
     }
 
     /// The command for a drag from `start` to `p`.
@@ -240,9 +246,15 @@ impl Tool for FamilyTool {
         if let Some(s) = self.start.filter(|_| self.began && cx.measurement_labels) {
             // The size as drawn (from the centre with Alt, square with Shift).
             // A grid's along the Constrain Angle's axes, as it is drawn.
-            let r = if self.is_grid() { turned_box(s, self.last, self.mods, cx.constrain_angle).0 } else { drag_rect(s, self.last, self.mods) };
-            let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
-            o.push(Overlay::Measure { p: self.last, text: cx.size_label(w, h) });
+            let text = if self.id == "arc" {
+                let (a, b) = self.arc_endpoints(s, self.last, self.mods);
+                cx.segment_measure_label(a, b)
+            } else {
+                let r = if self.is_grid() { turned_box(s, self.last, self.mods, cx.constrain_angle).0 } else { drag_rect(s, self.last, self.mods) };
+                let (w, h) = if self.id == "spiral" { ((self.last - s).x.abs(), (self.last - s).y.abs()) } else { (r.width(), r.height()) };
+                cx.size_label(w, h)
+            };
+            o.push(Overlay::Measure { p: self.last, text });
         }
         o
     }
@@ -455,6 +467,27 @@ mod tests {
         let (_, v) = FamilyTool::new("rectangularGrid").command_at(a, b, shift, 30.0);
         assert!((v["width"].as_f64().unwrap() - v["height"].as_f64().unwrap()).abs() < 1e-9, "a square along the turned axes: {v}");
         assert_eq!(v["rotation"], json!(-30.0));
+    }
+
+    #[test]
+    fn arc_drag_measure_label_shows_chord_distance_and_angle() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = ToolContext { measurement_labels: true, smart_guides: false, ..cx(&d, &s, &p) };
+        let mut t = FamilyTool::new("arc");
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+        let want = cx.segment_measure_label(Point::ZERO, Point::new(100.0, 0.0));
+        let label = t
+            .overlays(&cx)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert_eq!(label, want, "{label}");
     }
 
     /// The start and the dragged corner snap to Smart Guides (#506), Shift sliding the corner of
