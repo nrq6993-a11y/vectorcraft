@@ -787,11 +787,9 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     let all_caps = shared(app, |s| s.all_caps) == Some(true);
     let underline = shared(app, |s| s.underline) == Some(true);
     let strike = shared(app, |s| s.strikethrough) == Some(true);
-    for (label, key, on) in [
-        (tl!("All Caps"), "allCaps", all_caps),
-        (tl!("Underline"), "underline", underline),
-        (tl!("Strikethrough"), "strikethrough", strike),
-    ] {
+    for (label, key, on) in
+        [(tl!("All Caps"), "allCaps", all_caps), (tl!("Underline"), "underline", underline), (tl!("Strikethrough"), "strikethrough", strike)]
+    {
         if menu_item(ui, label, has, on) {
             format(app, json!({key: !on}));
         }
