@@ -146,6 +146,41 @@ fn preserve_editing_reopens_the_native_document() {
 }
 
 #[test]
+fn saving_several_artboards_as_plain_svg_warns_they_are_lost() {
+    let artboards = |r: &Value| r["warnings"].as_array().unwrap().iter().filter(|w| w.as_str().unwrap().contains("artboards")).count();
+    let mut s = session(3);
+    let r = s.execute("document.save", &json!({"format": "svg"})).unwrap();
+    assert_eq!(artboards(&r), 1, "{r}");
+    // First: the status bar shows only the first warning.
+    assert!(r["warnings"][0].as_str().unwrap().contains("1 of the document's 3 artboards"), "{r}");
+    assert_eq!(artboards(&s.execute("file.saveAs", &json!({"format": "svgz"})).unwrap()), 1);
+    // Preserve Editing keeps them all (they reopen); a single artboard loses none.
+    for p in [json!({"format": "svg", "preserveEditing": true}), json!({"format": "svg", "svg": {"preserveEditing": true}})] {
+        let r = s.execute("document.save", &p).unwrap();
+        assert_eq!(artboards(&r), 0, "{p}: {r}");
+    }
+    assert_eq!(artboards(&session(1).execute("document.save", &json!({"format": "svg"})).unwrap()), 0);
+}
+
+/// #3867: a Preserve Editing SVG opened from disk and saved with plain Save keeps the full
+/// document (every artboard), not just the artwork of the first.
+#[test]
+fn reopened_preserve_editing_svg_saves_as_the_full_document() {
+    let dir = tmp_dir("reopen");
+    let path = dir.join("keep.svg").to_string_lossy().to_string();
+    session(3).execute("document.save", &json!({"path": path, "svg": {"preserveEditing": true}})).unwrap();
+    let mut s = Session::new();
+    s.execute("document.open", &json!({"path": path})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.artboards.len(), 3);
+    s.execute("document.save", &json!({})).unwrap();
+    let mut t = Session::new();
+    let r = t.execute("document.open", &json!({"path": path})).unwrap();
+    assert_eq!(r["restored"], json!(true), "{r}");
+    assert_eq!(t.doc().unwrap().doc.artboards.len(), 3, "every artboard survives open and Save");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn save_writes_svg_and_remembers_its_options() {
     let mut s = session(1);
     let dir = tmp_dir("save");
