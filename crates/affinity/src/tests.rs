@@ -261,6 +261,14 @@ mod archive {
         assert!(matches!(a.read("doc.dat"), Err(Error::Limit(_))));
     }
 
+    #[test]
+    fn archive_entry_larger_than_per_entry_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: 64, max_total: usize::MAX }).unwrap();
+        assert_eq!(a.read("doc.dat").unwrap_err(), Error::Limit("archive entry too large"));
+    }
+
     // Regression test for #1710: ruzstd 0.9.0 let a block decompress to more than its frame's
     // window allows (RUSTSEC-2026-0344), so a crafted entry made the decoder produce far more than
     // the format permits for a block. 0.9.1 refuses it.
