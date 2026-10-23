@@ -51,8 +51,10 @@ mod prefs_dir;
 mod printing;
 #[cfg(all(windows, not(target_vendor = "win7")))]
 mod system_fonts;
+mod tablet;
 mod window;
 mod window_frame;
+mod windows_stylus;
 mod xwayland;
 
 use vectorcraft_engine::Session;
@@ -97,6 +99,9 @@ impl eframe::App for App {
         if self.app.services.native_menu.is_some() {
             mac_menu::raw_input_hook(raw);
         }
+        // A pen contact with the barrel button held presses the secondary button (Windows Ink).
+        #[cfg(all(windows, not(target_vendor = "win7")))]
+        windows_stylus::raw_input_hook(raw);
         file_access::unconfined(|| self.app.raw_input_hook(raw));
     }
     #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
@@ -542,6 +547,12 @@ fn start_pick(request: PickRequest, parent: &Parent, ui: &egui::Context) -> Opti
 fn services(parent: Parent, ui: egui::Context) -> Services {
     use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
     let wayland = parent.as_ref().and_then(|w| w.window_handle().ok()).is_some_and(|h| matches!(h.as_raw(), RawWindowHandle::Wayland(_)));
+    // A window on X11 (XWayland included) reads a tablet pen's pressure itself (#764).
+    #[cfg(target_os = "linux")]
+    let x11 = parent
+        .as_ref()
+        .and_then(|w| w.window_handle().ok())
+        .is_some_and(|h| matches!(h.as_raw(), RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_)));
     let (p1, p2, p3, p4, p5) = (parent.clone(), parent.clone(), parent.clone(), parent.clone(), parent);
     #[cfg(target_os = "macos")]
     let sampled_ui = ui.clone();
@@ -555,6 +566,8 @@ fn services(parent: Parent, ui: egui::Context) -> Services {
         dialogs_are_sheets: cfg!(target_os = "macos"),
         wayland,
         no_cursor_theme: wayland && cursor_theme::theme_missing(),
+        #[cfg(target_os = "linux")]
+        stylus: if x11 { tablet::start() } else { None },
         read: Some(Box::new(|p: &str| std::fs::read(p).map_err(|e| e.to_string()))),
         write: Some(Box::new(write_file)),
         exists: Some(Box::new(|p: &str| std::path::Path::new(p).exists())),
@@ -908,6 +921,18 @@ fn main() -> std::process::ExitCode {
                 log::warn!("Linux Display Server is X11, but the X11 libraries aren't all installed: opening the window on Wayland");
             }
         }
+        options
+    };
+    // With Windows Ink, winit reports a pen as a touch and drops its barrel button; the message
+    // hook notes each pointer contact and whether it starts with the barrel button held
+    // (`windows_stylus`).
+    #[cfg(all(windows, not(target_vendor = "win7")))]
+    let options = {
+        use winit::platform::windows::EventLoopBuilderExtWindows as _;
+        let mut options = options;
+        options.event_loop_builder = Some(Box::new(|builder| {
+            builder.with_msg_hook(windows_stylus::msg_hook);
+        }));
         options
     };
     #[cfg(feature = "wgpu")]
