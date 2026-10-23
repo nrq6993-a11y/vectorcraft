@@ -90,21 +90,29 @@ pub struct FreeTransformTool {
     guides: Vec<Overlay>,
 }
 
-/// Shear for dragging side `h` of `r` by `d` (about the opposite side, or the centre with Alt).
-pub fn shear_for_side(r: Rect, h: Handle, d: Vec2, from_center: bool) -> Affine {
+/// Skew factor `k` for the shear [`shear_for_side`] applies (shear angle ≈ `atan(k)`).
+pub fn shear_skew_factor(r: Rect, h: Handle, d: Vec2, from_center: bool) -> f64 {
     let o = if from_center { r.center() } else { h.opposite().pos(r) };
     let hp = h.pos(r);
-    let m = match h {
+    match h {
         Handle::Top | Handle::Bottom => {
             let lever = hp.y - o.y;
-            let k = if lever.abs() > 1e-9 { d.x / lever } else { 0.0 };
-            Affine::new([1.0, 0.0, k, 1.0, 0.0, 0.0])
+            if lever.abs() > 1e-9 { d.x / lever } else { 0.0 }
         }
         _ => {
             let lever = hp.x - o.x;
-            let k = if lever.abs() > 1e-9 { d.y / lever } else { 0.0 };
-            Affine::new([1.0, k, 0.0, 1.0, 0.0, 0.0])
+            if lever.abs() > 1e-9 { d.y / lever } else { 0.0 }
         }
+    }
+}
+
+/// Shear for dragging side `h` of `r` by `d` (about the opposite side, or the centre with Alt).
+pub fn shear_for_side(r: Rect, h: Handle, d: Vec2, from_center: bool) -> Affine {
+    let o = if from_center { r.center() } else { h.opposite().pos(r) };
+    let k = shear_skew_factor(r, h, d, from_center);
+    let m = match h {
+        Handle::Top | Handle::Bottom => Affine::new([1.0, 0.0, k, 1.0, 0.0, 0.0]),
+        _ => Affine::new([1.0, k, 0.0, 1.0, 0.0, 0.0]),
     };
     Affine::translate(o.to_vec2()) * m * Affine::translate(-o.to_vec2())
 }
@@ -207,7 +215,11 @@ impl FreeTransformTool {
                 self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
                 a
             }
-            Op::Shear(h) => shear_for_side(d.rect, h, delta, m.alt),
+            Op::Shear(h) => {
+                let k = shear_skew_factor(d.rect, h, delta, m.alt);
+                self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", (-k.atan()).to_degrees())));
+                shear_for_side(d.rect, h, delta, m.alt)
+            }
             Op::Rotate => {
                 let (a, deg) = rotate_for_drag(d.rect.center(), d.start, p, shift);
                 self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", -deg)));
@@ -440,6 +452,27 @@ mod tests {
         let m = Affine::new([c[0], c[1], c[2], c[3], c[4], c[5]]);
         assert!((m * Point::new(100.0, 200.0)).distance(Point::new(100.0, 200.0)) < 1e-9);
         assert!((m * Point::new(100.0, 100.0)).distance(Point::new(120.0, 100.0)) < 1e-9);
+    }
+
+    #[test]
+    fn cmd_shear_drag_shows_angle_with_transform_tools_guides() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.add(id);
+        let p = paint();
+        let cx = |on: bool| ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
+        let cmd = Mods { cmd: true, ..Default::default() };
+        let mut t = FreeTransformTool::default();
+        t.pointer(&cx(true), &ev(PointerKind::Down, 150.0, 100.0).with_mods(cmd));
+        t.pointer(&cx(true), &ev(PointerKind::Drag, 170.0, 100.0).with_mods(cmd));
+        let r = Rect::new(100.0, 100.0, 200.0, 200.0);
+        let k = shear_skew_factor(r, Handle::Top, Vec2::new(20.0, 0.0), false);
+        let want = format!("{:.1}°", (-k.atan()).to_degrees());
+        assert!(t.overlays(&cx(true)).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        t.pointer(&cx(true), &ev(PointerKind::Up, 170.0, 100.0).with_mods(cmd));
+        t.pointer(&cx(false), &ev(PointerKind::Down, 150.0, 100.0).with_mods(cmd));
+        t.pointer(&cx(false), &ev(PointerKind::Drag, 170.0, 100.0).with_mods(cmd));
+        assert!(t.overlays(&cx(false)).iter().all(|o| !matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
