@@ -867,7 +867,7 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
     // Fractional Widths: the whole type object's spacing, on unless turned off. Not a character
     // range, so a selection inside the text sets the object the Type tool is editing.
-    let fractional = fractional_widths_on(app);
+    let fractional = fractional_widths_shared(app) == Some(true);
     if menu_item(ui, tl!("Fractional Widths"), has, fractional) {
         let mut p = json!({});
         if let Some((id, _, _)) = text_editing(app) {
@@ -896,15 +896,30 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
 }
 
-/// Whether Fractional Widths is on for the type the panel shows: the object being edited, else
-/// the first selected text object. On when there is no type (the item is disabled then).
-fn fractional_widths_on(app: &VectorcraftApp) -> bool {
+/// Fractional Widths for the type the panel shows: the object being edited, else every selected
+/// text object. `Some(true)` or `Some(false)` when they agree; `None` when they differ.
+fn fractional_widths_shared(app: &VectorcraftApp) -> Option<bool> {
     if let Some((id, _, _)) = text_editing(app)
         && let Some(NodeKind::Text(t)) = app.session.active().and_then(|d| d.doc.node(id)).map(|n| &n.kind)
     {
-        return t.fractional_widths;
+        return Some(t.fractional_widths);
     }
-    first_selected_text(app).is_none_or(|t| t.fractional_widths)
+    let st = app.session.active()?;
+    let mut acc: Option<bool> = None;
+    let mut saw = false;
+    for node in st.selection.objects.iter().filter_map(|id| st.doc.node(*id)) {
+        node.walk(&mut |n| {
+            if let NodeKind::Text(t) = &n.kind {
+                saw = true;
+                acc = match acc {
+                    None => Some(t.fractional_widths),
+                    Some(v) if v == t.fractional_widths => Some(v),
+                    Some(_) => None,
+                };
+            }
+        });
+    }
+    if saw { acc } else { None }
 }
 
 /// Reset Panel: the characters the panel acts on ([`char_cmd`]) take tracking 0, Auto leading and
@@ -1326,6 +1341,24 @@ mod tests {
         super::super::tests_appearance::click(&ctx, &mut app, at.center(), menu);
         assert!(flag(&app));
         assert!(row(&mut app).is_some_and(|(t, _)| t.starts_with('✓')));
+    }
+
+    /// Fractional Widths stays unchecked when the selection mixes objects with it on and off.
+    #[test]
+    fn fractional_widths_menu_shows_off_when_selection_mixes_the_flag() {
+        let mut app = VectorcraftApp::new(Session::new(), Default::default());
+        app.run("file.new", json!({"width": 300, "height": 200})).unwrap();
+        let a = app.run("text.create", json!({"x": 20, "y": 50, "text": "A"})).unwrap()["id"].clone();
+        let b = app.run("text.create", json!({"x": 20, "y": 90, "text": "B"})).unwrap()["id"].clone();
+        app.run("type.fractionalWidths", json!({"on": false, "id": a})).unwrap();
+        app.run("select.set", json!({"ids": [a, b]})).unwrap();
+        assert_eq!(fractional_widths_shared(&app), None);
+        let ctx = egui::Context::default();
+        let row = |app: &mut VectorcraftApp| {
+            let texts = super::super::tests_appearance::frame_events(&ctx, app, vec![], menu);
+            texts.into_iter().find(|(t, _)| t.trim_start_matches(['✓', ' ']) == "Fractional Widths")
+        };
+        assert!(row(&mut app).is_some_and(|(t, _)| !t.starts_with('✓')));
     }
 
     /// Character Alignment and Proportional Metrics are in the panel menu with the East Asian
