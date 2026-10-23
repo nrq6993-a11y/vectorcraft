@@ -195,7 +195,7 @@ fn remap_highlight(before: &[Row], selected: Option<usize>, after: &[Row]) -> Op
 
 /// What the rows were listed for: the query, the script, kind and favourites filters, Show Font
 /// Names in English, the expanded families, favourites, recent history and font list generation.
-type RowsKey = (String, usize, Option<FontClass>, bool, bool, Vec<String>, Vec<String>, Vec<String>, u64);
+type RowsKey = (String, usize, Option<FontClass>, bool, bool, bool, Vec<String>, Vec<String>, Vec<String>, u64);
 
 /// The menu's state between frames.
 #[derive(Clone, Default)]
@@ -210,11 +210,12 @@ struct MenuState {
     /// The highlighted row and the query and filters it belongs to.
     highlight: Option<usize>,
     query: String,
-    /// The filters (kept from one opening to the next): script (0..[`SCRIPTS`]), kind, and
-    /// favourites only.
+    /// The filters (kept from one opening to the next): script (0..[`SCRIPTS`]), kind,
+    /// favourites, and variable fonts only.
     script: usize,
     class: Option<FontClass>,
     favorites_only: bool,
+    variable_only: bool,
     /// Families whose styles are listed (lowercase).
     expanded: Vec<String>,
     /// What was previewed last (None: nothing is previewed).
@@ -304,6 +305,10 @@ fn list(ui: &mut Ui, state_id: egui::Id, st: &mut MenuState, current: &str, samp
             st.favorites_only = !st.favorites_only;
             refilter = true;
         }
+        if ui.selectable_label(st.variable_only, egui::RichText::new(tl!("Variable")).size(11.0)).clicked() {
+            st.variable_only = !st.variable_only;
+            refilter = true;
+        }
         if ui.selectable_label(st.class.is_none(), egui::RichText::new(tl!("Any Kind")).size(11.0)).clicked() {
             st.class = None;
             refilter = true;
@@ -328,6 +333,7 @@ fn list(ui: &mut Ui, state_id: egui::Id, st: &mut MenuState, current: &str, samp
         st.script,
         st.class,
         st.favorites_only,
+        st.variable_only,
         look.english_names,
         st.expanded.clone(),
         look.favorites.to_vec(),
@@ -343,10 +349,13 @@ fn list(ui: &mut Ui, state_id: egui::Id, st: &mut MenuState, current: &str, samp
             if st.favorites_only && !favorite(f) {
                 return false;
             }
+            let traits = db.family_traits(f);
+            if st.variable_only && !traits.variable {
+                return false;
+            }
             if st.script == 0 && st.class.is_none() {
                 return true;
             }
-            let traits = db.family_traits(f);
             script_matches(st.script, traits) && st.class.is_none_or(|c| c == traits.class)
         };
         let families: Vec<_> = db.menu_family_list().iter().filter(|f| wanted(f)).cloned().collect();
@@ -850,6 +859,33 @@ mod tests {
         assert_eq!(super::script_label(1), "汉字");
         crate::i18n::set_current(crate::i18n::Lang::EN);
         assert_eq!(super::script_label(1), "Japanese");
+    }
+
+    /// Font Technology › Variable: only families whose faces have an `fvar` table stay in the list.
+    #[test]
+    fn the_variable_filter_lists_only_variable_font_families() {
+        use vectorcraft_text::test_fonts::{VARIABLE_FAMILY, variable_font};
+        let db = vectorcraft_text::FontDb::global();
+        db.add_font(variable_font().unwrap());
+        assert!(db.family_traits(VARIABLE_FAMILY).variable);
+        let families = db.menu_family_list();
+        let static_family = families.into_iter().find(|f| !db.family_traits(f).variable).unwrap();
+        assert!(!db.family_traits(&static_family).variable);
+        let ctx = egui::Context::default();
+        let mut st = super::MenuState { variable_only: true, ..Default::default() };
+        let mut rows = vec![];
+        for _ in 0..3 {
+            let mut out = ctx.run_ui(
+                egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(600.0, 800.0))), ..Default::default() },
+                |ui| {
+                    super::list(ui, egui::Id::new("variable-filter"), &mut st, &static_family, None, super::MenuLook { samples: false, ..Default::default() });
+                    rows = st.rows.to_vec();
+                },
+            );
+            out.textures_delta.clear();
+        }
+        assert!(rows.iter().all(|r| matches!(r, Row::Family(f) if db.family_traits(f).variable)), "{rows:?}");
+        assert!(rows.iter().any(|r| matches!(r, Row::Family(f) if f.eq_ignore_ascii_case(VARIABLE_FAMILY))));
     }
 
     /// #2277: the list's scroll bar has a column of its own, so the stars at the rows' right ends

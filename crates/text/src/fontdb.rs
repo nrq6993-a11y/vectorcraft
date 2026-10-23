@@ -760,6 +760,8 @@ pub struct FontTraits {
     pub japanese: bool,
     /// Its character map has Thai (ก and า).
     pub thai: bool,
+    /// The family includes a variable font face (`fvar`).
+    pub variable: bool,
     pub class: FontClass,
 }
 
@@ -875,7 +877,9 @@ impl FontTraits {
         } else {
             FontClass::Other
         };
-        FontTraits { japanese, thai, class }
+        let axes = font.axes();
+        let variable = !axes.is_empty() && axes.len() <= MAX_AXES;
+        FontTraits { japanese, thai, variable, class }
     }
 }
 

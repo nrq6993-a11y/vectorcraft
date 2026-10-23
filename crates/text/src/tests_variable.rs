@@ -320,3 +320,11 @@ fn a_variable_default_face_is_named_and_weighed_by_its_default_instance() {
     assert_eq!((face.style.as_str(), face.weight, matched), ("Regular", 400.0, FontMatch::Exact));
     assert!(face.variations().is_empty());
 }
+
+#[test]
+fn variable_families_are_marked_for_font_menu_filters() {
+    let db = db();
+    assert!(db.family_traits(FAMILY).variable);
+    let db = FontDb::with_font_dirs(vec![]);
+    assert!(!db.family_traits("Source Sans 3").variable);
+}
