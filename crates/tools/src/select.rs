@@ -846,7 +846,14 @@ impl Tool for SelectionTool {
             }
         }
         if let Some((p, t)) = &self.measure {
-            o.push(Overlay::Measure { p: *p, text: t.clone() });
+            let show = match &self.state {
+                State::Moving { .. } => cx.measurement_labels,
+                State::Scaling { .. } | State::Rotating { .. } => cx.transform_tools_guides,
+                _ => false,
+            };
+            if show {
+                o.push(Overlay::Measure { p: *p, text: t.clone() });
+            }
         }
         o
     }
@@ -2078,6 +2085,25 @@ mod tests {
             assert_eq!(measures(&t, &c), usize::from(on), "transform tools {on}");
             t.pointer(&c, &ev(PointerKind::Up, 275.0, 180.0));
         }
+        let guides_on = ToolContext { transform_tools_guides: true, ..cx(&d, &s, &p) };
+        let guides_off = ToolContext { transform_tools_guides: false, ..cx(&d, &s, &p) };
+        let mut t = SelectionTool::default();
+        t.pointer(&guides_on, &ev(PointerKind::Down, 275.0, 150.0));
+        t.pointer(&guides_on, &ev(PointerKind::Drag, 275.0, 180.0));
+        assert_eq!(measures(&t, &guides_on), 1);
+        assert_eq!(measures(&t, &guides_off), 0, "scale overlay follows the current pref");
+        t.pointer(&guides_on, &ev(PointerKind::Up, 275.0, 180.0));
+        t.pointer(&guides_on, &ev(PointerKind::Down, 307.0, 93.0));
+        t.pointer(&guides_on, &ev(PointerKind::Drag, 275.0, 70.0));
+        assert_eq!(measures(&t, &guides_on), 1);
+        assert_eq!(measures(&t, &guides_off), 0, "rotate overlay follows the current pref");
+        let labels_on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let labels_off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        t.pointer(&labels_on, &ev(PointerKind::Up, 275.0, 70.0));
+        t.pointer(&labels_on, &ev(PointerKind::Down, 275.0, 125.0));
+        t.pointer(&labels_on, &ev(PointerKind::Drag, 285.0, 135.0));
+        assert_eq!(measures(&t, &labels_on), 1);
+        assert_eq!(measures(&t, &labels_off), 0, "move overlay follows the current pref");
         // Snapping Tolerance: 6 px from the neighbour's bottom edge is beyond 4, within 8.
         for (tol, want) in [(4.0, 94.0), (8.0, 100.0), (0.0, 94.0)] {
             let c = ToolContext { snapping_tolerance: tol, ..cx(&d, &s, &p) };
