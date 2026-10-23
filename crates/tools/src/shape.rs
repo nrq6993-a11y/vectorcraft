@@ -304,7 +304,13 @@ impl Tool for ShapeTool {
                         (r.width(), r.height())
                     }
                 };
-                cx.size_label(w, h)
+                let mut text = cx.size_label(w, h);
+                match self.id {
+                    "polygon" => text.push_str(&format!("\nSides: {}", self.sides)),
+                    "star" => text.push_str(&format!("\nPoints: {}", self.points)),
+                    _ => {}
+                }
+                text
             };
             o.push(Overlay::Measure { p, text });
         }
@@ -496,6 +502,40 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 10.0));
         let a = t.key(&cx, ToolKey::Up, Mods::default());
         assert!(matches!(&a[0], Action::Preview(_, v) if v["sides"] == 7));
+    }
+
+    #[test]
+    fn polygon_and_star_drag_measure_labels_include_side_counts() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let cx = ToolContext { measurement_labels: true, smart_guides: false, ..cx(&d, &s, &p) };
+        let mut poly = ShapeTool::new("polygon");
+        poly.sides = 8;
+        poly.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+        poly.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 50.0, 40.0));
+        let label = poly
+            .overlays(&cx)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert!(label.contains("Sides: 8"), "{label}");
+        let mut star = ShapeTool::new("star");
+        star.points = 7;
+        star.pointer(&cx, &PointerEvent::new(PointerKind::Down, 10.0, 10.0));
+        star.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 60.0, 10.0));
+        let label = star
+            .overlays(&cx)
+            .into_iter()
+            .find_map(|o| match o {
+                Overlay::Measure { text, .. } => Some(text),
+                _ => None,
+            })
+            .unwrap_or_default();
+        assert!(label.contains("Points: 7"), "{label}");
     }
 
     /// The start and the dragged corner land on another object's anchors (#506), hovering shows
