@@ -518,9 +518,8 @@ mod tests {
         s.add(id);
         let p = paint();
         let measures = |t: &TransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Measure { .. })).count();
-        let angle_guides = |t: &TransformTool, c: &ToolContext| {
-            t.overlays(c).iter().filter(|o| matches!(o, Overlay::Line { dashed: true, .. })).count()
-        };
+        let angle_guides =
+            |t: &TransformTool, c: &ToolContext| t.overlays(c).iter().filter(|o| matches!(o, Overlay::Line { dashed: true, .. })).count();
         for on in [true, false] {
             let c = ToolContext { transform_tools_guides: on, ..cx(&d, &s, &p) };
             for kind in [TransformKind::Rotate, TransformKind::Reflect, TransformKind::Scale, TransformKind::Shear] {
