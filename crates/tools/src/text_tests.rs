@@ -763,3 +763,25 @@ fn overflowing_selected_type_shows_its_marker_without_the_type_tool() {
     sel.clear();
     assert!(overflow_markers(&mut marks, &cx(&d, &sel, &p)).is_empty(), "only selected type shows it");
 }
+
+/// Threaded area type shows its in port and a linked out port when the story still fits; overflow
+/// keeps the red out port from [`overflow_markers`].
+#[test]
+fn threaded_selected_frames_show_in_and_linked_out_ports() {
+    use vectorcraft_doc::TextKind;
+    use vectorcraft_geom::{Rect, shapes};
+    let (mut d, a) = crate::testutil::doc_with_area_type();
+    let l = d.layers[0].id;
+    let b = d.alloc_id();
+    let mut t = TextObject::point(Point::new(500.0, 300.0), "More", Default::default());
+    t.kind = TextKind::Area { frame: shapes::rectangle(Rect::new(0.0, 0.0, 120.0, 40.0)) };
+    d.insert(Some(l), 2, Node::new(b, NodeKind::Text(Box::new(t)))).unwrap();
+    d.text_threads.push(vec![a, b]);
+    let (mut sel, p) = (Selection::default(), paint());
+    sel.set([b]);
+    assert_eq!(thread_port_markers(&cx(&d, &sel, &p)).len(), 1, "the second frame's in port");
+    sel.set([a]);
+    assert_eq!(thread_port_markers(&cx(&d, &sel, &p)).len(), 1, "the first frame's linked out port");
+    sel.clear();
+    assert!(thread_port_markers(&cx(&d, &sel, &p)).is_empty(), "only selected frames");
+}

@@ -450,7 +450,11 @@ impl Session {
         // The Type tools draw the overflow markers of selected type themselves.
         if !matches!(self.tool.id(), "type" | "areaType" | "typeOnPath" | "verticalType" | "verticalAreaType" | "verticalTypeOnPath") {
             let mut marks = std::mem::take(&mut self.overflow_marks);
-            v.extend(self.with_tool_cx(view, |_, cx| vectorcraft_tools::text::overflow_markers(&mut marks, cx)));
+            v.extend(self.with_tool_cx(view, |_, cx| {
+                let mut o = vectorcraft_tools::text::overflow_markers(&mut marks, cx);
+                o.extend(vectorcraft_tools::text::thread_port_markers(cx));
+                o
+            }));
             self.overflow_marks = marks;
         }
         if let Some(g) = self.ruler_guide.take() {

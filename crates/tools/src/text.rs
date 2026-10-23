@@ -367,6 +367,34 @@ fn out_port(t: &TextObject, cx: &ToolContext) -> Option<Point> {
     }
 }
 
+/// Centre of the in port of `t`: the top-left of an area type frame, or the start of type on a path,
+/// where a thread enters the frame ([`thread_port_markers`]).
+fn in_port(t: &TextObject) -> Option<Point> {
+    match &t.kind {
+        TextKind::Area { frame } => {
+            let b = frame.bounds()?;
+            Some(t.xf * Point::new(b.x0, b.y0))
+        }
+        TextKind::OnPath { path, .. } => {
+            let arc = vectorcraft_geom::ArcPath::new(path);
+            let (start, _) = t.kind.path_span()?;
+            if arc.is_empty() {
+                return None;
+            }
+            Some(t.xf * arc.at(start * arc.len()).0)
+        }
+        TextKind::Point => None,
+    }
+}
+
+/// A hollow port square at `c` (linked in or out ports, not overflow).
+fn hollow_port(c: Point, cx: &ToolContext, o: &mut Vec<Overlay>) {
+    let h = cx.tol(PORT_HALF_PX);
+    let r = Rect::new(c.x - h, c.y - h, c.x + h, c.y + h);
+    let color = [60, 60, 60];
+    o.push(Overlay::Path { path: r.to_path(0.1), color, width: 1.0, dashed: false });
+}
+
 /// The red "+" out port of `t` (area type and type on a path whose text doesn't fit), at [`out_port`].
 fn overflow_port(t: &TextObject, cx: &ToolContext, o: &mut Vec<Overlay>) {
     let Some(c) = out_port(t, cx) else { return };
@@ -420,6 +448,34 @@ pub fn overflow_markers(marks: &mut OverflowMarks, cx: &ToolContext) -> Vec<Over
         kept.insert(*id, ((fonts, t.clone()), over));
     }
     marks.seen = kept;
+    o
+}
+
+/// In ports on threaded frames that receive text, and out ports on frames that send text on to the
+/// next when the story still fits, for selected area type and type on a path (the red "+" overflow
+/// port is drawn separately by [`overflow_markers`]).
+pub fn thread_port_markers(cx: &ToolContext) -> Vec<Overlay> {
+    let fonts = FontDb::global();
+    let mut o = Vec::new();
+    for thread in &cx.doc.text_threads {
+        for (i, &id) in thread.iter().enumerate() {
+            if !cx.selection.objects.contains(&id) {
+                continue;
+            }
+            let Some(t) = TypeTool::text(cx, id) else { continue };
+            if i > 0 {
+                if let Some(c) = in_port(t) {
+                    hollow_port(c, cx, &mut o);
+                }
+            }
+            let has_next = i + 1 < thread.len();
+            if has_next && !vectorcraft_text::layout(fonts, t).overflow {
+                if let Some(c) = out_port(t, cx) {
+                    hollow_port(c, cx, &mut o);
+                }
+            }
+        }
+    }
     o
 }
 
