@@ -11,7 +11,7 @@ mod support {
 
 use support::text_fixture::*;
 use vectorcraft_affinity::{
-    Document, Error, Limits,
+    Document, Error, Limits, MAGIC,
     model::{Kind, Node},
     read,
     synth::{self, F, Method, tag},
@@ -179,4 +179,45 @@ fn embedding_one_document_many_times_shares_one_budget() {
     // Embedded fewer times, it opens.
     let d = read(&embedding(&inner, (0..50).map(|_| embedded(Vec::new())).collect()), Limits::default()).unwrap();
     assert_eq!(all(&d.spreads[0].nodes).len(), 50 + 50 * 2000);
+}
+
+fn affinity_header(fat_offset: u64) -> Vec<u8> {
+    let mut out = vec![0u8; 72];
+    out[..4].copy_from_slice(MAGIC);
+    out[4..6].copy_from_slice(&12u16.to_le_bytes());
+    out[6..8].copy_from_slice(&4u16.to_le_bytes());
+    out[8..12].copy_from_slice(b"nsrP");
+    out[12..16].copy_from_slice(b"#Inf");
+    out[16..24].copy_from_slice(&fat_offset.to_le_bytes());
+    out[64..68].copy_from_slice(b"Prot");
+    out
+}
+
+fn empty_ft4_table(next: u64) -> Vec<u8> {
+    let mut t = b"#FT4".to_vec();
+    t.extend(next.to_le_bytes());
+    t.extend(1u64.to_le_bytes());
+    t.extend([0u8; 24]);
+    t.extend(0u32.to_le_bytes());
+    t.extend([0u8; 8]);
+    t.extend(0u16.to_le_bytes());
+    t.push(0);
+    t
+}
+
+fn affinity_with_revision_tables(tables: usize) -> Vec<u8> {
+    let fat_offset = 72u64;
+    let table_len = empty_ft4_table(0).len() as u64;
+    let mut out = affinity_header(fat_offset);
+    for i in 0..tables {
+        let next = if i + 1 == tables { 0 } else { fat_offset + table_len * (i as u64 + 1) };
+        out.extend(empty_ft4_table(next));
+    }
+    out
+}
+
+#[test]
+fn too_many_saved_revisions_is_refused() {
+    let file = affinity_with_revision_tables(4097);
+    assert!(matches!(read(&file, Limits::default()), Err(Error::Limit("too many saved revisions"))));
 }
