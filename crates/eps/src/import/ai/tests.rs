@@ -925,6 +925,17 @@ fn what_it_doesnt_read_is_an_error_where_it_shows() {
     assert!(e.contains("pattern fills"), "{e}");
     let e = read(stream(&layer("/SymbolInstance :\n(Dot) /SymbolRef ,\n;\n")).as_bytes()).unwrap_err();
     assert!(e.contains("symbols"), "{e}");
+    let square = format!("{RED}{}f\n", rect_path(10.0, 50.0, 40.0, 90.0));
+    let def = format!("%AI5_Begin_NonPrinting\n%AI14_BeginSymbol: (Dot)\n0 Ae\nu\n{square}U\n%AI10_EndSymbol\n%AI5_End_NonPrinting--\n");
+    let inst = "0 Ae\nu\n/SymbolInstance :\n(Dot) /SymbolRef ,\n;\nU\n";
+    let s = read_ok(&format!("{def}{}", layer(inst)));
+    assert_eq!(s.doc.symbols.len(), 1);
+    assert_eq!(s.doc.symbols[0].name, "Dot");
+    let layer_kids = art(&s.doc);
+    assert_eq!(layer_kids.len(), 1);
+    let inner = layer_kids[0].children().unwrap();
+    assert_eq!(inner.len(), 1);
+    assert!(matches!(&inner[0].kind, NodeKind::SymbolInstance { symbol, .. } if symbol == "Dot"));
     // A mask with no owner must still be reported (#2004).
     let mask = "%_/ArtDictionary :\n%_/XMLUID : (M) ; (AI10_ArtUID) ,\n%_/Mask :\n%_1 /Bool (Linked) ,\n%_0 /Bool (Disabled) ,\n%_X=\n\
                 %_0 0 0 1 k\n%_0 0 m\n%_5 0 L\n%_5 5 L\n%_0 5 L\n%_0 0 L\n%_f\n%_X+\n%_ (Art) ,\n%_1 /Bool (Clipping) ,\n%_0 /Bool (Inverted) ,\n%_; (AI9_Mask) ,\n%_;\n";

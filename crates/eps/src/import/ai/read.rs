@@ -38,8 +38,9 @@
 //! - Type in the legacy format (version 7 specification §15): `type To` … `TO`, read by
 //!   [`legacy_text`].
 //!
-//! Sections the reader doesn't need (brushes, symbols, styles, swatches, filters) are skipped;
-//! type, symbols, fills with a pattern it can't read, placed files without a preview and operators
+//! Sections the reader doesn't need (brushes, styles, swatches, filters) are skipped; symbol
+//! definitions (`%AI…_BeginSymbol`) are read from the non-printing block. Type, symbol instances
+//! whose definition wasn't read, fills with a pattern it can't read, placed files without a preview and operators
 //! it doesn't know are errors.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -53,7 +54,7 @@ use vectorcraft_color::{BlendMode, Paint};
 use vectorcraft_doc::cmyk::Inks;
 use vectorcraft_doc::{
     Appearance, AppearanceItem, Artboard, ColorMode, Dash, Document, FillLayer, ImageBlob, ImageObject, Knockout, LayerColor, LineCap, LineJoin,
-    LinkInfo, Node, NodeId, NodeKind, OpacityMask, PatternDef, StrokeLayer, Unit,
+    LinkInfo, Node, NodeId, NodeKind, OpacityMask, PatternDef, StrokeLayer, Symbol, Unit,
 };
 use vectorcraft_geom::{FillRule, PathData};
 
@@ -97,6 +98,8 @@ fn ruler_unit(v: u8) -> Option<Unit> {
 const FLIP: Affine = Affine::new([1.0, 0.0, 0.0, -1.0, 0.0, 0.0]);
 /// Most patterns read (others can't fill art).
 const MAX_PATTERNS: usize = 4096;
+/// Most symbol definitions read (others can't instantiate).
+const MAX_SYMBOLS: usize = 4096;
 
 /// What the editing data holds: the document of its art, and where its art space is.
 #[derive(Debug)]
@@ -592,7 +595,6 @@ const SKIPPED: &[(&str, &str)] = &[
     ("BeginPattern", "EndPattern"),
     ("BeginBrushPattern", "EndBrushPattern"),
     ("BeginSVGFilter", "EndSVGFilter"),
-    ("BeginSymbol", "EndSymbol"),
     ("BeginPluginObject", "EndPluginObject"),
     ("BeginArtStyles", "EndArtStyles"),
     ("BeginArtStyleList", "EndArtStyleList"),
@@ -752,6 +754,12 @@ impl<'a> Reader<'a> {
             self.define_pattern(section);
             return Ok(());
         }
+        if m == "BeginSymbol" {
+            let name = name_in_parens(line).unwrap_or_default();
+            let section = self.section("EndSymbol")?;
+            self.define_symbol(name, section);
+            return Ok(());
+        }
         if m == "BeginArtStyles" {
             let section = self.section("EndArtStyles")?;
             self.styles = super::style::art_styles(section);
@@ -901,6 +909,57 @@ impl<'a> Reader<'a> {
         for w in &sub.warnings {
             self.warn(w);
         }
+    }
+
+    /// A symbol's definition (`section`: what follows `%AI…_BeginSymbol`), read by a reader of its
+    /// own into a [`Symbol`] on the document.
+    fn define_symbol(&mut self, name: String, section: &[u8]) {
+        if name.is_empty() || self.doc.symbols.len() >= MAX_SYMBOLS {
+            return;
+        }
+        let mut sub = Reader::new(section);
+        sub.gradients = std::mem::take(&mut self.gradients);
+        sub.nodes = self.nodes;
+        sub.template = self.template;
+        let read = sub.open(Kind::Group, false).and_then(|()| sub.run());
+        self.nodes = sub.nodes;
+        self.gradients = std::mem::take(&mut sub.gradients);
+        let whole = read.is_ok() && sub.unsupported.is_empty() && sub.unknown.is_empty() && sub.frames.len() == 1;
+        let Some(frame) = sub.frames.pop().filter(|f| whole && !f.children.is_empty()) else { return };
+        let children: Vec<Arc<Node>> = frame.children.iter().map(|n| Arc::new(self.doc.reid(n))).collect();
+        let art = Arc::new(Node::new(self.doc.alloc_id(), NodeKind::Group { children, clip: false }));
+        self.doc.symbols.retain(|s| s.name != name);
+        self.doc.symbols.push(Symbol { name, art });
+        for (key, blob) in sub.doc.images {
+            self.doc.images.entry(key).or_insert(blob);
+        }
+        self.spots.extend(sub.spots);
+        self.stop_spots.extend(sub.stop_spots);
+        self.cmyk_colors += sub.cmyk_colors;
+        self.rgb_colors += sub.rgb_colors;
+        for w in &sub.warnings {
+            self.warn(w);
+        }
+    }
+
+    /// A placed symbol (`/SymbolInstance`): an instance of a symbol read from `BeginSymbol`.
+    fn symbol_instance(&mut self, o: &Obj) -> Result<(), String> {
+        let Some(name) = o.get("SymbolRef").and_then(|v| v.first()).and_then(V::text).filter(|s| !s.is_empty()) else {
+            self.unreadable("symbols");
+            return Ok(());
+        };
+        if !self.doc.symbols.iter().any(|s| s.name == name) {
+            self.unreadable("symbols");
+            return Ok(());
+        }
+        let xf = o.get("Matrix").or(o.get("SymbolMatrix")).map(Self::nums).and_then(|n| paint::affine(&n)).unwrap_or(Affine::IDENTITY);
+        let gs = self.gs.clone();
+        let mut n = self.new_node(NodeKind::SymbolInstance { symbol: name, xf }, &gs);
+        n.opacity = gs.opacity;
+        n.blend = gs.blend;
+        n.isolate = gs.isolate;
+        n.knockout = gs.knockout;
+        self.add(n, self.obj_hidden)
     }
 
     /// In a pattern's definition, the operands of its first operator start with its head,
@@ -1458,7 +1517,7 @@ impl<'a> Reader<'a> {
             }
             "Document" => self.document(&o),
             "AI11Text" => self.text_slot(&o)?,
-            "SymbolInstance" => self.unreadable("symbols"),
+            "SymbolInstance" => self.symbol_instance(&o)?,
             "ForeignObject" => self.foreign_art(&o)?,
             _ => {}
         }
@@ -2679,6 +2738,15 @@ fn four(v: &str) -> Option<[f64; 4]> {
     let n: Vec<f64> = v.split_whitespace().map_while(|w| w.parse::<f64>().ok()).collect();
     let [a, b, c, d] = n.as_slice() else { return None };
     [a, b, c, d].iter().all(|v| v.is_finite() && v.abs() <= MAX_SIDE).then_some([*a, *b, *c, *d])
+}
+
+/// The first two numbers of a comment's value.
+/// The name in parentheses on a comment line (`%AI14_BeginSymbol: (Dot)` → `Dot`).
+fn name_in_parens(line: &str) -> Option<String> {
+    let (_, rest) = line.split_once('(')?;
+    let (name, _) = rest.split_once(')')?;
+    let name = name.trim();
+    (!name.is_empty()).then(|| name.to_string())
 }
 
 /// The first two numbers of a comment's value.
