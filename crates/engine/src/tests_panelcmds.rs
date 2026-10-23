@@ -1018,3 +1018,19 @@ fn stroke_advanced_scale_swap_flip() {
     assert!(s.execute("stroke.setAdvanced", &json!({})).is_err());
     assert!(s.execute("stroke.setAdvanced", &json!({"flipProfile": "sideways"})).is_err());
 }
+
+/// #3766: Flip Across swaps left/right widths; Flip Along reverses the profile along the path.
+#[test]
+fn flip_profile_along_and_across() {
+    let mut s = session();
+    let id = rect(&mut s);
+    s.execute("select.set", &json!({"ids": [id.0]})).unwrap();
+    s.execute("stroke.set", &json!({"profile": "taperEnd"})).unwrap();
+    s.execute("stroke.setAdvanced", &json!({"flipProfile": "along"})).unwrap();
+    assert_eq!(node(&s, id).appearance.stroke().unwrap().profile.as_ref().unwrap().points, vectorcraft_doc::WidthProfile::taper_start().points);
+    s.execute("stroke.setAdvanced", &json!({"flipProfile": "along"})).unwrap();
+    assert_eq!(node(&s, id).appearance.stroke().unwrap().profile.as_ref().unwrap().points, vectorcraft_doc::WidthProfile::taper_end().points);
+    s.execute("stroke.widthProfile.set", &json!({"ids": [id.0], "points": [[0, 1, 3], [0.5, 2, 4], [1, 5, 6]]})).unwrap();
+    s.execute("stroke.setAdvanced", &json!({"flipProfile": "across"})).unwrap();
+    assert_eq!(node(&s, id).appearance.stroke().unwrap().profile.as_ref().unwrap().points, vec![(0.0, 3.0, 1.0), (0.5, 4.0, 2.0), (1.0, 6.0, 5.0)]);
+}
