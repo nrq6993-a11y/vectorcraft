@@ -58,14 +58,10 @@ pub(crate) fn first_selected_text(app: &VectorcraftApp) -> Option<&vectorcraft_d
 /// differ. When the Type tool edits text, only that object counts.
 pub(crate) fn shared_text_flag(app: &VectorcraftApp, f: impl Fn(&vectorcraft_doc::TextObject) -> bool) -> Option<bool> {
     if let Some((id, _, _)) = text_editing(app) {
-        return app
-            .session
-            .active()
-            .and_then(|st| st.doc.node(id))
-            .and_then(|n| match &n.kind {
-                NodeKind::Text(t) => Some(f(t)),
-                _ => None,
-            });
+        return app.session.active().and_then(|st| st.doc.node(id)).and_then(|n| match &n.kind {
+            NodeKind::Text(t) => Some(f(t)),
+            _ => None,
+        });
     }
     let st = app.session.active()?;
     let mut acc: Option<bool> = None;
