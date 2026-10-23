@@ -463,11 +463,16 @@ pub fn thread_port_markers(cx: &ToolContext) -> Vec<Overlay> {
                 continue;
             }
             let Some(t) = TypeTool::text(cx, id) else { continue };
-            if i > 0 && let Some(c) = in_port(t) {
+            if i > 0
+                && let Some(c) = in_port(t)
+            {
                 hollow_port(c, cx, &mut o);
             }
             let has_next = i + 1 < thread.len();
-            if has_next && !vectorcraft_text::layout(fonts, t).overflow && let Some(c) = out_port(t, cx) {
+            if has_next
+                && !vectorcraft_text::layout(fonts, t).overflow
+                && let Some(c) = out_port(t, cx)
+            {
                 hollow_port(c, cx, &mut o);
             }
         }
