@@ -207,7 +207,6 @@ from G14 and the budget run of G15: **~170–270 h** one agent, ~50–80 h wall 
 - **Done:** Paragraph panel menu › Roman Hanging Punctuation (#2756), per paragraph; estimate unchanged.
 - **Done:** Paragraph panel menu › Justification… (#2755): word and letter spacing, glyph scaling (Minimum, Desired,
   Maximum), Auto Leading and Single Word Justification per paragraph, used by both composers; estimate unchanged.
-- **Done:** Area Type Options › Paragraph Spacing Limit with vertical Justify: extra space at paragraph boundaries (up to the limit) before line gaps grow; `text.areaOptions {paragraphSpacingLimit}`; plain rectangular cells.
 - **Done:** Ruby (ふりがな) for live text (`type.ruby`): a reading over a byte range, above or below (right of the
   column in vertical type), aligned, sized, overhanging or squeezed; saved natively, laid out with line growth, drawn
   on the canvas and in SVG/PDF (outlines where ruby is present); estimate unchanged.
