@@ -36,6 +36,12 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_lexer_procedure_nesting_is_bounded() {
+    let err = import(&eps(&"{".repeat(257))).unwrap_err();
+    assert!(err.contains("procedures nested too deeply"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
