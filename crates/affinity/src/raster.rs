@@ -643,9 +643,6 @@ mod tests {
     #[test]
     fn embedded_source_pixel_count_beyond_sixty_four_mebibytes_is_refused() {
         let bytes = png();
-        assert_eq!(
-            source_pixels(&bytes, u32::MAX, u32::MAX).unwrap_err(),
-            Error::Limit("embedded image pixels")
-        );
+        assert_eq!(source_pixels(&bytes, u32::MAX, u32::MAX).unwrap_err(), Error::Limit("embedded image pixels"));
     }
 }
