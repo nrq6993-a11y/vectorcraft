@@ -2001,8 +2001,9 @@ pub fn checked(app: &VectorcraftApp, id: &str, p: &Value) -> Option<bool> {
         "type.orientation.vertical" | "type.orientation.horizontal" => {
             selected_text(false).is_some_and(|t| t.vertical == (id == "type.orientation.vertical"))
         }
-        // Checked when the first type object `selected_text` finds has it on.
-        "type.opticalMarginAlignment" => selected_text(false).is_some_and(|t| t.optical_margin),
+        "type.opticalMarginAlignment" => {
+            crate::panels::character::shared_text_flag(app, |t| t.optical_margin) == Some(true)
+        }
         "view.outline" => v.outline,
         "view.pixelPreview" => v.pixel_preview,
         "view.trimView" => v.trim_view,
@@ -4568,6 +4569,22 @@ mod tests {
         app.run("type.orientation.vertical", json!({})).unwrap();
         assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
         assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
+    }
+
+    /// Type › Optical Margin Alignment stays unchecked when the selection mixes objects with it on and off.
+    #[test]
+    fn optical_margin_alignment_menu_shows_off_when_selection_mixes() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({})).unwrap();
+        let off = app.run("text.create", json!({"x": 10, "y": 40, "text": "Off"})).unwrap()["id"].clone();
+        let on = app.run("text.create", json!({"x": 10, "y": 80, "text": "On"})).unwrap()["id"].clone();
+        app.run("type.opticalMarginAlignment", json!({"on": true, "id": on})).unwrap();
+        app.run("select.set", json!({"ids": [off, on]})).unwrap();
+        let id = "type.opticalMarginAlignment";
+        assert_eq!(crate::panels::character::shared_text_flag(&app, |t| t.optical_margin), None);
+        assert_eq!(checked(&app, id, &Value::Null), Some(false));
+        app.run("select.set", json!({"ids": [on]})).unwrap();
+        assert_eq!(checked(&app, id, &Value::Null), Some(true));
     }
 
     #[test]
