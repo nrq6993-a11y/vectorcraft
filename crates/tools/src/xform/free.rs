@@ -206,7 +206,7 @@ impl FreeTransformTool {
                 );
             }
             Op::Move => {
-                let v = move_delta(d.start, p, shift);
+                let v = move_delta(d.start, p, shift, cx.constrain_angle);
                 self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(v.x, v.y)));
                 Affine::translate(v)
             }
