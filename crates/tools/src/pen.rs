@@ -281,7 +281,7 @@ impl Tool for PenTool {
                         return out;
                     }
                 }
-                if let Some(act) = auto_add_delete(cx, ev.pos, ev.mods, tol) {
+                if let Some(act) = auto_add_delete(cx, p, ev.mods, tol) {
                     return vec![act];
                 }
                 (self.drawing, self.path) = (true, None);
@@ -440,7 +440,8 @@ impl Tool for PenTool {
             {
                 return Cursor::PenContinue;
             }
-            match auto_add_delete(cx, p, m, tol) {
+            let at = self.hover.filter(|h| h.distance(p) > 1e-9).unwrap_or(p);
+            match auto_add_delete(cx, at, m, tol) {
                 Some(Action::Exec(c, _)) if c == "path.removeAnchor" => return Cursor::PenDelete,
                 Some(_) => return Cursor::PenAdd,
                 None => {}
@@ -1196,6 +1197,42 @@ mod tests {
         let mut t = PenTool::default();
         let a = click(&mut t, &cx, 325.0, 351.0, shift);
         assert!(matches!(&a[..], [Action::Begin(_), Action::Preview(c, _)] if c == "path.create"), "{a:?}");
+    }
+
+    #[test]
+    fn snapped_anchor_auto_delete_matches_cursor_after_raw_miss() {
+        let (mut d, _) = doc_with_rect();
+        let l = d.layers[0].id;
+        let id = d.alloc_id();
+        let mid = Point::new(200.0, 300.0);
+        let path = vectorcraft_geom::PathData::single(
+            vectorcraft_geom::SubPath::polyline(&[Point::new(100.0, 300.0), mid, Point::new(300.0, 400.0)], false),
+        );
+        d.insert(Some(l), 1, vectorcraft_doc::Node::path(id, path, vectorcraft_doc::Appearance::default_art())).unwrap();
+        let mut s = Selection::default();
+        s.set([id]);
+        d.grid.spacing = 100.0;
+        d.grid.subdivisions = 1;
+        let paint = paint();
+        let cx = ToolContext {
+            zoom: 1.0,
+            selection_tolerance: 8.0,
+            smart_guides: false,
+            snap_to_point: false,
+            snap_to_pixel: false,
+            snap_to_grid: true,
+            ..cx(&d, &s, &paint)
+        };
+        let raw = Point::new(163.0, 303.0);
+        let tol = cx.tol(5.0).max(cx.point_tol());
+        assert!(raw.distance(mid) > tol);
+        let from = Leave::segment(&cx, Point::new(100.0, 300.0), false);
+        assert_eq!(DrawSnap::default().press(&cx, raw, &[], Some(&from)), mid);
+        let mut pen = PenTool::default();
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Move, raw.x, raw.y)).is_empty());
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenDelete);
+        let a = click(&mut pen, &cx, raw.x, raw.y, Mods::default());
+        assert_eq!(a, vec![Action::Exec("path.removeAnchor".into(), json!({"id": id.0, "subpath": 0, "anchor": 1}))]);
     }
 
     /// Each anchor snaps to Smart Guides (#506): hovering shows where it goes (the rubber band ends
