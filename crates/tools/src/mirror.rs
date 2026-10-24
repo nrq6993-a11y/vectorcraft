@@ -118,7 +118,8 @@ impl MirrorDrag {
             }
             let mut angle = self.axis.angle + (to.y.atan2(to.x) - from.y.atan2(from.x)).to_degrees();
             if mods.shift {
-                angle = (angle / 45.0).round() * 45.0;
+                let base = vectorcraft_geom::normalize_deg(cx.constrain_angle);
+                angle = base + ((angle - base) / 45.0).round() * 45.0;
             }
             (self.axis.center, angle.rem_euclid(360.0))
         } else {
@@ -183,5 +184,30 @@ mod tests {
         let NodeKind::Repeat(spec) = &mut doc.node_mut(id).unwrap().kind else { panic!() };
         spec.kind = RepeatKind::Mirror { angle: f64::NAN, center: Point::ZERO };
         assert!(MirrorAxis::of(&doc, &selection, 1.0).is_none());
+    }
+
+    #[test]
+    fn mirror_rotate_shift_honors_constrain_angle() {
+        let shift = Mods { shift: true, ..Mods::default() };
+        let angle = |cx: &ToolContext, p: Point| {
+            let axis = MirrorAxis { id: NodeId(1), center: Point::ZERO, angle: 0.0, ends: [Point::new(-10.0, 0.0), Point::new(10.0, 0.0)] };
+            let mut drag = MirrorDrag { axis, start: Point::new(10.0, 0.0), rotate: true, began: true };
+            let out = drag.drag(cx, p, shift);
+            let Action::Preview(_, json) = out.last().unwrap() else { panic!() };
+            json["angle"].as_f64().unwrap()
+        };
+        let (doc, id) = doc_with_rect();
+        let mut selection = Selection::default();
+        selection.set([id]);
+        let paint = paint();
+        let mut cx0 = cx(&doc, &selection, &paint);
+        cx0.constrain_angle = 0.0;
+        let mut cx30 = cx(&doc, &selection, &paint);
+        cx30.constrain_angle = 30.0;
+        let p = Point::new(7.0, 4.0);
+        let a0 = angle(&cx0, p);
+        let a30 = angle(&cx30, p);
+        assert!((a0 - 45.0).abs() < 1e-6, "0° base: {a0}");
+        assert!((a30 - 30.0).abs() < 1e-6, "30° base: {a30}");
     }
 }
