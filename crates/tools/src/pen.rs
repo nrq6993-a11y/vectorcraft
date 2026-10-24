@@ -430,7 +430,8 @@ impl Tool for PenTool {
         // These show whenever no path is being drawn, also after another path was selected while
         // the Pen was drawing.
         if active.is_none() {
-            match spine_click(cx, p, tol).as_deref() {
+            let at = self.hover.filter(|h| h.distance(p) > 1e-9).unwrap_or(p);
+            match spine_click(cx, at, tol).as_deref() {
                 Some([Action::Exec(c, _)]) if c == "object.blend.spine.removeAnchor" => return Cursor::PenDelete,
                 Some([_]) => return Cursor::PenAdd,
                 _ => {}
@@ -1151,6 +1152,36 @@ mod tests {
         assert_eq!(a, vec![Action::Exec("object.blend.spine.addAnchor".into(), json!({"id": g.0, "x": 160.0, "y": 310.0}))]);
         // A key's own point is left alone (the click snaps to the spine line).
         assert_eq!(t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 110.0, 310.0)), vec![]);
+    }
+
+    #[test]
+    fn blend_spine_cursor_uses_snapped_hover_when_raw_misses() {
+        let (mut d, _) = doc_with_rect();
+        let l = d.layers[0].id;
+        let key = |id: NodeId, x: f64| {
+            let r = vectorcraft_geom::shapes::rectangle(vectorcraft_geom::Rect::new(x, 300.0, x + 20.0, 320.0));
+            std::sync::Arc::new(vectorcraft_doc::Node::path(id, r, vectorcraft_doc::Appearance::default_art()))
+        };
+        let (g, k1, k2) = (d.alloc_id(), d.alloc_id(), d.alloc_id());
+        d.insert(
+            Some(l),
+            1,
+            vectorcraft_doc::Node::new(g, NodeKind::Blend { children: vec![key(k1, 100.0), key(k2, 200.0)], spec: Default::default() }),
+        )
+        .unwrap();
+        let mut s = Selection::default();
+        s.set([g]);
+        let paint = paint();
+        let cx = cx(&d, &s, &paint);
+        let tol = cx.tol(5.0).max(cx.point_tol());
+        let spine = crate::direct::spines(&cx).into_iter().find(|(id, _)| *id == g).map(|(_, p)| p).expect("spine");
+        let on_spine = Point::new(160.0, 310.0);
+        let raw = Point::new(160.0, 280.0);
+        assert!(spine.nearest(raw).is_none_or(|n| n.4 > tol));
+        assert!(spine_click(&cx, on_spine, tol).is_some());
+        assert!(spine_click(&cx, raw, tol).is_none());
+        let pen = PenTool { hover: Some(on_spine), ..PenTool::default() };
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenAdd);
     }
 
     fn click(t: &mut PenTool, cx: &ToolContext, x: f64, y: f64, m: Mods) -> Vec<Action> {
