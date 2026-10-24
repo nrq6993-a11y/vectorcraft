@@ -3622,7 +3622,7 @@ axis	Both	Ambos
 @msg	missing index	falta o índice
 @msg	missing number `{key}`	falta o número `{key}`
 @msg	missing integer `{key}`	falta o número inteiro `{key}`
-@msg	multiple windows land with M11.5	várias janelas chegam com o M11.5
+@msg	New Window isn't available yet: a document opens in one window	Nova Janela ainda não está disponível: um documento abre em uma única janela
 @msg	name the file	dê um nome ao arquivo
 @msg	no CSS to copy: select objects with CSS of their own	não há CSS para copiar: selecione objetos que tenham CSS próprio
 @msg	no Live Paint edge near that point	nenhuma aresta de Pintura dinâmica perto desse ponto
@@ -4785,6 +4785,7 @@ effect	Regular	Regular
 	Logo 1000×1000	Logotipo 1000×1000
 	Business Card 3.5 × 2 in	Cartão de Visita 3.5 × 2 pol
 	Business Card 85 × 55 mm	Cartão de Visita 85 × 55 mm
+	Business Card 91 × 55 mm	Cartão de Visita 91 × 55 mm
 	Letterhead Letter	Papel Timbrado Carta
 	Letterhead A4	Papel Timbrado A4
 	Envelope DL	Envelope DL

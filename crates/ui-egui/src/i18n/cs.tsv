@@ -4350,7 +4350,7 @@ imageTrace	Outline	Obrys
 @msg	missing index	chybí index
 @msg	missing number `{key}`	chybí číslo `{key}`
 @msg	missing integer `{key}`	chybí celé číslo `{key}`
-@msg	multiple windows land with M11.5	více oken přijde s M11.5
+@msg	New Window isn't available yet: a document opens in one window	Nové okno zatím není k dispozici: dokument se otevírá v jednom okně
 @msg	name the file	pojmenujte soubor
 @msg	no CSS to copy: select objects with CSS of their own	žádné CSS ke kopírování: vyberte objekty s vlastním CSS
 @msg	no Live Paint edge near that point	poblíž tohoto bodu není žádná hrana živé malby
@@ -4857,6 +4857,7 @@ imageTrace	Outline	Obrys
 	Logo 1000×1000	Logo 1000×1000
 	Business Card 3.5 × 2 in	Vizitka 3,5 × 2 in
 	Business Card 85 × 55 mm	Vizitka 85 × 55 mm
+	Business Card 91 × 55 mm	Vizitka 91 × 55 mm
 	Letterhead Letter	Hlavičkový papír Letter
 	Letterhead A4	Hlavičkový papír A4
 	Envelope DL	Obálka DL

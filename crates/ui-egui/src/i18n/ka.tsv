@@ -3828,7 +3828,7 @@ font-technology	Variable	ცვლადი
 @msg	missing `name`	აკლია `name`
 @msg	missing `tool`	აკლია `tool`
 @msg	missing index	ინდექსი აკლია
-@msg	multiple windows land with M11.5	რამდენიმე ფანჯარა M11.5-ში დაემატება
+@msg	New Window isn't available yet: a document opens in one window	ახალი ფანჯარა ჯერ მიუწვდომელია: დოკუმენტი ერთ ფანჯარაში იხსნება
 @msg	name the file	მიუთითეთ ფაილის სახელი
 @msg	no CSS to copy: select objects with CSS of their own	კოპირებისთვის CSS არ არის: მონიშნეთ საკუთარი CSS-ის მქონე ობიექტები
 @msg	no Live Paint edge near that point	ამ წერტილთან ცოცხალი შეღებვის კიდე არ არის
@@ -4297,6 +4297,7 @@ font-technology	Variable	ცვლადი
 	Logo 1000×1000	ლოგო 1000×1000
 	Business Card 3.5 × 2 in	სავიზიტო ბარათი 3.5 × 2 in
 	Business Card 85 × 55 mm	სავიზიტო ბარათი 85 × 55 mm
+	Business Card 91 × 55 mm	სავიზიტო ბარათი 91 × 55 mm
 	Letterhead Letter	ბლანკი Letter
 	Letterhead A4	ბლანკი A4
 	Envelope DL	კონვერტი DL

@@ -76,6 +76,9 @@ const MAX_NODES: usize = 4_000_000;
 const MAX_POINTS: usize = 4_000_000;
 /// Largest image read (pixels).
 const MAX_PIXELS: u64 = 1 << 25;
+/// The note for an image past [`MAX_PIXELS`]: the file then opens from its PDF part, which reads
+/// larger images (#1479).
+pub const IMAGE_TOO_LARGE: &str = "an image too large to read from the editing data was left out";
 /// Most hex digits of an image's samples read from comment lines (CMYK and alpha at the largest size).
 const MAX_HEX: usize = (MAX_PIXELS as usize) * 10;
 /// Largest side of the document and its artboards (points).
@@ -2096,7 +2099,11 @@ impl<'a> Reader<'a> {
             return Ok(());
         };
         let (w, h) = (*w as u64, *h as u64);
-        if w == 0 || h == 0 || w.saturating_mul(h) > MAX_PIXELS || ![1.0, 8.0].contains(bits) {
+        if w.saturating_mul(h) > MAX_PIXELS {
+            self.warn(IMAGE_TOO_LARGE);
+            return Ok(());
+        }
+        if w == 0 || h == 0 || ![1.0, 8.0].contains(bits) {
             self.warn("an image VectorCraft can't read was left out");
             return Ok(());
         }
@@ -2192,7 +2199,7 @@ impl<'a> Reader<'a> {
         let mask = alpha.and_then(|a| self.alpha_mask(a, w, h, xf));
         let key = blob.content_key();
         self.doc.images.entry(key.clone()).or_insert(blob);
-        self.add_image_masked(ImageObject { key, width: w, height: h, xf, link: None, placement: Default::default() }, mask, false)
+        self.add_image_masked(ImageObject { key, width: w, height: h, xf, link: None, placement: Default::default(), pixels: None }, mask, false)
     }
 
     /// An image's alpha channel (`w` × `h` bytes) as a grayscale image over the image (`xf`): its
@@ -2208,7 +2215,7 @@ impl<'a> Reader<'a> {
         self.doc.images.entry(key.clone()).or_insert(blob);
         let art = Node::new(
             self.doc.alloc_id(),
-            NodeKind::Image(Box::new(ImageObject { key, width: w, height: h, xf, link: None, placement: Default::default() })),
+            NodeKind::Image(Box::new(ImageObject { key, width: w, height: h, xf, link: None, placement: Default::default(), pixels: None })),
         );
         Some(OpacityMask::new(art, true))
     }
@@ -2253,7 +2260,10 @@ impl<'a> Reader<'a> {
         let key = blob.content_key();
         self.doc.images.entry(key.clone()).or_insert(blob);
         self.warn(LINKED_PREVIEWS);
-        self.add_image(ImageObject { key, width: w, height: h, xf, link: Some(LinkInfo::new(path)), placement: Default::default() }, hidden)
+        self.add_image(
+            ImageObject { key, width: w, height: h, xf, link: Some(LinkInfo::new(path)), placement: Default::default(), pixels: None },
+            hidden,
+        )
     }
 
     // ---- the document ----------------------------------------------------------------------

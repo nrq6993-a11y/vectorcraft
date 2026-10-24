@@ -499,6 +499,7 @@ font-technology	Variable	Változó
 	Burlap	Zsákvászon
 	Business Card 3.5 × 2 in	Névjegykártya 3,5 × 2 in
 	Business Card 85 × 55 mm	Névjegykártya 85 × 55 mm
+	Business Card 91 × 55 mm	Névjegykártya 91 × 55 mm
 	Butt Cap	Lapos vonalvég
 	Byte Order:	Bájtsorrend:
 	Calligraphic	Kalligrafikus
@@ -4710,7 +4711,7 @@ imageTrace	Outline	Körvonal
 @msg	move requires a destination panel	az áthelyezéshez célpanel kell
 @msg	move requires an existing destination panel	az áthelyezéshez létező célpanel kell
 @msg	Multichannel PSD files can't be read: save it in RGB, CMYK or Grayscale mode	a többcsatornás PSD-fájlok nem olvashatók: mentsd RGB, CMYK vagy szürkeárnyalatos módban
-@msg	multiple windows land with M11.5	a több ablak az M11.5 mérföldkőben érkezik
+@msg	New Window isn't available yet: a document opens in one window	Az Új ablak még nem érhető el: egy dokumentum egy ablakban nyílik meg
 @msg	name the file	adj nevet a fájlnak
 @msg	no active document	nincs aktív dokumentum
 @msg	no active perspective plane	nincs aktív perspektivikus sík

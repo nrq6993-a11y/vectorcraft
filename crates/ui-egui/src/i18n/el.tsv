@@ -4026,7 +4026,7 @@ theme	Appearance	Εμφάνιση
 @msg	missing index	λείπει ο δείκτης
 @msg	missing number `{key}`	λείπει ο αριθμός `{key}`
 @msg	missing integer `{key}`	λείπει ο ακέραιος `{key}`
-@msg	multiple windows land with M11.5	τα πολλαπλά παράθυρα θα προστεθούν στην έκδοση M11.5
+@msg	New Window isn't available yet: a document opens in one window	Το Νέο παράθυρο δεν είναι ακόμη διαθέσιμο: ένα έγγραφο ανοίγει σε ένα παράθυρο
 @msg	name the file	δώστε όνομα στο αρχείο
 @msg	no CSS to copy: select objects with CSS of their own	δεν υπάρχει CSS για αντιγραφή: επιλέξτε αντικείμενα με δικό τους CSS
 @msg	no Live Paint edge near that point	δεν υπάρχει ακμή δυναμικής βαφής κοντά σε αυτό το σημείο
@@ -4632,6 +4632,7 @@ theme	Appearance	Εμφάνιση
 	Brown	Καφέ
 	Business Card 3.5 × 2 in	Επαγγελματική κάρτα 3,5 × 2 ίντσες
 	Business Card 85 × 55 mm	Επαγγελματική κάρτα 85 × 55 mm
+	Business Card 91 × 55 mm	Επαγγελματική κάρτα 91 × 55 mm
 	CRLF (Windows)	CRLF (Windows)
 	Cap Height	Ύψος κεφαλαίων
 	Chevron	Σχήμα V
