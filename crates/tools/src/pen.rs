@@ -142,6 +142,32 @@ fn pick_endpoint(first: Option<Point>, last: Point, p: Point, tol: f64, tie: End
         (None, None) => None,
     }
 }
+
+/// Endpoint at the pointer: raw position first, then the snapped hover when a press would use it.
+fn pick_endpoint_snapped(
+    first: Option<Point>,
+    last: Point,
+    raw: Point,
+    snapped: Option<Point>,
+    tol: f64,
+    tie: Endpoint,
+) -> Option<Endpoint> {
+    match pick_endpoint(first, last, raw, tol, tie) {
+        Some(ep) => Some(ep),
+        None => snapped
+            .filter(|s| s.distance(raw) > 1e-9)
+            .and_then(|s| pick_endpoint(first, last, s, tol, tie)),
+    }
+}
+
+fn open_end_snapped(cx: &ToolContext, raw: Point, snapped: Option<Point>, tol: f64, except: Option<NodeId>) -> Option<(NodeId, bool)> {
+    open_end_at(cx, raw, tol, except).or_else(|| {
+        snapped
+            .filter(|s| s.distance(raw) > 1e-9)
+            .and_then(|s| open_end_at(cx, s, tol, except))
+    })
+}
+
 /// Alt held over a handle end, an anchor or a segment of a selected path: the Anchor Point tool's
 /// gesture, within its tolerance.
 fn alt_converts(cx: &ToolContext, p: Point, m: Mods) -> bool {
@@ -435,8 +461,10 @@ impl Tool for PenTool {
                 Some([_]) => return Cursor::PenAdd,
                 _ => {}
             }
-            if active_path(cx).is_some_and(|(_, first, last, _)| pick_endpoint(Some(first), last, p, tol, Endpoint::Last).is_some())
-                || open_end_at(cx, p, tol, None).is_some()
+            let snapped = self.hover.filter(|h| h.distance(p) > 1e-9);
+            if active_path(cx).is_some_and(|(_, first, last, _)| {
+                pick_endpoint_snapped(Some(first), last, p, snapped, tol, Endpoint::Last).is_some()
+            }) || open_end_snapped(cx, p, snapped, tol, None).is_some()
             {
                 return Cursor::PenContinue;
             }
@@ -1196,6 +1224,42 @@ mod tests {
         let mut t = PenTool::default();
         let a = click(&mut t, &cx, 325.0, 351.0, shift);
         assert!(matches!(&a[..], [Action::Begin(_), Action::Preview(c, _)] if c == "path.create"), "{a:?}");
+    }
+
+    #[test]
+    fn snapped_open_end_shows_continue_cursor_after_raw_miss() {
+        let last = Point::new(300.0, 400.0);
+        let (mut d, _) = doc_with_rect();
+        let l = d.layers[0].id;
+        let id = d.alloc_id();
+        let path = vectorcraft_geom::PathData::single(
+            vectorcraft_geom::SubPath::polyline(&[Point::new(100.0, 300.0), Point::new(200.0, 300.0), last], false),
+        );
+        d.insert(Some(l), 1, vectorcraft_doc::Node::path(id, path, vectorcraft_doc::Appearance::default_art())).unwrap();
+        let mut s = Selection::default();
+        s.set([id]);
+        d.grid.spacing = 100.0;
+        d.grid.subdivisions = 1;
+        let paint = paint();
+        let cx = ToolContext {
+            zoom: 1.0,
+            selection_tolerance: 8.0,
+            smart_guides: false,
+            snap_to_point: false,
+            snap_to_pixel: false,
+            snap_to_grid: true,
+            ..cx(&d, &s, &paint)
+        };
+        let raw = Point::new(263.0, 403.0);
+        let tol = cx.tol(5.0).max(cx.point_tol());
+        assert!(raw.distance(last) > tol);
+        let from = Leave::segment(&cx, Point::new(200.0, 300.0), false);
+        assert_eq!(DrawSnap::default().press(&cx, raw, &[], Some(&from)), last);
+        let mut pen = PenTool::default();
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Move, raw.x, raw.y)).is_empty());
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenContinue);
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Down, raw.x, raw.y)).is_empty());
+        assert!(pen.active(&cx).is_some());
     }
 
     /// Each anchor snaps to Smart Guides (#506): hovering shows where it goes (the rubber band ends
