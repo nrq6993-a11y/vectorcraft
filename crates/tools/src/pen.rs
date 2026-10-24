@@ -144,28 +144,15 @@ fn pick_endpoint(first: Option<Point>, last: Point, p: Point, tol: f64, tie: End
 }
 
 /// Endpoint at the pointer: raw position first, then the snapped hover when a press would use it.
-fn pick_endpoint_snapped(
-    first: Option<Point>,
-    last: Point,
-    raw: Point,
-    snapped: Option<Point>,
-    tol: f64,
-    tie: Endpoint,
-) -> Option<Endpoint> {
+fn pick_endpoint_snapped(first: Option<Point>, last: Point, raw: Point, snapped: Option<Point>, tol: f64, tie: Endpoint) -> Option<Endpoint> {
     match pick_endpoint(first, last, raw, tol, tie) {
         Some(ep) => Some(ep),
-        None => snapped
-            .filter(|s| s.distance(raw) > 1e-9)
-            .and_then(|s| pick_endpoint(first, last, s, tol, tie)),
+        None => snapped.filter(|s| s.distance(raw) > 1e-9).and_then(|s| pick_endpoint(first, last, s, tol, tie)),
     }
 }
 
 fn open_end_snapped(cx: &ToolContext, raw: Point, snapped: Option<Point>, tol: f64, except: Option<NodeId>) -> Option<(NodeId, bool)> {
-    open_end_at(cx, raw, tol, except).or_else(|| {
-        snapped
-            .filter(|s| s.distance(raw) > 1e-9)
-            .and_then(|s| open_end_at(cx, s, tol, except))
-    })
+    open_end_at(cx, raw, tol, except).or_else(|| snapped.filter(|s| s.distance(raw) > 1e-9).and_then(|s| open_end_at(cx, s, tol, except)))
 }
 
 /// Alt held over a handle end, an anchor or a segment of a selected path: the Anchor Point tool's
@@ -462,9 +449,8 @@ impl Tool for PenTool {
                 _ => {}
             }
             let snapped = self.hover.filter(|h| h.distance(p) > 1e-9);
-            if active_path(cx).is_some_and(|(_, first, last, _)| {
-                pick_endpoint_snapped(Some(first), last, p, snapped, tol, Endpoint::Last).is_some()
-            }) || open_end_snapped(cx, p, snapped, tol, None).is_some()
+            if active_path(cx).is_some_and(|(_, first, last, _)| pick_endpoint_snapped(Some(first), last, p, snapped, tol, Endpoint::Last).is_some())
+                || open_end_snapped(cx, p, snapped, tol, None).is_some()
             {
                 return Cursor::PenContinue;
             }
@@ -1232,9 +1218,10 @@ mod tests {
         let (mut d, _) = doc_with_rect();
         let l = d.layers[0].id;
         let id = d.alloc_id();
-        let path = vectorcraft_geom::PathData::single(
-            vectorcraft_geom::SubPath::polyline(&[Point::new(100.0, 300.0), Point::new(200.0, 300.0), last], false),
-        );
+        let path = vectorcraft_geom::PathData::single(vectorcraft_geom::SubPath::polyline(
+            &[Point::new(100.0, 300.0), Point::new(200.0, 300.0), last],
+            false,
+        ));
         d.insert(Some(l), 1, vectorcraft_doc::Node::path(id, path, vectorcraft_doc::Appearance::default_art())).unwrap();
         let mut s = Selection::default();
         s.set([id]);
