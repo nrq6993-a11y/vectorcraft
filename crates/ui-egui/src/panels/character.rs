@@ -54,6 +54,40 @@ pub(crate) fn first_selected_text(app: &VectorcraftApp) -> Option<&vectorcraft_d
     None
 }
 
+/// Type on a Path effect shared by every selected type-on-a-path object, or `None` when they
+/// differ. When the Type tool edits text, only that object counts.
+pub(crate) fn shared_path_effect(app: &VectorcraftApp) -> Option<vectorcraft_doc::PathEffect> {
+    on_path_text(app, |t| t.path_effect)
+}
+
+fn on_path_text<T: PartialEq + Copy>(app: &VectorcraftApp, f: impl Fn(&vectorcraft_doc::TextObject) -> T) -> Option<T> {
+    if let Some((id, _, _)) = text_editing(app) {
+        return app.session.active().and_then(|st| st.doc.node(id)).and_then(|n| match &n.kind {
+            NodeKind::Text(t) if matches!(t.kind, vectorcraft_doc::TextKind::OnPath { .. }) => Some(f(t)),
+            _ => None,
+        });
+    }
+    let st = app.session.active()?;
+    let mut acc: Option<T> = None;
+    let mut saw = false;
+    for node in st.selection.objects.iter().filter_map(|id| st.doc.node(*id)) {
+        node.walk(&mut |n| {
+            if let NodeKind::Text(t) = &n.kind
+                && matches!(t.kind, vectorcraft_doc::TextKind::OnPath { .. })
+            {
+                saw = true;
+                let v = f(t);
+                acc = match acc {
+                    None => Some(v),
+                    Some(a) if a == v => Some(a),
+                    Some(_) => None,
+                };
+            }
+        });
+    }
+    if saw { acc } else { None }
+}
+
 /// `f` of the character styles the panels act on: the runs the Type tool's selection covers (the
 /// caret's style at a caret), else every run of the selected type, groups' included. `None` (a
 /// blank field) where they differ, or with no type.

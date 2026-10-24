@@ -2008,9 +2008,9 @@ pub fn checked(app: &VectorcraftApp, id: &str, p: &Value) -> Option<bool> {
         "view.trimView" => v.trim_view,
         "view.snapToPixel" => v.snap_to_pixel,
         "view.snapToGlyph" => v.snap_to_glyph,
-        // Type on a Path effect of the selected path type.
+        // Type on a Path effect of every selected type on a path.
         "type.pathOptions" if p.get("effect").is_some() => {
-            selected_text(true).is_some_and(|t| p.get("effect").and_then(Value::as_str) == Some(t.path_effect.id()))
+            crate::panels::character::shared_path_effect(app).is_some_and(|e| p.get("effect").and_then(Value::as_str) == Some(e.id()))
         }
         "view.smartGuides" => v.smart_guides,
         "view.grid" => v.grid,
@@ -4570,6 +4570,31 @@ mod tests {
         app.run("type.orientation.vertical", json!({})).unwrap();
         assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
         assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
+    }
+
+    #[test]
+    fn path_effect_menu_shows_off_when_selection_mixes() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 800, "height": 600})).unwrap();
+        let path = |app: &mut VectorcraftApp| {
+            let pid = app.run("path.create", json!({"d": "M100 300 L500 300"})).unwrap()["id"].clone();
+            app.run("text.createInPath", json!({"path": pid, "mode": "onPath", "text": "A", "size": 12, "at": [200.0, 310.0]})).unwrap()["id"].clone()
+        };
+        let a = path(&mut app);
+        let b = path(&mut app);
+        app.run("select.set", json!({"ids": [a]})).unwrap();
+        app.run("type.pathOptions", json!({"effect": "rainbow"})).unwrap();
+        app.run("select.set", json!({"ids": [b]})).unwrap();
+        app.run("type.pathOptions", json!({"effect": "skew"})).unwrap();
+        app.run("select.set", json!({"ids": [a, b]})).unwrap();
+        assert_eq!(crate::panels::character::shared_path_effect(&app), None);
+        let rainbow = json!({"effect": "rainbow"});
+        let skew = json!({"effect": "skew"});
+        assert_eq!(checked(&app, "type.pathOptions", &rainbow), Some(false));
+        assert_eq!(checked(&app, "type.pathOptions", &skew), Some(false));
+        app.run("type.pathOptions", json!({"effect": "rainbow"})).unwrap();
+        assert_eq!(checked(&app, "type.pathOptions", &rainbow), Some(true));
+        assert_eq!(checked(&app, "type.pathOptions", &skew), Some(false));
     }
 
     #[test]
