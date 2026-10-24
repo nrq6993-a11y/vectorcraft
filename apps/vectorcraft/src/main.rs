@@ -41,6 +41,7 @@ mod mac_menu;
 mod mac_save_format;
 #[cfg(target_os = "macos")]
 mod mac_screen_color;
+mod mac_tablet;
 #[cfg(target_os = "macos")]
 mod mac_window;
 #[cfg(target_os = "macos")]
@@ -309,13 +310,18 @@ fn save_prefs(app: &VectorcraftApp) {
     }
     if let Some(p) = prefs_path() {
         let _ = std::fs::create_dir_all(p.parent().unwrap_or(std::path::Path::new(".")));
-        let mut ui = app.ui.clone();
-        ui.engine_prefs = app.session.prefs.to_json();
-        if let Ok(bytes) = serde_json::to_vec_pretty(&ui) {
+        if let Ok(bytes) = prefs_bytes(app) {
             // Preferences are best effort: a failed write keeps the previous file.
             let _ = fileio::write_atomic(&p, &bytes);
         }
     }
+}
+
+/// The preferences file's contents: the UI state with the engine preferences.
+fn prefs_bytes(app: &VectorcraftApp) -> serde_json::Result<Vec<u8>> {
+    let mut ui = app.ui.clone();
+    ui.engine_prefs = app.session.prefs.to_json();
+    serde_json::to_vec_pretty(&ui)
 }
 
 /// The window file dialogs belong to.
@@ -580,6 +586,9 @@ fn services(parent: Parent, ui: egui::Context) -> Services {
         no_cursor_theme: wayland && cursor_theme::theme_missing(),
         #[cfg(target_os = "linux")]
         stylus: if x11 { tablet::start() } else { None },
+        // macOS reads it from AppKit's events (#852).
+        #[cfg(target_os = "macos")]
+        stylus: mac_tablet::start(),
         read: Some(Box::new(|p: &str| std::fs::read(p).map_err(|e| e.to_string()))),
         write: Some(Box::new(write_file)),
         exists: Some(Box::new(|p: &str| std::path::Path::new(p).exists())),
@@ -1199,6 +1208,17 @@ mod tests {
             decode_saved_prefs(&serde_json::to_vec(&json!({"toolbar":"invalid"})).unwrap()).is_none(),
             "unrelated fields retain normal strict parsing"
         );
+    }
+
+    #[test]
+    fn the_image_trace_preview_setting_is_kept_across_a_restart() {
+        for preview in [false, true] {
+            let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), Default::default());
+            app.ui.image_trace_preview = preview;
+            let saved = prefs_bytes(&app).unwrap();
+            let loaded = decode_saved_prefs(&saved).unwrap().sanitized();
+            assert_eq!(loaded.image_trace_preview, preview, "Preview {preview} after a restart");
+        }
     }
 
     #[test]
