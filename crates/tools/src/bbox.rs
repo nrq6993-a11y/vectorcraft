@@ -105,15 +105,12 @@ pub fn scale_for_drag(r: Rect, handle: Handle, p: Point, proportional: bool, fro
     Affine::translate(origin.to_vec2()) * Affine::scale_non_uniform(clamp(sx), clamp(sy)) * Affine::translate(-origin.to_vec2())
 }
 
-/// Rotation about `center` taking `from` to `to`; `snap` constrains to 45° steps.
-pub fn rotate_for_drag(center: Point, from: Point, to: Point, snap: bool) -> (Affine, f64) {
-    let a0 = (from - center).atan2();
-    let a1 = (to - center).atan2();
-    let mut a = a1 - a0;
-    if snap {
-        let step = std::f64::consts::FRAC_PI_4;
-        a = (a / step).round() * step;
-    }
+/// Rotation about `center` taking `from` to `to`. With `snap` (Shift), the dragged direction
+/// `to − center` snaps to 45° steps from General › Constrain Angle (`constrain_angle_deg`).
+pub fn rotate_for_drag(center: Point, from: Point, to: Point, snap: bool, constrain_angle_deg: f64) -> (Affine, f64) {
+    let v0 = from - center;
+    let v1 = if snap { vectorcraft_geom::constrain_angle_from(to - center, 45.0, constrain_angle_deg) } else { to - center };
+    let a = v1.y.atan2(v1.x) - v0.y.atan2(v0.x);
     (Affine::translate(center.to_vec2()) * Affine::rotate(a) * Affine::translate(-center.to_vec2()), -a.to_degrees())
 }
 
@@ -161,9 +158,19 @@ mod tests {
 
     #[test]
     fn rotate_snaps() {
-        let (_, deg) = rotate_for_drag(Point::ZERO, Point::new(10.0, 0.0), Point::new(10.0, 9.0), true);
+        let (_, deg) = rotate_for_drag(Point::ZERO, Point::new(10.0, 0.0), Point::new(10.0, 9.0), true, 0.0);
         assert!((deg + 45.0).abs() < 1e-9);
         assert!(in_rotate_zone(R, Point::new(-8.0, -8.0), 4.0, 20.0).is_some());
         assert!(in_rotate_zone(R, Point::new(5.0, 5.0), 4.0, 20.0).is_none());
+    }
+
+    #[test]
+    fn rotate_shift_honors_constrain_angle() {
+        let c = Point::new(100.0, 100.0);
+        let from = Point::new(120.0, 100.0);
+        let to = Point::new(118.0, 112.0);
+        let (_, d0) = rotate_for_drag(c, from, to, true, 0.0);
+        let (_, d30) = rotate_for_drag(c, from, to, true, 30.0);
+        assert!((d0 - d30).abs() > 0.5, "d0={d0} d30={d30}");
     }
 }
