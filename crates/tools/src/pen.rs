@@ -422,9 +422,7 @@ impl Tool for PenTool {
             }
             if !alt_converts(cx, p, m) {
                 let snapped = self.hover.filter(|h| h.distance(p) > 1e-9);
-                if open_end_at(cx, p, tol, Some(id)).is_some()
-                    || snapped.is_some_and(|s| open_end_at(cx, s, tol, Some(id)).is_some())
-                {
+                if open_end_at(cx, p, tol, Some(id)).is_some() || snapped.is_some_and(|s| open_end_at(cx, s, tol, Some(id)).is_some()) {
                     return Cursor::PenJoin;
                 }
             }
