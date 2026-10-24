@@ -1205,9 +1205,10 @@ mod tests {
         let l = d.layers[0].id;
         let id = d.alloc_id();
         let mid = Point::new(200.0, 300.0);
-        let path = vectorcraft_geom::PathData::single(
-            vectorcraft_geom::SubPath::polyline(&[Point::new(100.0, 300.0), mid, Point::new(300.0, 400.0)], false),
-        );
+        let path = vectorcraft_geom::PathData::single(vectorcraft_geom::SubPath::polyline(
+            &[Point::new(100.0, 300.0), mid, Point::new(300.0, 400.0)],
+            false,
+        ));
         d.insert(Some(l), 1, vectorcraft_doc::Node::path(id, path, vectorcraft_doc::Appearance::default_art())).unwrap();
         let mut s = Selection::default();
         s.set([id]);
