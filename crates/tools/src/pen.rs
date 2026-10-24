@@ -420,6 +420,11 @@ impl Tool for PenTool {
                 Some(Endpoint::Last) => return Cursor::PenConvert,
                 None => {}
             }
+            if let Some(h) = self.hover.filter(|h| h.distance(p) > 1e-9)
+                && pick_endpoint(closing_end, last, h, tol, Endpoint::First) == Some(Endpoint::First)
+            {
+                return Cursor::PenClose;
+            }
             if !alt_converts(cx, p, m) && open_end_at(cx, p, tol, Some(id)).is_some() {
                 return Cursor::PenJoin;
             }
@@ -653,6 +658,36 @@ mod tests {
         assert_eq!((place.path, place.at), (Some(id), first));
         assert_eq!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Up, raw.x, raw.y)), vec![Action::Commit]);
         assert!(!pen.busy() && pen.active(&cx).is_none());
+    }
+
+    #[test]
+    fn snapped_first_endpoint_shows_close_cursor_after_raw_miss() {
+        let first = Point::new(100.0, 300.0);
+        let last = Point::new(200.0, 400.0);
+        let (mut d, id, s) = drawing(vectorcraft_geom::SubPath::polyline(&[first, Point::new(200.0, 300.0), last], false));
+        d.grid.spacing = 100.0;
+        d.grid.subdivisions = 1;
+        let paint = paint();
+        let cx = ToolContext {
+            zoom: 1.0,
+            selection_tolerance: 8.0,
+            smart_guides: false,
+            snap_to_point: false,
+            snap_to_pixel: false,
+            snap_to_grid: true,
+            ..cx(&d, &s, &paint)
+        };
+        let mut pen = PenTool::default();
+        assert!(click(&mut pen, &cx, last.x, last.y, Mods::default()).is_empty());
+        let raw = Point::new(63.0, 303.0);
+        let tol = cx.tol(5.0).max(cx.point_tol());
+        assert!(raw.distance(first) > tol);
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Move, raw.x, raw.y)).is_empty());
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenClose);
+        assert_eq!(
+            pen.pointer(&cx, &PointerEvent::new(PointerKind::Down, raw.x, raw.y)),
+            vec![Action::Begin("Close Path".into()), Action::Preview("path.close".into(), json!({"id": id.0}))]
+        );
     }
 
     #[test]
