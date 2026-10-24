@@ -91,22 +91,47 @@ pub struct FreeTransformTool {
 }
 
 /// Shear for dragging side `h` of `r` by `d` (about the opposite side, or the centre with Alt).
-pub fn shear_for_side(r: Rect, h: Handle, d: Vec2, from_center: bool) -> Affine {
+/// With `shift`, the drag stays on the shear axis and keeps the bounding box width (left/right
+/// handles) or height (top/bottom handles).
+pub fn shear_for_side(r: Rect, h: Handle, mut d: Vec2, from_center: bool, shift: bool) -> Affine {
+    if shift {
+        match h {
+            Handle::Top | Handle::Bottom => d.y = 0.0,
+            _ => d.x = 0.0,
+        }
+    }
     let o = if from_center { r.center() } else { h.opposite().pos(r) };
     let hp = h.pos(r);
-    let m = match h {
+    let k_for = |d: Vec2| match h {
         Handle::Top | Handle::Bottom => {
             let lever = hp.y - o.y;
-            let k = if lever.abs() > 1e-9 { d.x / lever } else { 0.0 };
-            Affine::new([1.0, 0.0, k, 1.0, 0.0, 0.0])
+            if lever.abs() > 1e-9 { d.x / lever } else { 0.0 }
         }
         _ => {
             let lever = hp.x - o.x;
-            let k = if lever.abs() > 1e-9 { d.y / lever } else { 0.0 };
-            Affine::new([1.0, k, 0.0, 1.0, 0.0, 0.0])
+            if lever.abs() > 1e-9 { d.y / lever } else { 0.0 }
         }
     };
-    Affine::translate(o.to_vec2()) * m * Affine::translate(-o.to_vec2())
+    let build = |k: f64| {
+        let m = match h {
+            Handle::Top | Handle::Bottom => Affine::new([1.0, 0.0, k, 1.0, 0.0, 0.0]),
+            _ => Affine::new([1.0, k, 0.0, 1.0, 0.0, 0.0]),
+        };
+        Affine::translate(o.to_vec2()) * m * Affine::translate(-o.to_vec2())
+    };
+    let mut k = k_for(d);
+    let mut m = build(k);
+    if shift {
+        let (size0, size1) = match h {
+            Handle::Top | Handle::Bottom => (r.height(), m.transform_rect_bbox(r).height()),
+            _ => (r.width(), m.transform_rect_bbox(r).width()),
+        };
+        if size1 > 1e-9 && (size1 - size0).abs() > 1e-6 {
+            k *= size0 / size1;
+            m = build(k);
+        }
+    }
+    m
 }
 
 /// Corner index (TL, TR, BR, BL) for a corner handle.
@@ -207,7 +232,7 @@ impl FreeTransformTool {
                 self.measure = cx.transform_tools_guides.then(|| (p, cx.size_label(nr.width(), nr.height())));
                 a
             }
-            Op::Shear(h) => shear_for_side(d.rect, h, delta, m.alt),
+            Op::Shear(h) => shear_for_side(d.rect, h, delta, m.alt, shift),
             Op::Rotate => {
                 let (a, deg) = rotate_for_drag(d.rect.center(), d.start, p, shift);
                 self.measure = cx.transform_tools_guides.then(|| (p, format!("{:.1}°", -deg)));
@@ -440,6 +465,13 @@ mod tests {
         let m = Affine::new([c[0], c[1], c[2], c[3], c[4], c[5]]);
         assert!((m * Point::new(100.0, 200.0)).distance(Point::new(100.0, 200.0)) < 1e-9);
         assert!((m * Point::new(100.0, 100.0)).distance(Point::new(120.0, 100.0)) < 1e-9);
+    }
+
+    #[test]
+    fn cmd_side_shear_shift_preserves_height() {
+        let r = Rect::new(100.0, 100.0, 200.0, 200.0);
+        let m = shear_for_side(r, Handle::Top, Vec2::new(30.0, 12.0), false, true);
+        assert!((m.transform_rect_bbox(r).height() - r.height()).abs() < 1e-6);
     }
 
     #[test]
