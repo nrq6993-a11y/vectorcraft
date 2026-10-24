@@ -200,10 +200,7 @@ impl FreeTransformTool {
                 self.measure = cx.measurement_labels.then(|| (p, cx.offset_label(delta.x, delta.y)));
                 let corners: Vec<Value> = q.iter().map(|c| json!([c.x, c.y])).collect();
                 let from = bx.corners();
-                return Action::Preview(
-                    "object.distort".into(),
-                    json!({ "corners": corners, "from": [from[0].x, from[0].y, from[2].x, from[2].y] }),
-                );
+                return Action::Preview("object.distort".into(), json!({ "corners": corners, "from": [from[0].x, from[0].y, from[2].x, from[2].y] }));
             }
             Op::Move => {
                 let v = move_delta(d.start, p, shift, cx.constrain_angle);
