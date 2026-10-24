@@ -315,6 +315,8 @@ font-technology	Variable	バリアブル
 	Bullets	箇条書き
 	Bullets and Numbering	箇条書きと番号付け
 	Apply Bullets	箇条書きを適用
+	Numbered List	番号付きリスト
+	Apply Numbers	番号付けを適用
 	Filled Dot	黒丸
 	Dash	ダッシュ
 	Hollow Circle	白丸
@@ -2889,6 +2891,7 @@ mark-style	Japanese	日本式
 	Outlines	アウトライン
 	Outlines with Source Image	アウトライン（元画像付き）
 	Source Image	元画像
+	Press and hold to view the source image	押している間、元画像を表示
 	Image Trace View	画像トレースの表示
 	Snap Options	スナップオプション
 	Snap to Unit	単位にスナップ
@@ -3926,6 +3929,7 @@ swatch	Bright Violet	ビビッドバイオレット
 @msg	the art has no bounds	アートに境界がありません
 @msg	Image Trace: the traced image is missing	画像トレース: トレース元の画像が見つかりません
 @msg	Live Paint Merge: select a Live Paint group and the paths to add	ライブペイントの結合: ライブペイントグループと、追加するパスを選択してください
+@msg	Live Paint takes paths and compound paths: convert type, images and other objects to paths first	ライブペイントで扱えるのはパスと複合パスです: テキスト、画像、その他のオブジェクトは先にパスに変換してください
 @msg	Live Paint: select paths or compound paths	ライブペイント: パスまたは複合パスを選択してください
 @msg	Live Paint: these paths are too degenerate to paint	ライブペイント: これらのパスは形状がつぶれすぎていてペイントできません
 @msg	Shape Builder: no region under the pointer	シェイプ形成ツール: ポインターの下に領域がありません
@@ -4265,6 +4269,7 @@ swatch	Bright Violet	ビビッドバイオレット
 @msg	invalid image data for `{0}`	`{0}` の画像データが正しくありません
 @msg	not a VectorCraft file: {0}	VectorCraft ファイルではありません: {0}
 @msg	the compressed file unpacks to more than {_1} MB	圧縮ファイルを展開すると {_1} MB を超えます
+@msg	`{key}: {top}` and `options.{key}: {inner}` disagree: give the option once	`{key}: {top}` と `options.{key}: {inner}` が一致しません: オプションは 1 回だけ指定してください
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	バージョン {0} のファイルは圧縮できません: 圧縮ファイルを開けるのはバージョン {COMPRESSED_SINCE} 以降のみです
 @msg	a bitmap is empty	ビットマップが空です
 @msg	a bitmap is too large to read	ビットマップが大きすぎて読み込めません
@@ -5046,6 +5051,7 @@ lighting	Light	ライト
 	Snap to Perpendicular	垂線にスナップ
 @msg	unknown snap option `{key}` (use {options})	不明なスナップオプション `{key}` ({options} を使用してください)
 	Gap Length:	ギャップの長さ:
+@msg	Flat Logo traced the image at {_1} × {_2} pixels, averaged down from {_3} × {_4}.	フラットロゴモードは画像を {_3} × {_4} から平均化して縮小した {_1} × {_2} ピクセルでトレースしました。
 	Artboard {n} of {total}	アートボード {n} / {total}
 	File {n} of {total}	ファイル {n} / {total}
 	Encoding and writing the file…	ファイルをエンコードして書き込み中…

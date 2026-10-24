@@ -339,6 +339,8 @@ font-technology	Variable	Değişken
 	Bullets	Madde İşaretleri
 	Bullets and Numbering	Madde İşaretleri ve Numaralandırma
 	Apply Bullets	Madde İşaretlerini Uygula
+	Numbered List	Numaralı Liste
+	Apply Numbers	Numaralandırmayı Uygula
 	Filled Dot	Dolu Nokta
 	Dash	Tire
 	Hollow Circle	Boş Daire
@@ -2921,6 +2923,7 @@ font-technology	Variable	Değişken
 	Outlines	Ana hatlar
 	Outlines with Source Image	Kaynak Resimli Ana Hatlar
 	Source Image	Kaynak Resim
+	Press and hold to view the source image	Kaynak resmi görmek için basılı tutun
 	Image Trace View	Görüntü İzleme Görünümü
 	Snap Options	Yapış Seçenekleri
 	Snap to Glyph	Glif'e Yapış
@@ -3644,6 +3647,7 @@ axis	Both	Her İkisi
 @msg	Installed plug-in {_1}	Yüklü eklenti {_1}
 @msg	Internal error: {msg} (please report this bug)	Dahili hata: {msg} (lütfen bu hatayı bildirin)
 @msg	Live Paint Merge: select a Live Paint group and the paths to add	Canlı Boyama Birleştirme: Canlı Boyama grubunu ve eklenecek yolları seçin
+@msg	Live Paint takes paths and compound paths: convert type, images and other objects to paths first	Canlı Boyama yolları ve bileşik yolları kabul eder: önce metni, görüntüleri ve diğer nesneleri yollara dönüştürün
 @msg	Live Paint: select paths or compound paths	Canlı Boyama: yolları veya bileşik yolları seçin
 @msg	Live Paint: these paths are too degenerate to paint	Canlı Boyama: Bu yollar boyanamayacak kadar yozlaşmış
 @msg	Make Guides: select paths	Kılavuzlar Oluşturun: yolları seçin
@@ -4104,6 +4108,7 @@ axis	Both	Her İkisi
 @msg	unknown tool or command `{key}`	bilinmeyen araç veya komut `{key}`
 @msg	unknown workspace (one of {_1})	bilinmeyen çalışma alanı ({_1}'den biri)
 @msg	unsupported: {0}	desteklenmeyen: {0}
+@msg	`{key}: {top}` and `options.{key}: {inner}` disagree: give the option once	`{key}: {top}` ile `options.{key}: {inner}` çelişiyor: seçeneği yalnızca bir kez verin
 @msg	version {0} files can't be compressed: only version {COMPRESSED_SINCE} and later open compressed files	{0} sürümü dosyaları sıkıştırılamaz: yalnızca {COMPRESSED_SINCE} sürümü ve sonraki sürümler sıkıştırılmış dosyaları açar
 @msg	width and height are at least 1 pixel	genişlik ve yükseklik en az 1 pikseldir
 @msg	workspace name can't be empty	çalışma alanı adı boş olamaz
@@ -5387,6 +5392,7 @@ theme	Appearance	Görünüm
 @msg	The image is {_1} × {_2} pixels, more than {LARGE_TRACE_SIDE} on a side: it is traced, but more slowly. A lower-fidelity preset or a smaller copy of the image traces faster.	Görüntü {_1} × {_2} piksel, bir kenarı {LARGE_TRACE_SIDE} değerinden büyük: izlenir, ancak daha yavaş. Daha düşük doğruluklu bir ön ayar veya görüntünün daha küçük bir kopyası daha hızlı izlenir.
 @msg	The image was traced at {_1} × {_2} pixels, scaled down from {_3} × {_4} ({_5} megapixels at most).	Görüntü {_3} × {_4} boyutundan küçültülerek {_1} × {_2} pikselde izlendi (en fazla {_5} megapiksel).
 	Gap Length:	Boşluk Uzunluğu:
+@msg	Flat Logo traced the image at {_1} × {_2} pixels, averaged down from {_3} × {_4}.	Düz Logo modu görüntüyü {_3} × {_4} boyutundan ortalama alarak küçültüp {_1} × {_2} pikselde izledi.
 @plural	{n} more export waiting|{n} more exports waiting	{n} dışa aktarma daha bekliyor|{n} dışa aktarma daha bekliyor
 @msg	Export cancelled	Dışa aktarma iptal edildi
 	Add filters from the list above	Yukarıdaki listeden filtre ekleyin
