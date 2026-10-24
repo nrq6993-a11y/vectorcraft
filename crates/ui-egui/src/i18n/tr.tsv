@@ -3705,6 +3705,12 @@ axis	Both	Her İkisi
 @msg	`{key}` must be between {min} and {max} (got {x})	`{key}`, {min} ile {max} arasında olmalıdır ({x}'yi aldı)
 @msg	`{key}` must be one of {_1}	`{key}`, {_1}'den biri olmalıdır
 @msg	`{key}` must be true or false	"{key}" doğru veya yanlış olmalıdır
+@msg	`select` must be true or false	`select` true veya false olmalıdır
+@msg	`minAnchors` and `maxAnchors` must be whole numbers	`minAnchors` ve `maxAnchors` tam sayı olmalıdır
+@msg	`{key}` must be a number not below 0	`{key}` 0'dan küçük olmayan bir sayı olmalıdır
+@msg	`{key}` must be [x, y, width, height]: four finite numbers, width and height not negative	`{key}` [x, y, width, height] olmalıdır: dört sonlu sayı, genişlik ve yükseklik negatif olmamalı
+@msg	`{min_key}` is greater than `{max_key}`	`{min_key}`, `{max_key}` değerinden büyük
+@msg	give at least one of `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`	şunlardan en az birini verin: `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`
 @msg	`mode` must be grayscale, rgb, hsb, cmyk or websafe	"mod" gri tonlamalı, rgb, hsb, cmyk veya web uyumlu olmalıdır
 @msg	`{k}` must be [x, y]	"{k}" [x, y] olmalıdır
 @msg	`{name}` has no options	`{name}`nin seçeneği yok
@@ -5195,6 +5201,8 @@ theme	Appearance	Görünüm
 @msg	{key} must be an array of non-negative integer object ids	{key}, negatif olmayan tam sayı nesne kimlikleri dizisi olmalıdır
 @msg	invalid object id {value}: expected a non-negative integer	geçersiz nesne kimliği {value}: negatif olmayan bir tam sayı bekleniyordu
 @msg	no such object id {value}	böyle bir nesne kimliği yok: {value}
+@msg	id {value} is a layer, not an object	{value} kimliği bir katmana ait, bir nesneye değil
+@msg	id {value} is a layer, not an object; move layers with layer.move	{value} kimliği bir katmana ait, bir nesneye değil; katmanları layer.move ile taşıyın
 @msg	{key} must be Unix seconds (an integer) or null	{key}, Unix saniyesi (bir tam sayı) veya null olmalıdır
 @msg	its zlib compression is damaged	zlib sıkıştırması hasarlı
 @msg	its Zstandard compression is damaged	Zstandard sıkıştırması hasarlı

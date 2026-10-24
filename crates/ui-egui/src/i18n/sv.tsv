@@ -3821,6 +3821,12 @@ axis	Both	Båda
 @msg	`{key}` must be between {min} and {max} (got {x})	`{key}` måste vara mellan {min} och {max} (fick {x})
 @msg	`{key}` must be one of {_1}	`{key}` måste vara något av {_1}
 @msg	`{key}` must be true or false	`{key}` måste vara true eller false
+@msg	`select` must be true or false	`select` måste vara true eller false
+@msg	`minAnchors` and `maxAnchors` must be whole numbers	`minAnchors` och `maxAnchors` måste vara heltal
+@msg	`{key}` must be a number not below 0	`{key}` måste vara ett tal som inte är under 0
+@msg	`{key}` must be [x, y, width, height]: four finite numbers, width and height not negative	`{key}` måste vara [x, y, width, height]: fyra ändliga tal, där bredd och höjd inte är negativa
+@msg	`{min_key}` is greater than `{max_key}`	`{min_key}` är större än `{max_key}`
+@msg	give at least one of `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`	ange minst en av `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`
 @msg	`{k}` must be [x, y]	`{k}` måste vara [x, y]
 @msg	`{name}` has no options	`{name}` har inga alternativ
 @msg	`{name}` is a built-in workspace; choose another name	`{name}` är en inbyggd arbetsyta; välj ett annat namn
@@ -4406,6 +4412,8 @@ axis	Both	Båda
 @msg	{key} must be an array of non-negative integer object ids	{key} måste vara en array med objekt-id:n som är icke-negativa heltal
 @msg	invalid object id {value}: expected a non-negative integer	ogiltigt objekt-id {value}: ett icke-negativt heltal förväntades
 @msg	no such object id {value}	det finns inget objekt med id {value}
+@msg	id {value} is a layer, not an object	id {value} är ett lager, inte ett objekt
+@msg	id {value} is a layer, not an object; move layers with layer.move	id {value} är ett lager, inte ett objekt; flytta lager med layer.move
 @msg	automation filesystem access is not granted: read authority is absent: {path}	automatiseringen har inte fått åtkomst till filsystemet: läsbehörighet saknas: {path}
 @msg	automation filesystem access is not granted: write authority is absent: {path}	automatiseringen har inte fått åtkomst till filsystemet: skrivbehörighet saknas: {path}
 @msg	automation path rejected: outside the read root {root}: {path}	automatiseringssökvägen avvisades: utanför läsroten {root}: {path}
