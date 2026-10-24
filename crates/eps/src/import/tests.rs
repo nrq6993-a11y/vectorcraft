@@ -19,6 +19,12 @@ pub(super) fn read(body: &str) -> crate::Imported {
     import(&eps(body)).unwrap()
 }
 
+#[test]
+fn postscript_put_negative_index_is_refused() {
+    let err = import(&eps("/a [0] def a -1 1 put pop")).unwrap_err();
+    assert!(err.contains("rangecheck") && err.contains("index"));
+}
+
 /// #1714: arrays and dictionaries a program links into themselves or each other are freed with
 /// the interpreter, also the ones it no longer reaches and when it stops on an error.
 #[test]
