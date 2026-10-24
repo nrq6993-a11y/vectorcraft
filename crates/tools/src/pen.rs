@@ -142,6 +142,15 @@ fn pick_endpoint(first: Option<Point>, last: Point, p: Point, tol: f64, tie: End
         (None, None) => None,
     }
 }
+
+/// Endpoint under the pointer while drawing: raw position first, then the snapped hover when the
+/// press would use it (no other open path end under the raw pointer).
+fn pick_active_endpoint(closing_end: Option<Point>, last: Point, raw: Point, snapped: Option<Point>, tol: f64) -> Option<Endpoint> {
+    match pick_endpoint(closing_end, last, raw, tol, Endpoint::First) {
+        Some(ep) => Some(ep),
+        None => snapped.filter(|s| s.distance(raw) > 1e-9).and_then(|s| pick_endpoint(closing_end, last, s, tol, Endpoint::First)),
+    }
+}
 /// Alt held over a handle end, an anchor or a segment of a selected path: the Anchor Point tool's
 /// gesture, within its tolerance.
 fn alt_converts(cx: &ToolContext, p: Point, m: Mods) -> bool {
@@ -415,13 +424,21 @@ impl Tool for PenTool {
         let active = self.active(cx);
         if let Some((id, first, last, _)) = active {
             let closing_end = last_anchor(cx, id).filter(|(_, ai)| *ai > 0).map(|_| first);
-            match pick_endpoint(closing_end, last, p, tol, Endpoint::First) {
+            let snapped = self.hover.filter(|_| open_end_at(cx, p, tol, Some(id)).is_none());
+            match pick_active_endpoint(closing_end, last, p, snapped, tol) {
                 Some(Endpoint::First) => return Cursor::PenClose,
                 Some(Endpoint::Last) => return Cursor::PenConvert,
                 None => {}
             }
-            if !alt_converts(cx, p, m) && open_end_at(cx, p, tol, Some(id)).is_some() {
-                return Cursor::PenJoin;
+            if !alt_converts(cx, p, m) {
+                if open_end_at(cx, p, tol, Some(id)).is_some() {
+                    return Cursor::PenJoin;
+                }
+                if let Some(h) = snapped.filter(|s| s.distance(p) > 1e-9)
+                    && open_end_at(cx, h, tol, Some(id)).is_some()
+                {
+                    return Cursor::PenJoin;
+                }
             }
         }
         if alt_converts(cx, p, m) {
@@ -653,6 +670,34 @@ mod tests {
         assert_eq!((place.path, place.at), (Some(id), first));
         assert_eq!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Up, raw.x, raw.y)), vec![Action::Commit]);
         assert!(!pen.busy() && pen.active(&cx).is_none());
+    }
+
+    #[test]
+    fn snapped_first_endpoint_shows_close_cursor_after_raw_miss() {
+        let first = Point::new(100.0, 300.0);
+        let last = Point::new(200.0, 400.0);
+        let (mut d, id, s) = drawing(vectorcraft_geom::SubPath::polyline(&[first, Point::new(200.0, 300.0), last], false));
+        d.grid.spacing = 100.0;
+        d.grid.subdivisions = 1;
+        let paint = paint();
+        let cx = ToolContext {
+            zoom: 1.0,
+            selection_tolerance: 8.0,
+            smart_guides: false,
+            snap_to_point: false,
+            snap_to_pixel: false,
+            snap_to_grid: true,
+            ..cx(&d, &s, &paint)
+        };
+        let mut pen = PenTool::default();
+        assert!(click(&mut pen, &cx, last.x, last.y, Mods::default()).is_empty());
+        let raw = Point::new(63.0, 303.0);
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Move, raw.x, raw.y)).is_empty());
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenClose);
+        assert_eq!(
+            pen.pointer(&cx, &PointerEvent::new(PointerKind::Down, raw.x, raw.y)),
+            vec![Action::Begin("Close Path".into()), Action::Preview("path.close".into(), json!({"id": id.0}))]
+        );
     }
 
     #[test]
