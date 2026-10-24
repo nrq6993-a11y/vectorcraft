@@ -420,8 +420,13 @@ impl Tool for PenTool {
                 Some(Endpoint::Last) => return Cursor::PenConvert,
                 None => {}
             }
-            if !alt_converts(cx, p, m) && open_end_at(cx, p, tol, Some(id)).is_some() {
-                return Cursor::PenJoin;
+            if !alt_converts(cx, p, m) {
+                let snapped = self.hover.filter(|h| h.distance(p) > 1e-9);
+                if open_end_at(cx, p, tol, Some(id)).is_some()
+                    || snapped.is_some_and(|s| open_end_at(cx, s, tol, Some(id)).is_some())
+                {
+                    return Cursor::PenJoin;
+                }
             }
         }
         if alt_converts(cx, p, m) {
@@ -692,6 +697,44 @@ mod tests {
         );
         assert!(!pen.busy() && pen.active(&cx).is_none());
         assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Up, raw.x, raw.y)).is_empty());
+    }
+
+    #[test]
+    fn snapped_other_endpoint_shows_join_cursor_after_raw_miss() {
+        let first = Point::new(100.0, 300.0);
+        let last = Point::new(200.0, 400.0);
+        let join_at = Point::new(300.0, 400.0);
+        let raw = Point::new(263.0, 403.0);
+        let (mut d, id, s) = drawing(vectorcraft_geom::SubPath::polyline(&[first, Point::new(200.0, 300.0), last], false));
+        let other = d.alloc_id();
+        let path = vectorcraft_geom::PathData::single(vectorcraft_geom::SubPath::polyline(&[join_at, Point::new(400.0, 450.0)], false));
+        d.insert(Some(d.layers[0].id), 2, vectorcraft_doc::Node::path(other, path, vectorcraft_doc::Appearance::default_art())).unwrap();
+        d.grid.spacing = 100.0;
+        d.grid.subdivisions = 1;
+        let paint = paint();
+        let cx = ToolContext {
+            zoom: 1.0,
+            selection_tolerance: 8.0,
+            smart_guides: false,
+            snap_to_point: false,
+            snap_to_pixel: false,
+            snap_to_grid: true,
+            ..cx(&d, &s, &paint)
+        };
+        let mut pen = PenTool::default();
+        assert!(click(&mut pen, &cx, last.x, last.y, Mods::default()).is_empty());
+        assert_eq!(pen.active(&cx).map(|(id, first, last, _)| (id, first, last)), Some((id, first, last)));
+        let tol = cx.tol(5.0).max(cx.point_tol());
+        assert!(raw.distance(join_at) > tol);
+        assert!(open_end_at(&cx, raw, tol, Some(id)).is_none());
+        let from = Leave::segment(&cx, last, false);
+        assert_eq!(DrawSnap::default().press(&cx, raw, &[id], Some(&from)), join_at);
+        assert!(pen.pointer(&cx, &PointerEvent::new(PointerKind::Move, raw.x, raw.y)).is_empty());
+        assert_eq!(pen.cursor(&cx, raw, Mods::default()), Cursor::PenJoin);
+        assert_eq!(
+            pen.pointer(&cx, &PointerEvent::new(PointerKind::Down, raw.x, raw.y)),
+            vec![Action::Exec("path.join".into(), json!({"ids": [id.0, other.0], "ends": ["last", "first"]}))]
+        );
     }
 
     #[test]
