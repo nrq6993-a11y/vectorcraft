@@ -2143,6 +2143,12 @@ file-filter	Templates	範本
 @msg	`command` must be a command whose menu item opens a dialog (see ui.menuDialog)	`command` 必須是選單項目會開啟對話框的指令 (請參閱 ui.menuDialog)
 @msg	`mode` must be grayscale, rgb, hsb, cmyk or websafe	`mode` 必須是 grayscale、rgb、hsb、cmyk 或 websafe
 @msg	`{key}` must be true or false	`{key}` 必須是 true 或 false
+@msg	`select` must be true or false	`select` 必須是 true 或 false
+@msg	`minAnchors` and `maxAnchors` must be whole numbers	`minAnchors` 和 `maxAnchors` 必須是整數
+@msg	`{key}` must be a number not below 0	`{key}` 必須是不小於 0 的數字
+@msg	`{key}` must be [x, y, width, height]: four finite numbers, width and height not negative	`{key}` 必須是 [x, y, width, height]：四個有限數字，寬度和高度不能為負
+@msg	`{min_key}` is greater than `{max_key}`	`{min_key}` 大於 `{max_key}`
+@msg	give at least one of `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`	請至少提供下列其中之一：`name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`
 @msg	brightness must be dark|mediumDark|mediumLight|light	brightness 必須是 dark|mediumDark|mediumLight|light
 @msg	index must be a number or first, previous, next or last	index 必須是數字，或 first、previous、next 或 last
 @msg	index must be a number or first, previous, next or last, not `{other}`	index 必須是數字，或 first、previous、next 或 last，而非 `{other}`
@@ -5046,6 +5052,8 @@ lighting	Light	光源
 @msg	{key} must be an array of non-negative integer object ids	{key} 必須是由非負整數物件 id 組成的陣列
 @msg	invalid object id {value}: expected a non-negative integer	無效的物件 id {value}：應為非負整數
 @msg	no such object id {value}	沒有 id 為 {value} 的物件
+@msg	id {value} is a layer, not an object	id {value} 是圖層，不是物件
+@msg	id {value} is a layer, not an object; move layers with layer.move	id {value} 是圖層，不是物件；請使用 layer.move 移動圖層
 	Move Anchor Point	移動錨點
 @msg	{label} keeps 1 of the document's {n} artboards: the file reopens with one. Turn on Preserve Editing Capabilities to keep them all.	{label} 只保留文件 {n} 個工作區域中的 1 個：檔案重新開啟時只有一個。開啟「保留編輯功能」可全部保留。
 	Chalk & Charcoal…	粉筆和炭筆…

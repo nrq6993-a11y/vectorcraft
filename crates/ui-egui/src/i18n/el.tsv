@@ -2167,6 +2167,12 @@ axis	Both	Και τα δύο
 @msg	`{key}` must be between {min} and {max} (got {x})	Το `{key}` πρέπει να είναι μεταξύ {min} και {max} (δόθηκε {x})
 @msg	`{key}` must be one of {_1}	Το `{key}` πρέπει να είναι ένα από τα {_1}
 @msg	`{key}` must be true or false	Το `{key}` πρέπει να είναι true ή false
+@msg	`select` must be true or false	Το `select` πρέπει να είναι true ή false
+@msg	`minAnchors` and `maxAnchors` must be whole numbers	Τα `minAnchors` και `maxAnchors` πρέπει να είναι ακέραιοι αριθμοί
+@msg	`{key}` must be a number not below 0	Το `{key}` πρέπει να είναι αριθμός όχι μικρότερος από 0
+@msg	`{key}` must be [x, y, width, height]: four finite numbers, width and height not negative	Το `{key}` πρέπει να είναι [x, y, width, height]: τέσσερις πεπερασμένοι αριθμοί, με πλάτος και ύψος όχι αρνητικά
+@msg	`{min_key}` is greater than `{max_key}`	Το `{min_key}` είναι μεγαλύτερο από το `{max_key}`
+@msg	give at least one of `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`	δώστε τουλάχιστον ένα από τα `name`, `kind`, `text`, `within`, `intersects`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `minThickness`, `maxThickness`, `minArea`, `maxArea`, `minAnchors`, `maxAnchors`
 @msg	`{k}` must be [x, y]	Το `{k}` πρέπει να είναι [x, y]
 @msg	`{name}` has no options	Το `{name}` δεν έχει επιλογές
 @msg	`{name}` is a built-in workspace; choose another name	Το `{name}` είναι ενσωματωμένος χώρος εργασίας· επιλέξτε άλλο όνομα
@@ -4464,6 +4470,8 @@ theme	Appearance	Εμφάνιση
 @msg	{key} must be an array of non-negative integer object ids	{key}: πρέπει να είναι πίνακας αναγνωριστικών αντικειμένων που είναι μη αρνητικοί ακέραιοι
 @msg	invalid object id {value}: expected a non-negative integer	μη έγκυρο αναγνωριστικό αντικειμένου {value}: αναμένεται μη αρνητικός ακέραιος
 @msg	no such object id {value}	δεν υπάρχει αντικείμενο με αναγνωριστικό {value}
+@msg	id {value} is a layer, not an object	το αναγνωριστικό {value} είναι επίπεδο, όχι αντικείμενο
+@msg	id {value} is a layer, not an object; move layers with layer.move	το αναγνωριστικό {value} είναι επίπεδο, όχι αντικείμενο· μετακινήστε τα επίπεδα με το layer.move
 @msg	automation filesystem access is not granted: read authority is absent: {path}	δεν έχει επιτραπεί πρόσβαση αυτοματισμού στο σύστημα αρχείων: δεν υπάρχει δικαίωμα ανάγνωσης: {path}
 @msg	automation filesystem access is not granted: write authority is absent: {path}	δεν έχει επιτραπεί πρόσβαση αυτοματισμού στο σύστημα αρχείων: δεν υπάρχει δικαίωμα εγγραφής: {path}
 @msg	automation path rejected: outside the read root {root}: {path}	απορρίφθηκε η διαδρομή αυτοματισμού: εκτός ρίζας ανάγνωσης {root}: {path}
