@@ -644,7 +644,7 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
             format(app, json!({"leadingModel": "romanBaseline"}));
         }
         // Hanging punctuation: a comma or full stop ending a line stands outside it.
-        let hang = style.as_ref().map(|(_, p)| p.burasagari);
+        let burasagari = shared_para(app, |p| p.burasagari);
         ui.add_enabled_ui(has, |ui| {
             // Indented like the items beside it (their check column).
             ui.menu_button(format!("   {}", tl!("Burasagari")), |ui| {
@@ -654,7 +654,7 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
                     (tl!("Regular"), Burasagari::Standard, "standard"),
                     (tl!("Force"), Burasagari::Forced, "forced"),
                 ] {
-                    if menu_item(ui, label, true, hang == Some(b)) {
+                    if menu_item(ui, label, true, burasagari == Some(b)) {
                         format(app, json!({"burasagari": key}));
                     }
                 }
@@ -780,6 +780,19 @@ mod tests {
         assert_eq!(shared_composer(&app), None);
         app.run("text.setFormat", json!({"id": id, "composer": "everyLine"})).unwrap();
         assert_eq!(shared_composer(&app), Some(Composer::EveryLine));
+    }
+
+    #[test]
+    fn paragraph_mixed_burasagari_checks_neither_menu_item() {
+        use vectorcraft_doc::Burasagari;
+        let (mut app, id) = editing_text("A\nB\n");
+        app.session.prefs.show_east_asian_options = true;
+        app.run("text.setFormat", json!({"id": id, "burasagari": "none"})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "burasagari": "forced"})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.burasagari), None);
+        app.run("text.setFormat", json!({"id": id, "burasagari": "forced"})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.burasagari), Some(Burasagari::Forced));
     }
 
     #[test]
