@@ -13,7 +13,7 @@ use vectorcraft_geom::{Anchor, AnchorKind, BezPath, FillRule, PathData, Point, R
 use vectorcraft_pathops as po;
 use vectorcraft_pathops::{BoolOp, Cap, Join, SimplifyOptions};
 
-use super::create::{add_look, insert_look};
+use super::create::{add_look, constrain_bbox_angle, insert_look, insert_look_turned};
 use super::newart::NewArt;
 use super::pathops::{Beside, remove_each};
 use super::*;
@@ -773,7 +773,15 @@ fn freehand(s: &mut Session, p: &Value) -> Result<Value> {
     if let Some(st) = look.appearance.stroke_mut() {
         st.pressure = pressure;
     }
-    insert_look(s, if brush { "Paintbrush" } else { "Pencil" }, path_kind(PathData::single(sp)), look, None, keep_selected)
+    insert_look_turned(
+        s,
+        if brush { "Paintbrush" } else { "Pencil" },
+        path_kind(PathData::single(sp)),
+        look,
+        None,
+        keep_selected,
+        constrain_bbox_angle(s),
+    )
 }
 
 // ---------- Curvature ----------

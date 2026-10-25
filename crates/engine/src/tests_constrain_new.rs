@@ -330,6 +330,22 @@ fn constrain_angle_turns_the_new_objects_bounding_box() {
     assert_eq!(selection_rotation(&s).to_bits(), 0.0f64.to_bits());
 }
 
+/// Pencil strokes from `path.freehand` take the Constrain Angle on their bounding box, as rectangles
+/// and type drawn along the turned axes do.
+#[test]
+fn constrain_angle_turns_new_pencil_paths() {
+    let mut s = new_doc();
+    s.execute("shape.rectangle", &json!({"x": 300, "y": 300, "width": 40, "height": 20})).unwrap();
+    s.execute("object.rotate", &json!({"angle": 30})).unwrap();
+    let turned = selection_rotation(&s);
+    set_angle(&mut s, 30.0);
+    s.execute("path.freehand", &json!({"points": [[100, 100], [150, 120], [200, 100]]})).unwrap();
+    assert!(close(selection_rotation(&s), turned), "{}", selection_rotation(&s));
+    set_angle(&mut s, 0.0);
+    s.execute("path.freehand", &json!({"points": [[0, 0], [50, 10], [100, 0]]})).unwrap();
+    assert_eq!(bbox_angle(&s, last_id(&s)).to_bits(), 0.0f64.to_bits());
+}
+
 /// The grid commands refuse a `rotation` that is not a number.
 #[test]
 fn grid_rotation_must_be_a_number() {

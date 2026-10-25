@@ -125,6 +125,11 @@ fn bbox_turn(rotation: f64) -> f64 {
     if a == 0.0 { 0.0 } else { a }
 }
 
+/// General › Constrain Angle turned on the page: the bounding-box angle new art should take.
+pub(crate) fn constrain_bbox_angle(s: &Session) -> f64 {
+    vectorcraft_geom::constrain_rotation(s.prefs.constrain_angle).map(bbox_turn).unwrap_or(0.0)
+}
+
 /// A polygon's or star's `rotation` when it is the base orientation turned by General › Constrain
 /// Angle (a Shift-drawn or click-made one), so its bounding box turns with it; else 0: a polygon
 /// turned by the drag's direction keeps its box on the page's axes, as before.
@@ -136,7 +141,7 @@ fn constrained_turn(s: &Session, rotation: f64) -> f64 {
 }
 
 /// [`insert_look`] with the new object's bounding box turned to `bbox_angle`.
-fn insert_look_turned(
+pub(crate) fn insert_look_turned(
     s: &mut Session,
     label: &str,
     kind: NodeKind,
