@@ -618,9 +618,9 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
     ui.separator();
     // Quotation marks, hyphens, full stops and commas at a line's ends hang outside the margin.
-    let roman = style.as_ref().is_some_and(|(_, p)| p.roman_hanging);
-    if menu_item(ui, tl!("Roman Hanging Punctuation"), has, roman) {
-        format(app, json!({"romanHangingPunctuation": !roman}));
+    let roman = shared_para(app, |p| p.roman_hanging);
+    if menu_item(ui, tl!("Roman Hanging Punctuation"), has, roman == Some(true)) {
+        format(app, json!({"romanHangingPunctuation": roman != Some(true)}));
     }
     if menu_item(ui, tl!("Justification…"), has, false)
         && let Err(e) = app.run("ui.justification", json!({}))
@@ -791,6 +791,17 @@ mod tests {
         assert_eq!(shared_hyphenate(&app), None);
         app.run("text.setFormat", json!({"id": id, "hyphenate": true})).unwrap();
         assert_eq!(shared_hyphenate(&app), Some(true));
+    }
+
+    #[test]
+    fn paragraph_mixed_roman_hanging_checks_off() {
+        let (mut app, id) = editing_text("A\nB\n");
+        app.run("text.setFormat", json!({"id": id, "romanHangingPunctuation": true})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "romanHangingPunctuation": false})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.roman_hanging), None);
+        app.run("text.setFormat", json!({"id": id, "romanHangingPunctuation": true})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.roman_hanging), Some(true));
     }
 
     #[test]
