@@ -1271,6 +1271,7 @@ fn new_type_starts_with_placeholder_text() {
 /// glyph for keep the font that has one; off, they take the new font.
 #[test]
 fn missing_glyph_protection_keeps_glyphs_a_new_font_lacks() {
+    let _fonts = crate::adding_fonts();
     let (from, to, c) = ("Source Sans 3", "JetBrains Mono", '\u{180}');
     let db = vectorcraft_text::FontDb::global();
     let covers = |f: &str| db.face(f, "Regular").is_some_and(|face| face.covers(c));
@@ -1296,6 +1297,7 @@ fn missing_glyph_protection_keeps_glyphs_a_new_font_lacks() {
 /// Font settings too; the characters that take the new font lose them.
 #[test]
 fn missing_glyph_protection_keeps_the_variable_font_settings_of_the_font_kept() {
+    let _fonts = crate::adding_fonts();
     use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY as FROM, two_axis_font};
     let (to, c) = ("JetBrains Mono", '\u{180}');
     let db = vectorcraft_text::FontDb::global();
@@ -1321,6 +1323,7 @@ fn missing_glyph_protection_keeps_the_variable_font_settings_of_the_font_kept() 
 /// type names.
 #[test]
 fn missing_glyph_protection_keeps_the_version_of_the_font_kept() {
+    let _fonts = crate::adding_fonts();
     use vectorcraft_text::test_fonts::{TWIN_FAMILY as FROM, TWIN_VERSIONS, twin_font};
     let (to, c) = ("JetBrains Mono", '\u{180}');
     let db = vectorcraft_text::FontDb::global();
