@@ -47,7 +47,8 @@ fn fills_of(pdf: &[u8]) -> Vec<(vectorcraft_color::Paint, vectorcraft_geom::Rect
 }
 
 /// A session with `family`, the SVG test font of `document` for [`SVG_CHAR`]'s glyph, and 32 pt
-/// type of `SVG_CHAR` and `F` in it at (10, 50).
+/// type of `SVG_CHAR` and `F` in it at (10, 50). Callers must hold [`crate::adding_fonts`]: it
+/// adds a font to the shared database.
 fn with_svg_type(family: &str, document: &str) -> Session {
     let g = source_sans_gid(SVG_CHAR).unwrap();
     let mut s = session();
@@ -245,6 +246,7 @@ fn an_envelope_shares_and_expands_the_emoji_of_its_type() {
 /// into the document.
 #[test]
 fn svg_glyph_images_draw_and_outline() {
+    let _fonts = crate::adding_fonts();
     let g = source_sans_gid(SVG_CHAR).unwrap();
     let png = vectorcraft_text::test_fonts::solid_png(4, [0, 0, 255, 255]);
     let doc = format!(
