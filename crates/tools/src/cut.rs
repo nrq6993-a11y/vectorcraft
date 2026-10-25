@@ -181,7 +181,11 @@ impl Tool for CutTool {
         };
         let far = d * cx.tol(10_000.0);
         let mid = if self.constrained() { b } else { a };
-        vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }]
+        let mut out = vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }];
+        if cx.measurement_labels && self.began && self.id == "mirrorCut" && !self.constrained() && a.distance(b) >= cx.tol(MIN_DRAG_PX) {
+            out.push(Overlay::Measure { p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: cx.segment_measure_label(a, b) });
+        }
+        out
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         Cursor::Crosshair
@@ -286,18 +290,38 @@ mod tests {
     }
 
     #[test]
+    fn mirror_cut_free_drag_shows_segment_measurement_labels() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let base = cx(&d, &s, &p);
+        let on = ToolContext { measurement_labels: true, ..base };
+        let off = ToolContext { measurement_labels: false, ..base };
+        let mut t = CutTool::new("mirrorCut");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 250.0, 160.0));
+        let from = Point::new(50.0, 150.0);
+        let to = Point::new(250.0, 160.0);
+        let want = on.segment_measure_label(from, to);
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+    }
+
+    #[test]
     fn escape_cancels_the_preview() {
         let (d, id) = doc_with_rect();
         let mut s = Selection::default();
         s.set([id]);
         let p = paint();
-        let cx = cx(&d, &s, &p);
+        let tool_cx = cx(&d, &s, &p);
+        let quiet = ToolContext { measurement_labels: false, ..tool_cx };
         let mut t = CutTool::new("lineCut");
-        t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
-        let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 250.0));
+        t.pointer(&quiet, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
+        let a = t.pointer(&quiet, &PointerEvent::new(PointerKind::Drag, 150.0, 250.0));
         assert_eq!(a.len(), 2);
-        assert_eq!(t.overlays(&cx).len(), 1);
-        assert_eq!(t.key(&cx, ToolKey::Escape, Mods::default()), vec![Action::Cancel]);
-        assert!(!t.busy() && t.overlays(&cx).is_empty());
+        assert_eq!(t.overlays(&quiet).len(), 1);
+        assert_eq!(t.key(&tool_cx, ToolKey::Escape, Mods::default()), vec![Action::Cancel]);
+        assert!(!t.busy() && t.overlays(&tool_cx).is_empty());
     }
 }
