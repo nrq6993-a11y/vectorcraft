@@ -1494,6 +1494,38 @@ mod tests {
         );
     }
 
+    /// #4139: Direct Selection picks one path of a compound path, not the whole compound.
+    #[test]
+    fn direct_selection_picks_a_compound_path_member() {
+        let mut d = vectorcraft_doc::Document::new(500.0, 500.0);
+        let l = d.layers[0].id;
+        let (outer, hole, compound) = (d.alloc_id(), d.alloc_id(), d.alloc_id());
+        let rect = |id, a: f64, b: f64| {
+            std::sync::Arc::new(vectorcraft_doc::Node::path(id, vectorcraft_geom::shapes::rectangle(Rect::new(a, a, b, b)), Default::default()))
+        };
+        let mut c = vectorcraft_doc::Node::new(
+            compound,
+            vectorcraft_doc::NodeKind::Compound {
+                children: vec![rect(outer, 0.0, 200.0), rect(hole, 50.0, 150.0)],
+                rule: vectorcraft_geom::FillRule::EvenOdd,
+            },
+        );
+        c.appearance = vectorcraft_doc::Appearance::default_art().into();
+        d.insert(Some(l), 0, c).unwrap();
+        let p = paint();
+        let none = Selection::default();
+        let click = |x, y| DirectSelectionTool::new(false).pointer(&cx(&d, &none, &p), &PointerEvent::new(PointerKind::Down, x, y));
+        let set = |id: NodeId| vec![Action::Exec("select.set".into(), json!({"ids": [id.0]}))];
+        assert_eq!(click(25.0, 100.0), set(outer), "the ring between the outline and the hole");
+        let a = click(50.0, 100.0);
+        assert_ne!(a, set(compound), "not the whole compound path");
+        assert_eq!(
+            a,
+            vec![Action::Exec("select.segments".into(), json!({"id": hole.0, "segments": [[0, 3]]}))],
+            "the hole's outline"
+        );
+    }
+
     /// #2441: Group Selection picks one path of a compound path (the outer shape or a hole);
     /// a second click on it adds the compound path, like a group around a member.
     #[test]
