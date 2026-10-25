@@ -181,7 +181,11 @@ impl Tool for CutTool {
         };
         let far = d * cx.tol(10_000.0);
         let mid = if self.constrained() { b } else { a };
-        vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }]
+        let mut out = vec![Overlay::Line { a: mid - far, b: mid + far, color: FEEDBACK, dashed: true }];
+        if cx.measurement_labels && self.id == "lineCut" {
+            out.push(Overlay::Measure { p: b + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: cx.segment_measure_label(a, b) });
+        }
+        out
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         Cursor::Crosshair
@@ -286,6 +290,22 @@ mod tests {
     }
 
     #[test]
+    fn line_cut_drag_shows_segment_measurement_labels() {
+        let (d, id) = doc_with_rect();
+        let mut s = Selection::default();
+        s.set([id]);
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = CutTool::new("lineCut");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 150.0, 250.0));
+        let want = on.segment_measure_label(Point::new(150.0, 50.0), Point::new(150.0, 250.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        assert!(!t.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+    }
+
+    #[test]
     fn escape_cancels_the_preview() {
         let (d, id) = doc_with_rect();
         let mut s = Selection::default();
@@ -296,7 +316,8 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 150.0, 50.0));
         let a = t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 150.0, 250.0));
         assert_eq!(a.len(), 2);
-        assert_eq!(t.overlays(&cx).len(), 1);
+        let quiet = ToolContext { measurement_labels: false, ..cx };
+        assert_eq!(t.overlays(&quiet).len(), 1);
         assert_eq!(t.key(&cx, ToolKey::Escape, Mods::default()), vec![Action::Cancel]);
         assert!(!t.busy() && t.overlays(&cx).is_empty());
     }
