@@ -125,6 +125,11 @@ fn bbox_turn(rotation: f64) -> f64 {
     if a == 0.0 { 0.0 } else { a }
 }
 
+/// Bounding-box angle for new art when General › Constrain Angle is set.
+fn constrain_bbox_angle(s: &Session) -> f64 {
+    vectorcraft_geom::constrain_rotation(s.prefs.constrain_angle).map(bbox_turn).unwrap_or(0.0)
+}
+
 /// A polygon's or star's `rotation` when it is the base orientation turned by General › Constrain
 /// Angle (a Shift-drawn or click-made one), so its bounding box turns with it; else 0: a polygon
 /// turned by the drag's direction keeps its box on the page's axes, as before.
@@ -495,7 +500,7 @@ fn line(s: &mut Session, p: &Value) -> Result<Value> {
         if s.paint.stroke.is_none() { vectorcraft_color::Paint::solid(vectorcraft_color::Color::BLACK) } else { s.paint.stroke.clone() },
         s.paint.stroke_width.max(0.1),
     );
-    add_look(s, "Line", path_kind(live.to_path(), Some(live)), look, None)
+    insert_look_turned(s, "Line", path_kind(live.to_path(), Some(live)), look, None, true, constrain_bbox_angle(s))
 }
 
 fn spiral(s: &mut Session, p: &Value) -> Result<Value> {

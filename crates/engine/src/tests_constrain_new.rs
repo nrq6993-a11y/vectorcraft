@@ -282,6 +282,22 @@ fn bbox_angle(s: &Session, id: NodeId) -> f64 {
     s.doc().unwrap().doc.node(id).unwrap().bbox_angle
 }
 
+/// Line segments from `shape.line` take the Constrain Angle on their bounding box, as rectangles
+/// and type drawn along the turned axes do.
+#[test]
+fn constrain_angle_turns_new_line_segments() {
+    let mut s = new_doc();
+    s.execute("shape.rectangle", &json!({"x": 300, "y": 300, "width": 40, "height": 20})).unwrap();
+    s.execute("object.rotate", &json!({"angle": 30})).unwrap();
+    let turned = selection_rotation(&s);
+    set_angle(&mut s, 30.0);
+    s.execute("shape.line", &json!({"x1": 100, "y1": 100, "x2": 200, "y2": 100})).unwrap();
+    assert!(close(selection_rotation(&s), turned), "{}", selection_rotation(&s));
+    set_angle(&mut s, 0.0);
+    s.execute("shape.line", &json!({"x1": 0, "y1": 0, "x2": 50, "y2": 0})).unwrap();
+    assert_eq!(bbox_angle(&s, last_id(&s)).to_bits(), 0.0f64.to_bits());
+}
+
 /// Objects drawn along a Constrain Angle keep a bounding box turned with them, as after the Rotate
 /// tool: at 30° the selection's rotation is 30°, the same as a rectangle turned 30° by
 /// `object.rotate`; at 0° and whole turns the box stays on the page (exactly 0, not −0).
