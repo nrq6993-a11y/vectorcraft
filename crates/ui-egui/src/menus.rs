@@ -1963,9 +1963,8 @@ pub fn checked(app: &VectorcraftApp, id: &str, p: &Value) -> Option<bool> {
         found
     };
     Some(match id {
-        "type.orientation.vertical" | "type.orientation.horizontal" => {
-            selected_text(false).is_some_and(|t| t.vertical == (id == "type.orientation.vertical"))
-        }
+        "type.orientation.vertical" | "type.orientation.horizontal" => crate::panels::character::shared_text_flag(app, false, |t| t.vertical)
+            .is_some_and(|vertical| vertical == (id == "type.orientation.vertical")),
         // Checked when the first type object `selected_text` finds has it on.
         "type.opticalMarginAlignment" => selected_text(false).is_some_and(|t| t.optical_margin),
         "view.outline" => v.outline,
@@ -4531,6 +4530,21 @@ mod tests {
         app.run(id, json!({})).unwrap();
         assert_eq!(checked(&app, id, &Value::Null), Some(true));
         app.run("type.orientation.vertical", json!({})).unwrap();
+        assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
+        assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
+    }
+
+    #[test]
+    fn type_orientation_menu_shows_neither_when_selection_mixes() {
+        let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({})).unwrap();
+        let a = app.run("text.create", json!({"x": 10, "y": 10, "text": "A"})).unwrap()["id"].clone();
+        let b = app.run("text.create", json!({"x": 10, "y": 40, "text": "B"})).unwrap()["id"].clone();
+        app.run("type.orientation.vertical", json!({"id": a})).unwrap();
+        app.run("select.set", json!({"ids": [a, b]})).unwrap();
+        assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(false));
+        assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
+        app.run("type.orientation.vertical", json!({"id": b})).unwrap();
         assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
         assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
     }

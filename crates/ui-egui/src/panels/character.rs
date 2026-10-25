@@ -54,6 +54,22 @@ pub(crate) fn first_selected_text(app: &VectorcraftApp) -> Option<&vectorcraft_d
     None
 }
 
+/// Whether every selected text object agrees on `f`; `None` when they differ or none are selected.
+pub(crate) fn shared_text_flag(app: &VectorcraftApp, onpath: bool, f: impl Fn(&vectorcraft_doc::TextObject) -> bool) -> Option<bool> {
+    let st = app.session.active()?;
+    let mut acc = Shared::None;
+    for n in st.selection.objects.iter().filter_map(|id| st.doc.node(*id)) {
+        n.walk(&mut |c| {
+            if let NodeKind::Text(t) = &c.kind
+                && (!onpath || matches!(t.kind, vectorcraft_engine::doc::TextKind::OnPath { .. }))
+            {
+                acc.add(f(t));
+            }
+        });
+    }
+    acc.value()
+}
+
 /// `f` of the character styles the panels act on: the runs the Type tool's selection covers (the
 /// caret's style at a caret), else every run of the selected type, groups' included. `None` (a
 /// blank field) where they differ, or with no type.
