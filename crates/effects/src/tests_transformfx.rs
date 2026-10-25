@@ -7,7 +7,7 @@ use vectorcraft_doc::{Appearance, Dash, Effect, Node, NodeId, NodeKind};
 use vectorcraft_geom::{Affine, Rect, shapes};
 
 use crate::distort::{TransformOptions, transform_map, transform_move};
-use crate::{has_transform_art, has_transform_options, reshape};
+use crate::{GeomContext, apply_geometry_with, has_transform_art, has_transform_options, reshape};
 
 fn transform(params: Value) -> Effect {
     Effect { id: "distort.transform".into(), params, visible: true }
@@ -141,6 +141,18 @@ fn transform_patterns_with_objects_off_moves_only_the_pattern() {
     assert_eq!(paths.len(), 1);
     assert_eq!(paths[0].geometric_bounds().unwrap(), Rect::new(0.0, 0.0, 100.0, 100.0));
     assert_ne!(pattern_xf(paths[0]), Affine::IDENTITY);
+}
+
+#[test]
+fn transform_scale_strokes_scales_a_later_geometry_effect_distance() {
+    let b = Rect::new(0.0, 0.0, 100.0, 100.0);
+    let path = shapes::rectangle(b);
+    let stack = [
+        transform(json!({"scaleH": 50, "scaleV": 50, "strokes": true})),
+        Effect { id: "path.offsetPath".into(), params: json!({"offset": 10}), visible: true },
+    ];
+    let out = apply_geometry_with(&stack, &path, b, &GeomContext::default());
+    assert!(close(out.bounds().unwrap().width(), 60.0), "{:?}", out.bounds());
 }
 
 #[test]

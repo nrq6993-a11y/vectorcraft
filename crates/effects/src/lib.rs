@@ -1169,6 +1169,7 @@ pub(crate) fn apply_geometry_within(effects: &[Effect], path: &PathData, bounds:
     let mut cur = path.clone();
     let mut b = bounds;
     let mut first = true;
+    let mut stroke_scale = 1.0;
     for e in effects.iter().filter(|e| e.visible && is_geometry(&e.id)) {
         if !first {
             b = cur.bounds().unwrap_or(b);
@@ -1177,9 +1178,22 @@ pub(crate) fn apply_geometry_within(effects: &[Effect], path: &PathData, bounds:
         if cur.is_empty() {
             break;
         }
-        let p = merged_params(&e.id, &e.params);
+        let mut eff = e.clone();
+        if stroke_scale != 1.0 && eff.id != "distort.transform" {
+            scale_effect(&mut eff, stroke_scale);
+        }
+        let p = merged_params(&eff.id, &eff.params);
+        if eff.id == "distort.transform" {
+            let options = crate::distort::TransformOptions::of(&p);
+            if options.strokes {
+                let map = crate::distort::transform_affine(b, &p, ctx.seed);
+                if let Some(k) = vectorcraft_doc::Scaling::factor(map).filter(|k| k.is_finite() && *k > 0.0) {
+                    stroke_scale *= k;
+                }
+            }
+        }
         let limit = *limit.get_or_insert_with(|| budget.at_least(Budget::of(path)));
-        if let Some(next) = apply_one(&e.id, &p, &cur, b, ctx, limit) {
+        if let Some(next) = apply_one(&eff.id, &p, &cur, b, ctx, limit) {
             cur = next;
         }
     }
