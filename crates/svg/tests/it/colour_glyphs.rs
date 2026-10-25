@@ -23,7 +23,7 @@ fn doc() -> Document {
 
 #[test]
 fn outlined_text_writes_bitmap_glyphs_as_images() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     let svg = export_full(&doc(), &ExportOptions { outline_text: true, ..Default::default() }, None).svg;
     assert_eq!(svg.matches("<image ").count(), 1, "{svg}");
     assert!(svg.contains("width=\"16\" height=\"16\"") && svg.contains("xlink:href=\"data:image/png;base64,"), "{svg}");
@@ -32,7 +32,7 @@ fn outlined_text_writes_bitmap_glyphs_as_images() {
 
 #[test]
 fn embedded_fonts_leave_bitmap_glyphs_to_the_viewer() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     let out = export_full(&doc(), &ExportOptions { embed_fonts: true, ..Default::default() }, None);
     let data = out.svg.split("base64,").nth(1).unwrap().split(')').next().unwrap();
     let font = base64_decode(data).unwrap();
@@ -58,7 +58,7 @@ fn colr_doc(v1: bool, text: impl std::fmt::Display) -> Document {
 
 #[test]
 fn outlined_text_writes_colr_glyphs_as_vector_art() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     let svg = export_full(&colr_doc(true, COLOUR_CHAR), &ExportOptions { outline_text: true, ..Default::default() }, None).svg;
     assert!(!svg.contains("<image "), "{svg}");
     assert!(svg.contains("<linearGradient") && svg.contains("<radialGradient"), "{svg}");
@@ -71,7 +71,7 @@ fn outlined_text_writes_colr_glyphs_as_vector_art() {
 
 #[test]
 fn outlined_text_writes_a_sweep_glyph_as_its_image() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::COLR_SWEEP_CHAR;
     let svg = export_full(&colr_doc(true, COLR_SWEEP_CHAR), &ExportOptions { outline_text: true, ..Default::default() }, None).svg;
     assert_eq!(svg.matches("<image ").count(), 1, "{svg}");
@@ -79,7 +79,7 @@ fn outlined_text_writes_a_sweep_glyph_as_its_image() {
 
 #[test]
 fn embedded_fonts_leave_colr_glyphs_to_the_viewer() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     let out = export_full(&colr_doc(false, COLOUR_CHAR), &ExportOptions { embed_fonts: true, ..Default::default() }, None);
     assert!(!out.svg.contains("base64,"), "no subset without its colour layers: {}", out.svg);
     assert!(out.warnings.iter().any(|w| w.contains("emoji")), "{:?}", out.warnings);
@@ -90,7 +90,7 @@ fn embedded_fonts_leave_colr_glyphs_to_the_viewer() {
 /// plain character set over a colour one stays on top.
 #[test]
 fn outlined_colour_glyphs_stay_under_their_runs_paint() {
-    let _fonts = test_font_db::changing_fonts();
+    let _fonts = crate::test_font_db::changing_fonts();
     let outlined = ExportOptions { outline_text: true, ..Default::default() };
     let svg = export_full(&doc(), &outlined, None).svg;
     assert!(svg.find("<image ").unwrap() < svg.find("<path").unwrap(), "the emoji, then the run: {svg}");
