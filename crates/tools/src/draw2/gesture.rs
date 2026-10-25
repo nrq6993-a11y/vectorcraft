@@ -402,6 +402,11 @@ impl Tool for GestureTool {
         };
         let color = if self.id == "eraser" { [0x80, 0x80, 0x80] } else { FEEDBACK };
         o.push(Overlay::Path { path: polyline(&self.points), color, width, dashed: self.id == "knife" });
+        if cx.measurement_labels && self.id == "eraser" {
+            let last = self.points[self.points.len() - 1];
+            let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
+            o.push(Overlay::Measure { p: last + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("L: {}", cx.len(length)) });
+        }
         o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, m: Mods) -> Cursor {
@@ -780,6 +785,24 @@ mod tests {
         assert_eq!(k.overlays(&cx).len(), 1);
         let a = k.pointer(&cx, &PointerEvent::new(PointerKind::Up, 250.0, 150.0));
         assert!(matches!(&a[0], Action::Exec(c, v) if c == "path.knife" && v["points"].as_array().unwrap().len() == 3));
+    }
+
+    #[test]
+    fn eraser_drag_shows_scrub_length_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = GestureTool::new("eraser");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        let want = format!("L: {}", on.len(100.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        let mut quiet = GestureTool::new("eraser");
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
