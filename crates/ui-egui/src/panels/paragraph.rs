@@ -636,11 +636,12 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     // the East Asian options.
     if app.session.prefs.show_east_asian_options {
         ui.separator();
-        let top_to_top = style.as_ref().is_some_and(|(_, p)| p.leading_model == vectorcraft_doc::LeadingModel::EmBoxTop);
+        let leading_model = shared_para(app, |p| p.leading_model);
+        let top_to_top = leading_model == Some(vectorcraft_doc::LeadingModel::EmBoxTop);
         if menu_item(ui, tl!("Top-to-Top Leading"), has, top_to_top) {
             format(app, json!({"leadingModel": "emBoxTop"}));
         }
-        if menu_item(ui, tl!("Bottom-to-Bottom Leading"), has, has && !top_to_top) {
+        if menu_item(ui, tl!("Bottom-to-Bottom Leading"), has, leading_model == Some(vectorcraft_doc::LeadingModel::RomanBaseline)) {
             format(app, json!({"leadingModel": "romanBaseline"}));
         }
         // Hanging punctuation: a comma or full stop ending a line stands outside it.
@@ -791,6 +792,19 @@ mod tests {
         assert_eq!(shared_hyphenate(&app), None);
         app.run("text.setFormat", json!({"id": id, "hyphenate": true})).unwrap();
         assert_eq!(shared_hyphenate(&app), Some(true));
+    }
+
+    #[test]
+    fn paragraph_mixed_leading_model_checks_neither_menu_item() {
+        use vectorcraft_doc::LeadingModel;
+        let (mut app, id) = editing_text("A\nB\n");
+        app.session.prefs.show_east_asian_options = true;
+        app.run("text.setFormat", json!({"id": id, "leadingModel": "romanBaseline"})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "leadingModel": "emBoxTop"})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.leading_model), None);
+        app.run("text.setFormat", json!({"id": id, "leadingModel": "emBoxTop"})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.leading_model), Some(LeadingModel::EmBoxTop));
     }
 
     #[test]
