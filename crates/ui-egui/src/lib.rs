@@ -70,6 +70,8 @@ pub mod workspaces;
 
 mod document_drag;
 #[cfg(test)]
+mod test_font_db;
+#[cfg(test)]
 mod tests_adjust;
 #[cfg(test)]
 mod tests_aisave;

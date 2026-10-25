@@ -1065,6 +1065,7 @@ mod tests {
     /// font names it; a drag along one sets that axis of the selected type in one undo step.
     #[test]
     fn variable_fonts_get_a_slider_per_axis() {
+        let _fonts = crate::test_font_db::changing_fonts();
         use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY, two_axis_font};
         let db = vectorcraft_text::FontDb::global();
         db.add_font(two_axis_font().unwrap());

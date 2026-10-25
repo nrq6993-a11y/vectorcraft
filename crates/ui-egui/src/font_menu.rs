@@ -1093,6 +1093,7 @@ mod tests {
     /// filters; clicked again, every family is back.
     #[test]
     fn the_variable_filter_lists_only_variable_families() {
+        let _fonts = crate::test_font_db::changing_fonts();
         use vectorcraft_text::FontClass;
         use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY, two_axis_font};
         let db = vectorcraft_text::FontDb::global();

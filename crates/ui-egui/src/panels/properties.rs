@@ -1354,6 +1354,7 @@ mod tests {
     /// Variable fonts get the same Variable Font button in Properties as in the Character panel.
     #[test]
     fn properties_variable_font_button_for_variable_type() {
+        let _fonts = crate::test_font_db::changing_fonts();
         use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY, two_axis_font};
         vectorcraft_text::FontDb::global().add_font(two_axis_font().unwrap());
         let mut app = VectorcraftApp::new(Session::new(), Default::default());
