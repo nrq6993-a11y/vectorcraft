@@ -1231,6 +1231,7 @@ fn layer_names_outside_latin_1_are_replaced_and_warned() {
 /// Type written as outlines writes its colour bitmap glyphs (emoji) as images where they sit.
 #[test]
 fn colour_bitmap_glyphs_of_outlined_type_are_images() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_doc::{CharStyle, TextObject};
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, colour_bitmap_family, colour_bitmap_font};
     vectorcraft_text::FontDb::global().add_font(colour_bitmap_font(false).unwrap());
@@ -1249,6 +1250,7 @@ fn colour_bitmap_glyphs_of_outlined_type_are_images() {
 
 #[test]
 fn colr_glyphs_of_outlined_type_are_vector_art() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_doc::{CharStyle, TextObject};
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, colr_family, colr_font};
     vectorcraft_text::FontDb::global().add_font(colr_font(false).unwrap());

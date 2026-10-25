@@ -412,4 +412,6 @@ pub fn thumbnail(bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
+mod test_font_db;
+#[cfg(test)]
 mod tests;
