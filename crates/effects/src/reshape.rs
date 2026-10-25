@@ -497,11 +497,7 @@ pub(crate) fn apply_item_transform_options(item: &mut AppearanceItem, effects: &
             continue;
         }
         let m = crate::distort::transform_affine(b, &p, seed);
-        let mut n = Node::path(
-            NodeId(0),
-            PathData::new(vec![]),
-            Appearance { items: vec![item.clone()], ..Default::default() },
-        );
+        let mut n = Node::path(NodeId(0), PathData::new(vec![]), Appearance { items: vec![item.clone()], ..Default::default() });
         if options.strokes
             && let Some(k) = vectorcraft_doc::Scaling::factor(m).filter(|k| k.is_finite() && *k > 0.0)
         {

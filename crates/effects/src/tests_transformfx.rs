@@ -155,14 +155,7 @@ fn stroke_item_transform_honors_scale_strokes_and_effects() {
     let mut d = Document::new(500.0, 500.0);
     d.insert(Some(d.layers[0].id), 0, n).unwrap();
     let baked = bake_document(&d).unwrap();
-    let stroke = baked
-        .node(id)
-        .unwrap()
-        .children()
-        .unwrap()
-        .iter()
-        .find(|c| c.appearance.stroke().is_some())
-        .expect("stroke piece");
+    let stroke = baked.node(id).unwrap().children().unwrap().iter().find(|c| c.appearance.stroke().is_some()).expect("stroke piece");
     let (w, dash) = stroke_of(stroke);
     assert!(close(w, 1.0), "{w}");
     assert_eq!(dash, vec![2.0, 1.0]);
