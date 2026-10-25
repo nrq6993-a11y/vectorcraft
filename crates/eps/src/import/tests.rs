@@ -36,6 +36,58 @@ fn arrays_and_dictionaries_holding_themselves_are_freed() {
     }
 }
 
+#[test]
+fn postscript_procedure_nesting_is_bounded() {
+    let body = format!("{}{}", "{".repeat(257), "}".repeat(257));
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("procedures nest"));
+}
+
+#[test]
+fn postscript_runtime_procedure_call_depth_is_bounded() {
+    let mut body = String::from("/p0 { } def ");
+    for i in 1..=400 {
+        body.push_str(&format!("/p{i} {{ p{} }} def ", i - 1));
+    }
+    body.push_str("p400");
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("procedures nest too deeply"));
+}
+
+#[test]
+fn postscript_operand_stack_overflow_is_bounded() {
+    let body = format!("{} pop", "1 ".repeat(100_001));
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("the operand stack overflowed"));
+}
+
+#[test]
+fn postscript_lexer_procedure_nesting_is_bounded() {
+    let err = import(&eps(&"{".repeat(257))).unwrap_err();
+    assert!(err.contains("procedures nested too deeply"));
+}
+
+#[test]
+fn postscript_graphics_state_stack_overflow_is_bounded() {
+    let body = "gsave ".repeat(1001);
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("too many saved graphics states"));
+}
+
+#[test]
+fn postscript_dictionary_stack_overflow_is_bounded() {
+    let body = "1 dict begin ".repeat(998);
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("the dictionary stack overflowed"));
+}
+
+#[test]
+fn postscript_saved_clip_stack_overflow_is_bounded() {
+    let body = "clipsave ".repeat(1001);
+    let err = import(&eps(&body)).unwrap_err();
+    assert!(err.contains("too many saved clips"));
+}
+
 /// The objects of the document's layer.
 pub(super) fn objects(d: &Document) -> Vec<Arc<Node>> {
     d.layers[0].children().unwrap().clone()
