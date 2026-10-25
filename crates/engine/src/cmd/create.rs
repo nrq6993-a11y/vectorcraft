@@ -679,7 +679,8 @@ fn path_create(s: &mut Session, p: &Value) -> Result<Value> {
     if !path.is_closed() && ap.stroke_paint().is_none() && ap.fill_paint().is_none() {
         ap.set_stroke(vectorcraft_color::Paint::solid(vectorcraft_color::Color::BLACK));
     }
-    add_look(s, "Pen", path_kind(path, None), look, None)
+    let bbox_angle = vectorcraft_geom::constrain_rotation(s.prefs.constrain_angle).map(bbox_turn).unwrap_or(0.0);
+    insert_look_turned(s, "Pen", path_kind(path, None), look, None, true, bbox_angle)
 }
 
 fn text_create(s: &mut Session, p: &Value) -> Result<Value> {
