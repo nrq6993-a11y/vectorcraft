@@ -54,20 +54,31 @@ pub(crate) fn first_selected_text(app: &VectorcraftApp) -> Option<&vectorcraft_d
     None
 }
 
-/// Whether every selected text object agrees on `f`; `None` when they differ or none are selected.
-pub(crate) fn shared_text_flag(app: &VectorcraftApp, onpath: bool, f: impl Fn(&vectorcraft_doc::TextObject) -> bool) -> Option<bool> {
+/// Whether every selected text object is vertical (`Some(true)`), horizontal (`Some(false)`), or they
+/// differ (`None`). When the Type tool edits text, only that object counts.
+pub(crate) fn shared_text_vertical(app: &VectorcraftApp) -> Option<bool> {
+    if let Some((id, _, _)) = text_editing(app) {
+        return app.session.active().and_then(|st| st.doc.node(id)).and_then(|n| match &n.kind {
+            NodeKind::Text(t) => Some(t.vertical),
+            _ => None,
+        });
+    }
     let st = app.session.active()?;
-    let mut acc = Shared::None;
-    for n in st.selection.objects.iter().filter_map(|id| st.doc.node(*id)) {
-        n.walk(&mut |c| {
-            if let NodeKind::Text(t) = &c.kind
-                && (!onpath || matches!(t.kind, vectorcraft_engine::doc::TextKind::OnPath { .. }))
-            {
-                acc.add(f(t));
+    let mut acc: Option<bool> = None;
+    let mut saw = false;
+    for node in st.selection.objects.iter().filter_map(|id| st.doc.node(*id)) {
+        node.walk(&mut |n| {
+            if let NodeKind::Text(t) = &n.kind {
+                saw = true;
+                acc = match acc {
+                    None => Some(t.vertical),
+                    Some(v) if v == t.vertical => Some(v),
+                    Some(_) => None,
+                };
             }
         });
     }
-    acc.value()
+    if saw { acc } else { None }
 }
 
 /// `f` of the character styles the panels act on: the runs the Type tool's selection covers (the
