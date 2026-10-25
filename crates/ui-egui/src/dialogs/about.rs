@@ -48,16 +48,15 @@ pub(super) fn show(app: &mut VectorcraftApp, ctx: &egui::Context) {
 /// The About tab: mark, version, community links, licences and the GPU in use.
 fn about_tab(app: &mut VectorcraftApp, ui: &mut egui::Ui) {
     ui.set_width(380.0);
-    ui.horizontal(|ui| {
-        let (r, _) = ui.allocate_exact_size(egui::vec2(44.0, 44.0), egui::Sense::hover());
-        crate::brand::paint_mark(ui, r);
-        ui.vertical(|ui| {
-            ui.label(egui::RichText::new("VectorCraft").font(theme::semibold(22.0)));
-            ui.label(crate::i18n::fmt(
-                tl!("Version {version} — open-source vector illustration in pure Rust."),
-                &[("version", env!("CARGO_PKG_VERSION"))],
-            ));
-        });
+    ui.vertical_centered(|ui| {
+        let (r, _) = ui.allocate_exact_size(egui::vec2(128.0, 128.0), egui::Sense::hover());
+        crate::brand::paint_preview(ui, r);
+        ui.add_space(8.0);
+        ui.label(egui::RichText::new("VectorCraft").font(theme::semibold(22.0)));
+        ui.label(crate::i18n::fmt(
+            tl!("Version {version} — open-source vector illustration in pure Rust."),
+            &[("version", env!("CARGO_PKG_VERSION"))],
+        ));
     });
     ui.add_space(12.0);
     crate::community::links(app, ui);
