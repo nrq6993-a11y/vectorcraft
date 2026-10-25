@@ -270,11 +270,7 @@ impl Tool for FamilyTool {
             } else {
                 // The size as drawn (from the centre with Alt, square with Shift).
                 // A grid's along the Constrain Angle's axes, as it is drawn.
-                let r = if self.is_grid() {
-                    turned_box(s, self.last, self.mods, cx.constrain_angle).0
-                } else {
-                    drag_rect(s, self.last, self.mods)
-                };
+                let r = if self.is_grid() { turned_box(s, self.last, self.mods, cx.constrain_angle).0 } else { drag_rect(s, self.last, self.mods) };
                 cx.size_label(r.width(), r.height())
             };
             o.push(Overlay::Measure { p: self.last, text });
@@ -432,11 +428,7 @@ mod tests {
         t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
         t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 30.0, 40.0));
         let want = draw_measure_label(&cx, Point::new(0.0, 0.0), Point::new(30.0, 40.0));
-        assert!(
-            t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)),
-            "{:?}",
-            t.overlays(&cx)
-        );
+        assert!(t.overlays(&cx).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)), "{:?}", t.overlays(&cx));
         let quiet = ToolContext { measurement_labels: false, ..cx };
         assert!(t.overlays(&quiet).is_empty());
     }
