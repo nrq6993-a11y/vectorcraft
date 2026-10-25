@@ -93,7 +93,7 @@ pub fn specs() -> Vec<CommandSpec> {
 /// template; select it.
 pub(crate) fn add_art(s: &mut Session, label: &str, kind: NodeKind, name: Option<String>) -> Result<Value> {
     let look = s.new_art_look(s.paint.fill.clone(), s.paint.stroke.clone(), s.paint.stroke_width);
-    add_look(s, label, kind, look, name)
+    insert_look_turned(s, label, kind, look, name, true, constrain_bbox_angle(s))
 }
 
 /// Insert a new object looking like `look` (drawing modes apply); select it.
@@ -123,6 +123,11 @@ fn bbox_turn(rotation: f64) -> f64 {
     }
     let a = vectorcraft_geom::normalize_deg(-rotation);
     if a == 0.0 { 0.0 } else { a }
+}
+
+/// Bounding-box angle for new art when General › Constrain Angle is set.
+fn constrain_bbox_angle(s: &Session) -> f64 {
+    vectorcraft_geom::constrain_rotation(s.prefs.constrain_angle).map(bbox_turn).unwrap_or(0.0)
 }
 
 /// A polygon's or star's `rotation` when it is the base orientation turned by General › Constrain
@@ -463,6 +468,7 @@ fn flare(s: &mut Session, p: &Value) -> Result<Value> {
         parts.push(("Ring", circle(at, rr), radial(at, rr, stops), 1.0));
     }
     let parent = s.doc()?.target_parent()?;
+    let bbox_angle = constrain_bbox_angle(s);
     let id = s.edit("Flare", |d, sel| {
         let children = parts
             .into_iter()
@@ -477,6 +483,7 @@ fn flare(s: &mut Session, p: &Value) -> Result<Value> {
         let gid = d.alloc_id();
         let mut g = Node::group(gid, children);
         g.name = Some("Flare".into());
+        g.bbox_angle = bbox_angle;
         d.insert(parent, usize::MAX, g)?;
         sel.set([gid]);
         Ok(gid)
@@ -539,7 +546,7 @@ fn arc(s: &mut Session, p: &Value) -> Result<Value> {
         if s.paint.stroke.is_none() { vectorcraft_color::Paint::solid(vectorcraft_color::Color::BLACK) } else { s.paint.stroke.clone() },
         s.paint.stroke_width.max(0.1),
     );
-    add_look(s, "Arc", path_kind(path, None), look, None)
+    insert_look_turned(s, "Arc", path_kind(path, None), look, None, true, constrain_bbox_angle(s))
 }
 
 /// The grid `paths` (bottom first) as one selected group in the new-art stroke, filled with the

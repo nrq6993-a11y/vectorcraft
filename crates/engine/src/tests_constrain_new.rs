@@ -282,6 +282,28 @@ fn bbox_angle(s: &Session, id: NodeId) -> f64 {
     s.doc().unwrap().doc.node(id).unwrap().bbox_angle
 }
 
+/// Arc, spiral and flare commands take the Constrain Angle on their bounding box, as rectangles
+/// and type drawn along the turned axes do.
+#[test]
+fn constrain_angle_turns_arc_spiral_and_flare() {
+    let mut s = new_doc();
+    s.execute("shape.rectangle", &json!({"x": 300, "y": 300, "width": 40, "height": 20})).unwrap();
+    s.execute("object.rotate", &json!({"angle": 30})).unwrap();
+    let turned = selection_rotation(&s);
+    set_angle(&mut s, 30.0);
+    for (cmd, params) in [
+        ("shape.spiral", json!({"cx": 50, "cy": 50, "radius": 40, "segments": 8})),
+        ("shape.arc", json!({"x1": 0, "y1": 0, "x2": 100, "y2": 0})),
+        ("shape.flare", json!({"cx": 100, "cy": 100, "diameter": 50, "seed": 1})),
+    ] {
+        s.execute(cmd, &params).unwrap();
+        assert!(close(selection_rotation(&s), turned), "{cmd}: {}", selection_rotation(&s));
+    }
+    set_angle(&mut s, 0.0);
+    s.execute("shape.spiral", &json!({"cx": 0, "cy": 0, "radius": 20, "segments": 4})).unwrap();
+    assert_eq!(bbox_angle(&s, last_id(&s)).to_bits(), 0.0f64.to_bits());
+}
+
 /// Objects drawn along a Constrain Angle keep a bounding box turned with them, as after the Rotate
 /// tool: at 30° the selection's rotation is 30°, the same as a rectangle turned 30° by
 /// `object.rotate`; at 0° and whole turns the box stays on the page (exactly 0, not −0).
