@@ -449,6 +449,7 @@ fn ink_width_of(_font: &Font, size: f32, text: &str) -> f32 {
 /// in logical order that shows as drawn. Needs an installed font with Hebrew (skipped without one).
 #[test]
 fn hebrew_comes_back_in_logical_order() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = vectorcraft_text::FontDb::global();
     let Some(face) =
         ["Arial", "Noto Sans Hebrew", "DejaVu Sans", "Liberation Sans"].into_iter().filter_map(|f| db.face(f, "Regular")).find(|f| f.covers('ש'))

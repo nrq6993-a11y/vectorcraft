@@ -172,6 +172,7 @@ fn line_break_hyphens_are_written_as_text_where_the_canvas_draws_them() {
 /// draws it, and its letters come back in their order. Skipped without a font that covers Hebrew.
 #[test]
 fn line_break_hyphens_of_right_to_left_lines_are_written_as_text_where_the_canvas_draws_them() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     let Some(face) =
         ["Arial", "Noto Sans Hebrew", "DejaVu Sans", "Liberation Sans"].into_iter().filter_map(|f| db.face(f, "Regular")).find(|f| f.covers('ש'))
@@ -204,6 +205,7 @@ fn line_break_hyphens_of_right_to_left_lines_are_written_as_text_where_the_canva
 /// without an OpenType font that covers Arabic and the tatweel, or when the layout adds no kashida.
 #[test]
 fn kashidas_are_not_written_as_hyphens() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     let Some(face) = ["Noto Sans Arabic", "Arial", "Geeza Pro"]
         .into_iter()
@@ -352,6 +354,7 @@ fn overprinting_runs_are_written_or_left_out_as_other_runs_are() {
 /// the instance's glyphs where the outlines would be, not the default instance's (#296).
 #[test]
 fn variable_font_instances_are_real_text_in_their_own_glyphs() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{VARIABLE_CHARS, VARIABLE_FAMILY, variable_font};
     FontDb::global().add_font(variable_font().unwrap());
     let mut widths = vec![];
@@ -374,6 +377,7 @@ fn variable_font_instances_are_real_text_in_their_own_glyphs() {
 /// where its outlines would, between the named instances on either side.
 #[test]
 fn variable_font_settings_are_real_text_in_their_own_glyphs() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY, VARIABLE_CHARS, two_axis_font};
     FontDb::global().add_font(two_axis_font().unwrap());
     let mut widths = vec![];
@@ -438,6 +442,7 @@ fn licensed(family: &str, fs: u16) -> String {
 
 #[test]
 fn fonts_whose_licence_forbids_embedding_fall_back_to_outlines() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let locked = licensed("Locked Sans 3", 0x0002);
     let whole = licensed("Entire Sans 3", 0x0100);
     let d = doc(vec![
@@ -535,6 +540,7 @@ fn pdf_a_takes_real_text() {
 /// A named instance comes back as live type in that style (not the default instance's).
 #[test]
 fn a_variable_font_instance_comes_back_in_its_own_style() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{VARIABLE_CHARS, VARIABLE_FAMILY, variable_font};
     FontDb::global().add_font(variable_font().unwrap());
     let st = CharStyle { font_family: VARIABLE_FAMILY.into(), font_style: "Bold".into(), ..style(48.0) };
@@ -573,6 +579,7 @@ fn digits_unnamed(text: &str) -> Vec<u8> {
 /// there, so the whole text stays one type object, with no outlines left behind.
 #[test]
 fn unnamed_glyphs_of_an_installed_font_are_found_by_their_outline() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let bytes = digits_unnamed("Tel 02-12345");
     let report = import_with_report(&bytes, &ImportOptions { text_as: TextAs::Text, ..Default::default() }).unwrap();
     assert_eq!(texts(&report.document), ["Tel 02-12345"]);
@@ -586,6 +593,7 @@ fn unnamed_glyphs_of_an_installed_font_are_found_by_their_outline() {
 /// empty glyph (which every space draws), stays unnamed and keeps its outlines.
 #[test]
 fn glyphs_are_named_only_by_an_exact_outline() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     let face = db.face("Source Sans 3", "Regular").unwrap();
     let k = 1000.0 / face.units_per_em();
@@ -632,6 +640,7 @@ fn slanted_type_reopens_as_type_that_still_leans() {
 /// names the version, which the family and style alone don't pick.
 #[test]
 fn type_in_another_installed_version_reopens_in_that_version() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{TWIN_FAMILY, TWIN_VERSIONS, twin_font};
     // The newer version first: the one the family and style resolve to.
     FontDb::global().add_font(twin_font(true).unwrap());

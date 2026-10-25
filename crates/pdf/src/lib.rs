@@ -245,6 +245,8 @@ impl From<craft_pdf::write::WriteError> for PdfError {
 }
 
 #[cfg(test)]
+mod test_font_db;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_blend;

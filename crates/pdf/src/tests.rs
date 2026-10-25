@@ -520,6 +520,7 @@ fn text_exported_as_outlines() {
 /// text, else drawn where the glyphs are.
 #[test]
 fn colour_bitmap_glyphs_export_as_images() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, colour_bitmap_family, colour_bitmap_font};
     for sbix in [true, false] {
         vectorcraft_text::FontDb::global().add_font(colour_bitmap_font(sbix).unwrap());
@@ -1084,6 +1085,7 @@ fn dithered_perceptual_gradients_export_as_images_with_noise_on_the_fill() {
 /// the fill); outlined, as vector art, a sweep glyph as an image.
 #[test]
 fn colr_glyphs_export_as_vector_art() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, COLR_SWEEP_CHAR, colr_family, colr_font};
     for v1 in [false, true] {
         vectorcraft_text::FontDb::global().add_font(colr_font(v1).unwrap());
