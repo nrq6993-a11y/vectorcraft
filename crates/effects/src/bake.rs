@@ -424,13 +424,16 @@ fn bake_leaf(d: &mut Document, n: &Node) -> Option<Node> {
     }
     // Per-item geometry: one path per fill/stroke, grouped under the object's transparency and
     // raster effects.
+    let bounds = g.bounds().unwrap_or(Rect::ZERO);
     let children = n
         .appearance
         .items
         .iter()
         .map(|item| {
-            let ig = apply(item_effects(item), &g, &ctx.item(item));
+            let fx = item_effects(item);
+            let ig = apply(fx, &g, &ctx.item(item));
             let mut it = item.clone();
+            crate::reshape::apply_item_transform_options(&mut it, fx, bounds, ctx.seed);
             clear_item_effects(&mut it);
             Arc::new(piece(d, n, ig, rule, it))
         })
@@ -459,10 +462,13 @@ pub fn expand_leaf(d: &mut Document, n: &Node, stroke_art: StrokeArt) -> Option<
     }
     let (g, rule, ctx, mut m) = leaf_base(n)?;
     m.appearance.effects.retain(|e| e.visible);
+    let bounds = g.bounds().unwrap_or(Rect::ZERO);
     let mut pieces = vec![];
     for item in n.appearance.items.iter().filter(|i| paints(i)) {
-        let ig = apply(item.effects(), &g, &ctx.item(item));
+        let fx = item.effects();
+        let ig = apply(fx, &g, &ctx.item(item));
         let mut it = item.clone();
+        crate::reshape::apply_item_transform_options(&mut it, fx, bounds, ctx.seed);
         clear_item_effects(&mut it);
         it.effects_mut().retain(|e| e.visible);
         let p = match &it {
@@ -540,10 +546,13 @@ pub fn bake_appearance(n: &Node) -> Option<Node> {
         }
         Arc::new(p)
     };
+    let bounds = g.bounds().unwrap_or(Rect::ZERO);
     let mut pieces = vec![];
     for item in n.appearance.items.iter().filter(|i| paints(i)) {
-        let ig = apply(item_effects(item), &g, &ctx.item(item));
+        let fx = item_effects(item);
+        let ig = apply(fx, &g, &ctx.item(item));
         let mut it = item.clone();
+        crate::reshape::apply_item_transform_options(&mut it, fx, bounds, ctx.seed);
         clear_item_effects(&mut it);
         pieces.push(match &it {
             AppearanceItem::Stroke(st) if st.brush.is_none() => {

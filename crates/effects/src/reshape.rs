@@ -487,6 +487,36 @@ pub(crate) fn reshape_leaves_within(art: &mut Node, fx: &[&Effect], budget: Budg
 /// doesn't grow with them (a horizontal line stretched vertically).
 const MAX_STROKE_SCALE: f64 = 1.0e6;
 
+/// Scale Strokes & Effects and Transform Patterns for a fill or stroke's own Transform effect
+/// (#885), using bounds `b` and the object's `seed` for Random.
+pub(crate) fn apply_item_transform_options(item: &mut AppearanceItem, effects: &[Effect], b: Rect, seed: u64) {
+    for e in effects.iter().filter(|e| e.visible && e.id == "distort.transform") {
+        let p = merged_params(&e.id, &e.params);
+        let options = crate::distort::TransformOptions::of(&p);
+        if !options.reach_appearance() {
+            continue;
+        }
+        let m = crate::distort::transform_affine(b, &p, seed);
+        let mut n = Node::path(
+            NodeId(0),
+            PathData::new(vec![]),
+            Appearance { items: vec![item.clone()], ..Default::default() },
+        );
+        if options.strokes
+            && let Some(k) = vectorcraft_doc::Scaling::factor(m).filter(|k| k.is_finite() && *k > 0.0)
+        {
+            n.appearance.scale_strokes(k);
+            n.appearance.scale_effects(k, crate::scale_effect);
+        }
+        if options.patterns {
+            vectorcraft_doc::pattern::transform_pattern_paints(&mut n, m);
+        }
+        if let Some(replaced) = n.appearance.items.first() {
+            *item = replaced.clone();
+        }
+    }
+}
+
 /// A Transform effect whose Transform Patterns or Scale Strokes & Effects is on (`options`), with
 /// map `m` and `copies`, applied to `leaf` (a path or compound path with geometry `path`) as Object
 /// › Transform with those options transforms an object (#885): the strokes' weights and dashes

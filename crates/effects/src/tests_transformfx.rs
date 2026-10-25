@@ -3,11 +3,12 @@
 
 use serde_json::{Value, json};
 use vectorcraft_color::{Color, Paint};
-use vectorcraft_doc::{Appearance, Dash, Effect, Node, NodeId, NodeKind};
+use vectorcraft_doc::{Appearance, AppearanceItem, Dash, Effect, Node, NodeId, NodeKind};
 use vectorcraft_geom::{Affine, Rect, shapes};
 
 use crate::distort::{TransformOptions, transform_map, transform_move};
-use crate::{has_transform_art, has_transform_options, reshape};
+use crate::{bake_document, has_transform_art, has_transform_options, reshape};
+use vectorcraft_doc::Document;
 
 fn transform(params: Value) -> Effect {
     Effect { id: "distort.transform".into(), params, visible: true }
@@ -141,6 +142,47 @@ fn transform_patterns_with_objects_off_moves_only_the_pattern() {
     assert_eq!(paths.len(), 1);
     assert_eq!(paths[0].geometric_bounds().unwrap(), Rect::new(0.0, 0.0, 100.0, 100.0));
     assert_ne!(pattern_xf(paths[0]), Affine::IDENTITY);
+}
+
+#[test]
+fn stroke_item_transform_honors_scale_strokes_and_effects() {
+    let mut n = stroked(json!({}));
+    n.appearance.effects.clear();
+    if let AppearanceItem::Stroke(s) = &mut n.appearance.items[1] {
+        s.effects.push(transform(json!({"scaleH": 50, "scaleV": 50, "strokes": true})));
+    }
+    let id = n.id;
+    let mut d = Document::new(500.0, 500.0);
+    d.insert(Some(d.layers[0].id), 0, n).unwrap();
+    let baked = bake_document(&d).unwrap();
+    let stroke = baked
+        .node(id)
+        .unwrap()
+        .children()
+        .unwrap()
+        .iter()
+        .find(|c| c.appearance.stroke().is_some())
+        .expect("stroke piece");
+    let (w, dash) = stroke_of(stroke);
+    assert!(close(w, 1.0), "{w}");
+    assert_eq!(dash, vec![2.0, 1.0]);
+    assert!(close(stroke.geometric_bounds().unwrap().width(), 50.0));
+}
+
+#[test]
+fn stroke_item_transform_with_objects_off_scales_only_the_stroke() {
+    let mut n = stroked(json!({}));
+    n.appearance.effects.clear();
+    if let AppearanceItem::Stroke(s) = &mut n.appearance.items[1] {
+        s.effects.push(transform(json!({"scaleH": 50, "scaleV": 50, "objects": false, "strokes": true})));
+    }
+    let id = n.id;
+    let mut d = Document::new(500.0, 500.0);
+    d.insert(Some(d.layers[0].id), 0, n).unwrap();
+    let baked = bake_document(&d).unwrap();
+    let stroke = baked.node(id).unwrap().children().unwrap().iter().find(|c| c.appearance.stroke().is_some()).expect("stroke piece");
+    assert!(close(stroke_of(stroke).0, 1.0));
+    assert_eq!(stroke.geometric_bounds().unwrap(), Rect::new(0.0, 0.0, 100.0, 100.0));
 }
 
 #[test]
