@@ -569,7 +569,7 @@ pub fn show(app: &mut VectorcraftApp, ui: &mut Ui) {
                 (tl!("Stylistic"), Kashida::Stylistic, "stylistic"),
             ];
             let names = kinds.map(|k| k.0);
-            let current = kinds.iter().find(|k| k.1 == para.kashida).map_or(names[0], |k| k.0);
+            let current = shared_para(app, |p| p.kashida).and_then(|k| kinds.iter().find(|kind| kind.1 == k).map(|kind| kind.0)).unwrap_or("");
             // Already translated: shown as they are.
             if let Some(i) = widgets::dropdown_names(ui, "pa-kashida", current, &names, ui.available_width() - 4.0)
                 && let Some((_, _, key)) = kinds.get(i)
@@ -791,6 +791,19 @@ mod tests {
         assert_eq!(shared_hyphenate(&app), None);
         app.run("text.setFormat", json!({"id": id, "hyphenate": true})).unwrap();
         assert_eq!(shared_hyphenate(&app), Some(true));
+    }
+
+    #[test]
+    fn paragraph_mixed_kashida_shows_blank_dropdown() {
+        use vectorcraft_doc::text::Kashida;
+        let (mut app, id) = editing_text("A\nB\n");
+        app.session.prefs.show_indic_options = true;
+        app.run("text.setFormat", json!({"id": id, "kashida": "short"})).unwrap();
+        app.run("text.setFormat", json!({"id": id, "start": 2, "end": 3, "kashida": "long"})).unwrap();
+        app.session.set_tool_option("selectAll", &json!(true));
+        assert_eq!(shared_para(&app, |p| p.kashida), None);
+        app.run("text.setFormat", json!({"id": id, "kashida": "long"})).unwrap();
+        assert_eq!(shared_para(&app, |p| p.kashida), Some(Kashida::Long));
     }
 
     #[test]
