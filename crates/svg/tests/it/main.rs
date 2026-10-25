@@ -3,7 +3,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod blend_export;
-mod test_font_db;
 mod colour_glyphs;
 mod container_export;
 mod css_rules;
@@ -30,6 +29,7 @@ mod roundtrip;
 mod stroke_export;
 mod svg_glyphs;
 mod symbols_layers;
+mod test_font_db;
 mod text_layout;
 mod text_paint_order;
 mod text_stroke;
