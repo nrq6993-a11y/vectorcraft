@@ -3,6 +3,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod blend_export;
+mod test_font_db;
 mod colour_glyphs;
 mod container_export;
 mod css_rules;
