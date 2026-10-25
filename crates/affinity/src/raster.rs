@@ -637,7 +637,12 @@ mod tests {
     fn embedded_source_dimensions_and_pixel_budget_are_checked_before_decode() {
         let bytes = png();
         assert!(matches!(source_pixels(&bytes, 299, 2), Err(Error::Malformed(_))));
-        assert!(matches!(source_pixels(&bytes, u32::MAX, u32::MAX), Err(Error::Limit(_))));
         assert_eq!(source_pixels(&bytes, 300, 2).unwrap().len(), 300 * 2 * 4);
+    }
+
+    #[test]
+    fn embedded_source_pixel_count_beyond_sixty_four_mebibytes_is_refused() {
+        let bytes = png();
+        assert_eq!(source_pixels(&bytes, u32::MAX, u32::MAX).unwrap_err(), Error::Limit("embedded image pixels"));
     }
 }

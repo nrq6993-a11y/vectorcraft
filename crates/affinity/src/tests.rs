@@ -90,6 +90,22 @@ mod preview {
     }
 
     #[test]
+    fn preview_dimensions_above_four_thousand_ninety_six_are_refused() {
+        let mut b = fixture();
+        b[117..121].copy_from_slice(&4097u32.to_be_bytes());
+        assert_eq!(preview(&b).unwrap_err(), Error::Limit("preview dimensions must be 1..4096"));
+    }
+
+    #[test]
+    fn encoded_preview_larger_than_sixteen_mebibytes_is_refused() {
+        let mut b = fixture();
+        let huge = MAX_PREVIEW_BYTES + 1;
+        b[84..88].copy_from_slice(&((huge + 13) as u32).to_le_bytes());
+        b[96..100].copy_from_slice(&(huge as u32).to_le_bytes());
+        assert_eq!(preview(&b).unwrap_err(), Error::Limit("encoded preview exceeds 16 MiB"));
+    }
+
+    #[test]
     fn an_unindexed_png_or_resource_is_never_used() {
         let mut b = fixture();
         b[24..32].copy_from_slice(&0u64.to_le_bytes());
@@ -246,6 +262,38 @@ mod archive {
     }
 
     #[test]
+    fn container_header_fat_offset_past_end_of_file_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let past_end = (file.len() as u64 + 1).to_le_bytes();
+        file[16..24].copy_from_slice(&past_end);
+        assert_eq!(Archive::open(&file, Limits::default()).unwrap_err(), Error::Malformed("truncated data"));
+    }
+
+    #[test]
+    fn archive_entry_stored_length_beyond_addressable_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let fat = u64::from_le_bytes(file[16..24].try_into().unwrap()) as usize;
+        let compressed_at = fat + 59 + 21;
+        file[compressed_at..compressed_at + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+        let mut a = Archive::open(&file, Limits::default()).unwrap();
+        let err = a.read("doc.dat").unwrap_err();
+        assert!(matches!(err, Error::Malformed("offset beyond addressable memory") | Error::Malformed("length overflow")), "{err:?}",);
+    }
+
+    #[test]
+    fn archive_charge_beyond_total_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: usize::MAX, max_total: 100 }).unwrap();
+        assert_eq!(a.charge(101).unwrap_err(), Error::Limit("document too large"));
+        a.charge(50).unwrap();
+        assert_eq!(a.extracted(), 50);
+        assert_eq!(a.charge(51).unwrap_err(), Error::Limit("document too large"));
+    }
+
+    #[test]
     fn checksums_sizes_and_budgets_are_enforced() {
         let d = doc();
         let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
@@ -259,6 +307,31 @@ mod archive {
         let mut a = Archive::open(&file, Limits { max_entry: usize::MAX, max_total: d.len() + 1 }).unwrap();
         a.read("doc.dat").unwrap();
         assert!(matches!(a.read("doc.dat"), Err(Error::Limit(_))));
+    }
+
+    #[test]
+    fn archive_first_read_beyond_total_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: usize::MAX, max_total: d.len() - 1 }).unwrap();
+        assert_eq!(a.read("doc.dat").unwrap_err(), Error::Limit("document too large"));
+    }
+
+    #[test]
+    fn archive_cumulative_extraction_beyond_total_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd), ("d/3", b"tile", Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: usize::MAX, max_total: d.len() + 3 }).unwrap();
+        a.read("doc.dat").unwrap();
+        assert_eq!(a.read("d/3").unwrap_err(), Error::Limit("document too large"));
+    }
+
+    #[test]
+    fn archive_entry_larger_than_per_entry_limit_is_refused() {
+        let d = doc();
+        let file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let mut a = Archive::open(&file, Limits { max_entry: 64, max_total: usize::MAX }).unwrap();
+        assert_eq!(a.read("doc.dat").unwrap_err(), Error::Limit("archive entry too large"));
     }
 
     // Regression test for #1710: ruzstd 0.9.0 let a block decompress to more than its frame's
@@ -285,6 +358,17 @@ mod archive {
         swapped[new_fat + 59 + 21..new_fat + 59 + 29].copy_from_slice(&(frame.len() as u64).to_le_bytes());
         let mut a = Archive::open(&swapped, Limits::default()).unwrap();
         assert!(a.read("doc.dat").is_err(), "a block of {LEN} bytes was decompressed from a frame with a 1 KiB window");
+    }
+
+    #[test]
+    fn archive_entry_declared_size_beyond_addressable_is_refused() {
+        let d = doc();
+        let mut file = synth::container(&[("doc.dat", &d, Method::Zstd)], None);
+        let fat = u64::from_le_bytes(file[16..24].try_into().unwrap()) as usize;
+        let size_at = fat + 59 + 5 + 8;
+        file[size_at..size_at + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+        let mut a = Archive::open(&file, Limits::default()).unwrap();
+        assert_eq!(a.read("doc.dat").unwrap_err(), Error::Limit("archive entry too large"));
     }
 
     #[test]
