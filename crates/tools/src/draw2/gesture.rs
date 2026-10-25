@@ -393,6 +393,11 @@ impl Tool for GestureTool {
     }
     fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
         let mut o = self.snap.guides().to_vec();
+        if cx.measurement_labels && self.id == "paintbrush" && self.active && self.began && self.points.len() >= 2 {
+            let last = self.points[self.points.len() - 1];
+            let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
+            o.push(Overlay::Measure { p: last + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("L: {}", cx.len(length)) });
+        }
         if !self.active || self.points.len() < 2 || self.began {
             return o;
         }
@@ -510,6 +515,24 @@ mod tests {
         let acts = drag(&mut t, &cx, &[(102.0, 98.0), (151.0, 300.0)], Mods::default());
         let Some(Action::Preview(_, v)) = acts.last().and_then(|a| a.first()) else { panic!("{acts:?}") };
         assert_eq!(v["points"][0], json!([102.0, 98.0]));
+    }
+
+    #[test]
+    fn paintbrush_drag_shows_path_length_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let s = Selection::default();
+        let p = paint();
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = GestureTool::new("paintbrush");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        let want = format!("L: {}", on.len(100.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        let mut quiet = GestureTool::new("paintbrush");
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     /// #852: the Paintbrush sends each point's pen pressure; a mouse (always fully pressed) and
