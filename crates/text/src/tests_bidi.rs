@@ -9,6 +9,7 @@ fn text_layout(s: &str) -> TextLayout {
     layout(FontDb::global(), &TextObject::point(Point::ZERO, s, CharStyle::default()))
 }
 
+/// Callers must hold [`crate::test_font_db::changing_fonts`]: this loads an installed font by name.
 fn arabic_test_face(test: &str) -> Option<Arc<FontFace>> {
     let db = FontDb::global();
     // OpenType (GSUB) shaping only: AAT fonts such as macOS's Geeza Pro shape with `morx`, which
@@ -252,6 +253,7 @@ fn hebrew_marks_stay_with_base_clusters() {
 
 #[test]
 fn arabic_contextual_forms_and_lam_alef_use_the_shaper() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     // Installed fonts are optional; no proprietary or test font is copied into the repo.
     let Some(face) = arabic_test_face("arabic_contextual_forms_and_lam_alef_use_the_shaper") else { return };
@@ -281,6 +283,7 @@ fn arabic_contextual_forms_and_lam_alef_use_the_shaper() {
 
 #[test]
 fn identical_style_arabic_run_splits_keep_joining_and_source_attribution() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     let Some(face) = arabic_test_face("identical_style_arabic_run_splits_keep_joining_and_source_attribution") else { return };
     let style = arabic_style(&face);
@@ -314,6 +317,7 @@ fn identical_style_arabic_run_splits_keep_joining_and_source_attribution() {
 
 #[test]
 fn different_style_arabic_boundary_receives_joining_context() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let db = FontDb::global();
     let Some(face) = arabic_test_face("different_style_arabic_boundary_receives_joining_context") else { return };
     let style = arabic_style(&face);
@@ -558,6 +562,7 @@ fn craft_arabic_fonts_load_and_noto_sans_arabic_is_the_arabic_fallback() {
 /// Arabic-Indic digits.
 #[test]
 fn digits_draw_every_digit_in_the_styles_numeral_system() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_doc::Digits;
     let db = FontDb::global();
     let Some(face) = ["Arial", "Noto Sans Arabic", "Geeza Pro", "Segoe UI", "DejaVu Sans"]

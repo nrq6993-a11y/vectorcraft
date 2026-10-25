@@ -678,6 +678,8 @@ pub fn logical_order(visual: &str) -> Option<(Vec<usize>, bool)> {
 }
 
 #[cfg(test)]
+mod test_font_db;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_axes;
