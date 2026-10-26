@@ -4685,9 +4685,9 @@ mod tests {
         assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
     }
 
-    /// Type › Orientation leaves neither item checked when the selection mixes vertical and horizontal type.
+    /// Type › Orientation menu checks use `shared_text_vertical`; mixed values leave both unchecked.
     #[test]
-    fn type_orientation_menu_shows_neither_when_selection_mixes() {
+    fn type_orientation_menu_unchecked_when_shared_vertical_none() {
         let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
         app.run("file.new", json!({})).unwrap();
         let h = app.run("text.create", json!({"x": 10, "y": 40, "text": "H"})).unwrap()["id"].clone();
