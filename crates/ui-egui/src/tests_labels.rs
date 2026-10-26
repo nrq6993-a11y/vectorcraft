@@ -221,6 +221,7 @@ fn effect_menu_lists_the_sketch_filters_between_sharpen_and_stylize() {
             "Chalk & Charcoal…",
             "Charcoal…",
             "Chrome…",
+            "Conté Crayon…",
             "Graphic Pen…",
             "Halftone Pattern…",
             "Note Paper…",
@@ -237,19 +238,20 @@ fn effect_menu_lists_the_sketch_filters_between_sharpen_and_stylize() {
     assert_eq!(sketch[1].params, json!({"effect": "sketch.chalkCharcoal"}));
     assert_eq!(sketch[2].params, json!({"effect": "sketch.charcoal"}));
     assert_eq!(sketch[3].params, json!({"effect": "sketch.chrome"}));
-    assert_eq!(sketch[4].params, json!({"effect": "sketch.graphicPen"}));
-    assert_eq!(sketch[5].params, json!({"effect": "sketch.halftonePattern"}));
-    assert_eq!(sketch[6].params, json!({"effect": "sketch.notePaper"}));
-    assert_eq!(sketch[7].params, json!({"effect": "sketch.photocopy"}));
-    assert_eq!(sketch[8].params, json!({"effect": "sketch.plaster"}));
-    assert_eq!(sketch[9].params, json!({"effect": "sketch.reticulation"}));
-    assert_eq!(sketch[10].params, json!({"effect": "sketch.stamp"}));
-    assert_eq!(sketch[11].params, json!({"effect": "sketch.tornEdges"}));
-    assert_eq!(sketch[12].params, json!({"effect": "sketch.waterPaper"}));
+    assert_eq!(sketch[4].params, json!({"effect": "sketch.conteCrayon"}));
+    assert_eq!(sketch[5].params, json!({"effect": "sketch.graphicPen"}));
+    assert_eq!(sketch[6].params, json!({"effect": "sketch.halftonePattern"}));
+    assert_eq!(sketch[7].params, json!({"effect": "sketch.notePaper"}));
+    assert_eq!(sketch[8].params, json!({"effect": "sketch.photocopy"}));
+    assert_eq!(sketch[9].params, json!({"effect": "sketch.plaster"}));
+    assert_eq!(sketch[10].params, json!({"effect": "sketch.reticulation"}));
+    assert_eq!(sketch[11].params, json!({"effect": "sketch.stamp"}));
+    assert_eq!(sketch[12].params, json!({"effect": "sketch.tornEdges"}));
+    assert_eq!(sketch[13].params, json!({"effect": "sketch.waterPaper"}));
     let at = |label: &str| entries.iter().position(|e| e.path[0] == "Effect" && e.label == label).unwrap();
     assert!(at("Unsharp Mask…") < at("Bas Relief…") && at("Bas Relief…") < at("Chalk & Charcoal…"));
     assert!(at("Chalk & Charcoal…") < at("Chrome…"));
-    assert!(at("Chrome…") < at("Graphic Pen…") && at("Graphic Pen…") < at("Halftone Pattern…"));
+    assert!(at("Chrome…") < at("Conté Crayon…") && at("Conté Crayon…") < at("Graphic Pen…") && at("Graphic Pen…") < at("Halftone Pattern…"));
     assert!(at("Halftone Pattern…") < at("Note Paper…") && at("Note Paper…") < at("Plaster…"));
     assert!(at("Plaster…") < at("Reticulation…"));
     assert!(at("Reticulation…") < at("Torn Edges…") && at("Torn Edges…") < at("Water Paper…") && at("Water Paper…") < at("Glowing Edges…"));
@@ -290,14 +292,16 @@ fn effect_menu_keeps_glowing_edges_out_of_the_vector_stylize() {
 }
 
 #[test]
-fn library_submenus_are_disabled_placeholders() {
+fn window_library_submenus_have_no_placeholders() {
     let app = app();
     let entries = menus::menu_entries(&app);
-    for lib in ["Brush Libraries", "Symbol Libraries"] {
-        let items: Vec<_> = entries.iter().filter(|e| e.path == ["Window", lib]).collect();
-        let labels: Vec<&str> = items.iter().map(|e| e.label.as_str()).collect();
-        assert_eq!(labels, ["Built-in Libraries", "User Defined", "Other Library…"], "{lib}");
-        assert!(items.iter().all(|e| !e.enabled && e.command.is_none()), "{lib}");
+    for lib in ["Brush Libraries", "Graphic Style Libraries", "Swatch Libraries", "Symbol Libraries"] {
+        let items: Vec<_> = entries
+            .iter()
+            .filter(|e| e.path.first().map(String::as_str) == Some("Window") && e.path.get(1).map(String::as_str) == Some(lib))
+            .collect();
+        assert!(!items.is_empty(), "{lib}");
+        assert!(items.iter().all(|e| e.command.is_some()), "{lib}: {:?}", items.iter().map(|e| &e.label).collect::<Vec<_>>());
     }
 }
 
