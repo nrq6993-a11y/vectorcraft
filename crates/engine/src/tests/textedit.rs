@@ -1433,6 +1433,7 @@ fn clicking_the_in_port_then_the_canvas_threads_a_new_frame_before_it() {
 /// whose styles are numbered has no Regular to store (#4128). A style given is kept as given.
 #[test]
 fn a_family_without_its_style_takes_its_closest_style() {
+    let _fonts = crate::adding_fonts();
     use vectorcraft_text::test_fonts::{NUMBERED_FAMILY as FAMILY, numbered_font};
     let db = vectorcraft_text::FontDb::global();
     db.add_font(numbered_font("W3").unwrap());
