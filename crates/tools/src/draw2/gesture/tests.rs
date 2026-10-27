@@ -260,6 +260,25 @@ fn blob_brush_drag_shows_scrub_length_measurement_labels() {
     assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
 }
 
+#[test]
+fn path_eraser_drag_shows_scrub_length_measurement_labels() {
+    let (d, id) = doc_with_rect();
+    let mut s = Selection::default();
+    s.set([id]);
+    let p = paint();
+    let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+    let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+    let mut t = GestureTool::new("pathEraser");
+    t.pointer(&on, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+    t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+    let want = format!("L: {}", on.len(100.0));
+    assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+    let mut quiet = GestureTool::new("pathEraser");
+    quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+    quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+    assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+}
+
 /// The Blob Brush has Keep selected and Merge only with selection, both off by default, and its
 /// stroke sends both.
 #[test]

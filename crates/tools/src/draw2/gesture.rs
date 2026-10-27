@@ -600,7 +600,7 @@ impl Tool for GestureTool {
             return o;
         }
         o.push(Overlay::Path { path: polyline(&self.points), color, width, dashed: self.id == "knife" });
-        if cx.measurement_labels && self.id == "blobBrush" {
+        if cx.measurement_labels && matches!(self.id, "blobBrush" | "pathEraser") {
             let last = self.points[self.points.len() - 1];
             let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
             o.push(Overlay::Measure { p: last + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("L: {}", cx.len(length)) });
