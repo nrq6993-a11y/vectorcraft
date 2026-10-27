@@ -593,10 +593,7 @@ impl Tool for GestureTool {
             && let (Some(a), Some(b)) = (self.points.get(self.points.len() - 2), self.points.last())
             && a.distance(*b) > 1e-9
         {
-            o.push(Overlay::Measure {
-                p: *b + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)),
-                text: cx.segment_measure_label(*a, *b),
-            });
+            o.push(Overlay::Measure { p: *b + vectorcraft_geom::Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: cx.segment_measure_label(*a, *b) });
         }
         // A path being drawn shows itself, except with the Pencil's Live preview off.
         if self.points.len() < 2 || (self.began && self.previews()) {
