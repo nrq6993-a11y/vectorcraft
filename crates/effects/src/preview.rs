@@ -29,7 +29,8 @@ use vectorcraft_geom::{Affine, PathData, Rect, Shape, union_opt};
 use crate::group::has_own_paint;
 use crate::reshape::{geometry_effects, leaf_geometry};
 use crate::{
-    GeomContext, apply_geometry_with, evaluate_container, expanded_live_group, has_geometry, has_item_geometry, has_pathfinder, needs_outline,
+    GeomContext, apply_geometry_with, apply_item_geometry_with, evaluate_container, expanded_live_group, has_geometry, has_item_geometry,
+    has_pathfinder, needs_outline,
     outline_art, paints, reshape,
 };
 
@@ -298,7 +299,7 @@ fn path_art(n: &Node) -> Option<Node> {
     }
     let bounds = g.to_bezpath().bounding_box();
     for item in own {
-        let geometry = apply_geometry_with(item.effects(), &g, bounds, &ctx.item(item));
+        let geometry = apply_item_geometry_with(item.effects(), &g, bounds, &ctx.item(item));
         pieces.push(piece(geometry, vec![item.clone()]));
     }
     Some(Node::group(n.id, pieces))

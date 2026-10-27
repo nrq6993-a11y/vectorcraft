@@ -27,7 +27,8 @@ use crate::distort::{transform_move, transform_offsets};
 use crate::group::{has_own_paint, paints};
 use crate::reshape::{as_art, geometry_effects, glyph_outlines, outline_nested_text, reshape_leaves};
 use crate::{
-    GeomContext, adjust_in_document, apply_geometry_with, crop_marks_art, evaluate_container, has_adjustment, has_crop_marks, has_geometry,
+    GeomContext, adjust_in_document, apply_geometry_with, apply_item_geometry_with, crop_marks_art, evaluate_container, has_adjustment,
+    has_crop_marks, has_geometry,
     has_item_geometry, has_pathfinder, is_geometry, is_pathfinder, merged_params, needs_outline, outline_text, reshape,
 };
 
@@ -429,7 +430,8 @@ fn bake_leaf(d: &mut Document, n: &Node) -> Option<Node> {
         .items
         .iter()
         .map(|item| {
-            let ig = apply(item_effects(item), &g, &ctx.item(item));
+            let b = g.bounds().unwrap_or(Rect::ZERO);
+            let ig = apply_item_geometry_with(item_effects(item), &g, b, &ctx.item(item));
             let mut it = item.clone();
             clear_item_effects(&mut it);
             Arc::new(piece(d, n, ig, rule, it))
@@ -461,7 +463,8 @@ pub fn expand_leaf(d: &mut Document, n: &Node, stroke_art: StrokeArt) -> Option<
     m.appearance.effects.retain(|e| e.visible);
     let mut pieces = vec![];
     for item in n.appearance.items.iter().filter(|i| paints(i)) {
-        let ig = apply(item.effects(), &g, &ctx.item(item));
+        let b = g.bounds().unwrap_or(Rect::ZERO);
+        let ig = apply_item_geometry_with(item.effects(), &g, b, &ctx.item(item));
         let mut it = item.clone();
         clear_item_effects(&mut it);
         it.effects_mut().retain(|e| e.visible);
@@ -542,7 +545,8 @@ pub fn bake_appearance(n: &Node) -> Option<Node> {
     };
     let mut pieces = vec![];
     for item in n.appearance.items.iter().filter(|i| paints(i)) {
-        let ig = apply(item_effects(item), &g, &ctx.item(item));
+        let b = g.bounds().unwrap_or(Rect::ZERO);
+        let ig = apply_item_geometry_with(item_effects(item), &g, b, &ctx.item(item));
         let mut it = item.clone();
         clear_item_effects(&mut it);
         pieces.push(match &it {

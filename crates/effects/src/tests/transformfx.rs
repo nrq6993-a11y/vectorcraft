@@ -3,11 +3,11 @@
 
 use serde_json::{Value, json};
 use vectorcraft_color::{Color, Paint};
-use vectorcraft_doc::{Appearance, Dash, Effect, Node, NodeId, NodeKind};
+use vectorcraft_doc::{Appearance, Dash, Effect, FillLayer, Node, NodeId, NodeKind};
 use vectorcraft_geom::{Affine, Rect, shapes};
 
 use crate::distort::{TransformOptions, transform_map, transform_move};
-use crate::{has_transform_art, has_transform_options, reshape};
+use crate::{GeomContext, apply_geometry_with, apply_item_geometry_with, has_transform_art, has_transform_options, reshape};
 
 fn transform(params: Value) -> Effect {
     Effect { id: "distort.transform".into(), params, visible: true }
@@ -156,4 +156,24 @@ fn stroke_scaling_across_copies_stays_finite() {
             assert!(w.is_finite() && w <= 1.0e6, "{w}");
         }
     }
+}
+
+#[test]
+fn fill_transform_scales_later_effects_on_the_fill_stack() {
+    let path = shapes::rectangle(Rect::new(0.0, 0.0, 100.0, 100.0));
+    let bounds = path.bounds().unwrap();
+    let ctx = GeomContext::default();
+    let mut fill = FillLayer::new(Paint::solid(Color::BLACK));
+    fill.effects.push(transform(json!({"scaleH": 200, "scaleV": 200, "objects": false, "strokes": true})));
+    fill.effects.push(Effect { id: "path.offsetPath".into(), params: json!({"offset": 10.0}), visible: true });
+    let stacked = apply_item_geometry_with(&fill.effects, &path, bounds, &ctx);
+    let reference = apply_geometry_with(
+        &[Effect { id: "path.offsetPath".into(), params: json!({"offset": 20.0}), visible: true }],
+        &path,
+        bounds,
+        &ctx,
+    );
+    let stacked_w = stacked.bounds().unwrap().width();
+    let reference_w = reference.bounds().unwrap().width();
+    assert!((stacked_w - reference_w).abs() < 0.5, "got {stacked_w}, want {reference_w}");
 }

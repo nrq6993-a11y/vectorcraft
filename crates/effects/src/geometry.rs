@@ -111,6 +111,35 @@ pub fn apply_geometry_with(effects: &[Effect], path: &PathData, bounds: Rect, ct
     apply_geometry_within(effects, path, bounds, ctx, Budget::EFFECTS)
 }
 
+/// Geometry effects on a fill or stroke's own stack. A Transform with Scale Strokes & Effects scales
+/// the distance parameters of later effects on that stack before they run (#885).
+pub fn apply_item_geometry_with(effects: &[Effect], path: &PathData, bounds: Rect, ctx: &GeomContext) -> PathData {
+    let mut stack = effects.to_vec();
+    scale_geometry_effects_after_transform(&mut stack, bounds, ctx.seed);
+    apply_geometry_with(&stack, path, bounds, ctx)
+}
+
+/// Scale Strokes & Effects on a fill's or stroke's Transform: later geometry effects on the same
+/// stack take scaled distances, as object-level Transform does through [`reshape`].
+pub(crate) fn scale_geometry_effects_after_transform(effects: &mut [Effect], bounds: Rect, seed: u64) {
+    for i in 0..effects.len() {
+        let e = &effects[i];
+        if !e.visible || e.id != "distort.transform" {
+            continue;
+        }
+        let p = merged_params(&e.id, &e.params);
+        let options = crate::distort::TransformOptions::of(&p);
+        if !options.strokes {
+            continue;
+        }
+        let m = crate::distort::transform_affine(bounds, &p, seed);
+        let Some(k) = vectorcraft_doc::Scaling::factor(m).filter(|k| k.is_finite() && *k > 0.0) else { continue };
+        for after in effects.iter_mut().skip(i + 1) {
+            crate::scale_effect(after, k);
+        }
+    }
+}
+
 /// [`apply_geometry_with`] whose effects keep to `budget`, raised to what `path` costs where that
 /// is more.
 pub(crate) fn apply_geometry_within(effects: &[Effect], path: &PathData, bounds: Rect, ctx: &GeomContext, budget: Budget) -> PathData {
