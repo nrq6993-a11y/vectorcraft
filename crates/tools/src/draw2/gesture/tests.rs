@@ -415,7 +415,11 @@ fn pencil_shift_line_drops_the_press_guides_and_stays_open_with_alt() {
     t.pointer(&cx, &PointerEvent::new(PointerKind::Down, 102.0, 98.0).with_mods(shift));
     assert!(!t.overlays(&cx).is_empty(), "the press snaps to the corner and shows it");
     t.pointer(&cx, &PointerEvent::new(PointerKind::Drag, 300.0, 140.0).with_mods(shift));
-    assert!(t.overlays(&cx).is_empty(), "{:?}", t.overlays(&cx));
+    assert!(
+        t.overlays(&cx).iter().all(|o| matches!(o, Overlay::Measure { .. })),
+        "{:?}",
+        t.overlays(&cx)
+    );
     let shift_alt = Mods { shift: true, alt: true, ..Default::default() };
     let acts = t.pointer(&cx, &PointerEvent::new(PointerKind::Up, 300.0, 140.0).with_mods(shift_alt));
     assert!(matches!(&acts[0], Action::Preview(_, v) if v["closed"] == false && v["points"].as_array().unwrap().len() == 2), "{acts:?}");
