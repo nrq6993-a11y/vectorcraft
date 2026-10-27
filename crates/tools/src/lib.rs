@@ -321,6 +321,9 @@ pub(crate) fn json_ids(ids: &[NodeId]) -> Value {
 }
 
 #[cfg(test)]
+mod test_font_db;
+
+#[cfg(test)]
 pub(crate) mod testutil {
     use super::*;
     use vectorcraft_doc::{Appearance, Node};

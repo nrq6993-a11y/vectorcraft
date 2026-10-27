@@ -646,6 +646,7 @@ fn layout_cache_follows_fonts_added_later() {
         return;
     }
     // The web build adds fonts after startup: a caret layout cached before one arrived is stale.
+    let _fonts = crate::test_font_db::changing_fonts();
     let (d, id, tool) = editing("abc");
     let NodeKind::Text(t) = &d.node(id).unwrap().kind else { panic!("not text") };
     let before = tool.layout(t);
