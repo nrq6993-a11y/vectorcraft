@@ -167,12 +167,8 @@ fn fill_transform_scales_later_effects_on_the_fill_stack() {
     fill.effects.push(transform(json!({"scaleH": 200, "scaleV": 200, "objects": false, "strokes": true})));
     fill.effects.push(Effect { id: "path.offsetPath".into(), params: json!({"offset": 10.0}), visible: true });
     let stacked = apply_item_geometry_with(&fill.effects, &path, bounds, &ctx);
-    let reference = apply_geometry_with(
-        &[Effect { id: "path.offsetPath".into(), params: json!({"offset": 20.0}), visible: true }],
-        &path,
-        bounds,
-        &ctx,
-    );
+    let reference =
+        apply_geometry_with(&[Effect { id: "path.offsetPath".into(), params: json!({"offset": 20.0}), visible: true }], &path, bounds, &ctx);
     let stacked_w = stacked.bounds().unwrap().width();
     let reference_w = reference.bounds().unwrap().width();
     assert!((stacked_w - reference_w).abs() < 0.5, "got {stacked_w}, want {reference_w}");
