@@ -505,6 +505,7 @@ fn a_rich_document_is_well_formed_at_both_levels() {
 /// paint it.
 #[test]
 fn colour_bitmap_glyphs_are_images() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_doc::{CharStyle, TextObject};
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, colour_bitmap_family, colour_bitmap_font};
     vectorcraft_text::FontDb::global().add_font(colour_bitmap_font(false).unwrap());
@@ -522,6 +523,7 @@ fn colour_bitmap_glyphs_are_images() {
 
 #[test]
 fn colr_glyphs_are_vector_art() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_doc::{CharStyle, TextObject};
     use vectorcraft_text::test_fonts::{COLOUR_CHAR, colr_family, colr_font};
     vectorcraft_text::FontDb::global().add_font(colr_font(false).unwrap());

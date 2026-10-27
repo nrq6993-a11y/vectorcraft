@@ -23,6 +23,7 @@ fn renamed(family: &str) -> Vec<u8> {
 
 #[test]
 fn postscript_names_resolve_to_the_available_family() {
+    let _fonts = crate::test_font_db::changing_fonts();
     // Split into words, its PostScript name would read "My Face Ya Hei3".
     assert!(FontDb::global().add_font(renamed("MyFaceYaHei 3")) > 0);
     let body = "/MyFaceYaHei3-Bold findfont 12 scalefont setfont 10 20 moveto (Hi) show";
