@@ -239,41 +239,20 @@ fn optical_margin_alignment_is_a_checked_type_menu_item() {
     assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
 }
 
-/// Type › Orientation menu checks use `shared_text_flag`; mixed values leave both unchecked.
+/// Type › Optical Margin Alignment menu check uses `shared_text_flag`; mixed values stay unchecked.
 #[test]
-fn type_orientation_menu_unchecked_when_shared_vertical_none() {
+fn optical_margin_alignment_menu_unchecked_when_shared_flag_none() {
     let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
     app.run("file.new", json!({})).unwrap();
-    let h = app.run("text.create", json!({"x": 10, "y": 40, "text": "H"})).unwrap()["id"].clone();
-    let v = app.run("text.create", json!({"x": 10, "y": 80, "text": "V", "vertical": true})).unwrap()["id"].clone();
-    app.run("select.set", json!({"ids": [h, v]})).unwrap();
-    assert_eq!(crate::panels::character::shared_text_flag(&app, |t| t.vertical), None);
-    assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(false));
-    assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
-    app.run("select.set", json!({"ids": [v]})).unwrap();
-    assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
-    assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
-}
-
-#[test]
-fn type_orientation_menu_unchecked_for_three_object_mixed_selections() {
-    let mut app = VectorcraftApp::new(vectorcraft_engine::Session::new(), crate::Services::default());
-    app.run("file.new", json!({})).unwrap();
-    let v0 = app.run("text.create", json!({"x": 10, "y": 40, "text": "v0", "vertical": true})).unwrap()["id"].clone();
-    let h1 = app.run("text.create", json!({"x": 10, "y": 80, "text": "h1"})).unwrap()["id"].clone();
-    let h2 = app.run("text.create", json!({"x": 10, "y": 120, "text": "h2"})).unwrap()["id"].clone();
-    app.run("select.set", json!({"ids": [v0.clone(), h1.clone(), h2.clone()]})).unwrap();
-    assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(false));
-    assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
-    let h0 = app.run("text.create", json!({"x": 10, "y": 160, "text": "h0"})).unwrap()["id"].clone();
-    let v1 = app.run("text.create", json!({"x": 10, "y": 200, "text": "v1", "vertical": true})).unwrap()["id"].clone();
-    let v2 = app.run("text.create", json!({"x": 10, "y": 240, "text": "v2", "vertical": true})).unwrap()["id"].clone();
-    app.run("select.set", json!({"ids": [h0.clone(), v1.clone(), v2.clone()]})).unwrap();
-    assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(false));
-    assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
-    app.run("select.set", json!({"ids": [v0.clone(), v1.clone(), v2.clone()]})).unwrap();
-    assert_eq!(checked(&app, "type.orientation.vertical", &Value::Null), Some(true));
-    assert_eq!(checked(&app, "type.orientation.horizontal", &Value::Null), Some(false));
+    let off = app.run("text.create", json!({"x": 10, "y": 40, "text": "Off"})).unwrap()["id"].clone();
+    let on = app.run("text.create", json!({"x": 10, "y": 80, "text": "On"})).unwrap()["id"].clone();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": on})).unwrap();
+    app.run("select.set", json!({"ids": [off, on]})).unwrap();
+    let id = "type.opticalMarginAlignment";
+    assert_eq!(crate::panels::character::shared_text_flag(&app, |t| t.optical_margin), None);
+    assert_eq!(checked(&app, id, &Value::Null), Some(false));
+    app.run("select.set", json!({"ids": [on]})).unwrap();
+    assert_eq!(checked(&app, id, &Value::Null), Some(true));
 }
 
 #[test]

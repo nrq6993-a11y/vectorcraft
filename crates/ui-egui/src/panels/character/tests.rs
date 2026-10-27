@@ -489,21 +489,27 @@ fn character_direction_checks_the_direction_of_the_selection() {
 }
 
 #[test]
-fn shared_text_flag_vertical_three_object_selections() {
+fn shared_text_flag_optical_margin_three_object_selections() {
     let mut app = VectorcraftApp::new(Session::new(), Default::default());
     app.run("file.new", json!({})).unwrap();
-    let v0 = app.run("text.create", json!({"x": 10, "y": 40, "text": "v0", "vertical": true})).unwrap()["id"].clone();
-    let h1 = app.run("text.create", json!({"x": 10, "y": 80, "text": "h1"})).unwrap()["id"].clone();
-    let h2 = app.run("text.create", json!({"x": 10, "y": 120, "text": "h2"})).unwrap()["id"].clone();
-    app.run("select.set", json!({"ids": [v0.clone(), h1.clone(), h2.clone()]})).unwrap();
-    assert_eq!(shared_text_flag(&app, |t| t.vertical), None);
-    let h0 = app.run("text.create", json!({"x": 10, "y": 160, "text": "h0"})).unwrap()["id"].clone();
-    let v1 = app.run("text.create", json!({"x": 10, "y": 200, "text": "v1", "vertical": true})).unwrap()["id"].clone();
-    let v2 = app.run("text.create", json!({"x": 10, "y": 240, "text": "v2", "vertical": true})).unwrap()["id"].clone();
-    app.run("select.set", json!({"ids": [h0.clone(), v1.clone(), v2.clone()]})).unwrap();
-    assert_eq!(shared_text_flag(&app, |t| t.vertical), None);
-    app.run("select.set", json!({"ids": [v0.clone(), v1.clone(), v2.clone()]})).unwrap();
-    assert_eq!(shared_text_flag(&app, |t| t.vertical), Some(true));
+    let a = app.run("text.create", json!({"x": 10, "y": 40, "text": "a"})).unwrap()["id"].clone();
+    let b = app.run("text.create", json!({"x": 10, "y": 80, "text": "b"})).unwrap()["id"].clone();
+    let c = app.run("text.create", json!({"x": 10, "y": 120, "text": "c"})).unwrap()["id"].clone();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": a})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": false, "id": b})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": false, "id": c})).unwrap();
+    app.run("select.set", json!({"ids": [a.clone(), b.clone(), c.clone()]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.optical_margin), None);
+    app.run("type.opticalMarginAlignment", json!({"on": false, "id": a})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": b})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": c})).unwrap();
+    app.run("select.set", json!({"ids": [a.clone(), b.clone(), c.clone()]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.optical_margin), None);
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": a})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": b})).unwrap();
+    app.run("type.opticalMarginAlignment", json!({"on": true, "id": c})).unwrap();
+    app.run("select.set", json!({"ids": [a, b, c]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.optical_margin), Some(true));
 }
 
 /// Small Caps, Superscript and Subscript buttons and menu items stay off when the selection mixes them.
