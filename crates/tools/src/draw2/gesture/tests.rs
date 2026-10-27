@@ -243,6 +243,29 @@ fn alt_shows_the_closing_cursor_and_a_release_with_alt_closes() {
 }
 
 #[test]
+fn pencil_and_paintbrush_show_segment_distance_in_measurement_labels() {
+    let (d, _) = doc_with_rect();
+    let s = Selection::default();
+    let p = paint();
+    let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+    let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+    let mut pencil = GestureTool::new("pencil");
+    pencil.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+    pencil.pointer(&on, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+    let want = on.segment_measure_label(Point::new(0.0, 0.0), Point::new(100.0, 0.0));
+    assert!(pencil.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+    let mut quiet = GestureTool::new("pencil");
+    quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+    quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 100.0, 0.0));
+    assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
+    let mut brush = GestureTool::new("paintbrush");
+    brush.pointer(&on, &PointerEvent::new(PointerKind::Down, 0.0, 0.0));
+    brush.pointer(&on, &PointerEvent::new(PointerKind::Drag, 0.0, 50.0));
+    let want = on.segment_measure_label(Point::new(0.0, 0.0), Point::new(0.0, 50.0));
+    assert!(brush.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+}
+
+#[test]
 fn blob_brush_drag_shows_scrub_length_measurement_labels() {
     let (d, _) = doc_with_rect();
     let s = Selection::default();
