@@ -52,11 +52,68 @@ pub fn has_gradient_copies(n: &Node) -> bool {
 /// its own with its strokes scaled and its patterns moved ([`transform_leaf`]).
 pub fn has_transform_options(n: &Node) -> bool {
     matches!(n.kind, NodeKind::Path { guide: false, clipping: false, .. } | NodeKind::Compound { .. })
-        && geometry_effects(n)
+        && (geometry_effects(n)
             .iter()
             // Both options default to off, so the stored params tell without merging the defaults
             // (this runs for every object drawn).
             .any(|e| e.id == "distort.transform" && crate::distort::TransformOptions::of(&e.params).reach_appearance())
+            || n.appearance.items.iter().any(|i| transform_reaches_appearance(i.effects())))
+}
+
+/// A visible Transform on `effects` whose Transform Patterns or Scale Strokes & Effects is on.
+fn transform_reaches_appearance(effects: &[Effect]) -> bool {
+    effects.iter().any(|e| e.visible && e.id == "distort.transform" && crate::distort::TransformOptions::of(&e.params).reach_appearance())
+}
+
+/// Transform Patterns and Scale Strokes & Effects on a fill's or stroke's own Transform effect
+/// (#885): the geometry is already in `items`' path; apply the appearance options once.
+pub(crate) fn apply_transform_appearance_items(items: &mut [AppearanceItem], effects: &[Effect], bounds: Rect, seed: u64) {
+    for e in effects {
+        if !e.visible || e.id != "distort.transform" {
+            continue;
+        }
+        let p = merged_params(&e.id, &e.params);
+        let options = crate::distort::TransformOptions::of(&p);
+        if !options.reach_appearance() {
+            continue;
+        }
+        let m = crate::distort::transform_affine(bounds, &p, seed);
+        if options.strokes
+            && let Some(k) = vectorcraft_doc::Scaling::factor(m).filter(|k| k.is_finite() && *k > 0.0)
+        {
+            for item in &mut *items {
+                match item {
+                    AppearanceItem::Stroke(s) => {
+                        s.width *= k;
+                        if let Some(d) = &mut s.dash {
+                            for v in &mut d.pattern {
+                                *v *= k;
+                            }
+                        }
+                        for fx in &mut s.effects {
+                            crate::scale_effect(fx, k);
+                        }
+                    }
+                    AppearanceItem::Fill(f) => {
+                        for fx in &mut f.effects {
+                            crate::scale_effect(fx, k);
+                        }
+                    }
+                }
+            }
+        }
+        if options.patterns {
+            for item in &mut *items {
+                let paint = match item {
+                    AppearanceItem::Fill(f) => &mut f.paint,
+                    AppearanceItem::Stroke(s) => &mut s.paint,
+                };
+                if let vectorcraft_doc::color::Paint::Pattern { xf, .. } = paint {
+                    *xf = m * *xf;
+                }
+            }
+        }
+    }
 }
 
 /// Is `n` a path or compound path that its Transform effects make into art of separate objects
@@ -306,7 +363,9 @@ pub(crate) fn outline_nested_text(n: &mut Node, clipping: bool) {
 /// and is not type or an image with a fill or stroke of its own that [`has_item_geometry`] counts,
 /// or has no art (a symbol instance without `symbol_art`).
 pub fn reshape(doc: Option<&Document>, n: &Node, symbol_art: Option<&Node>) -> Option<Node> {
-    if (geometry_effects(n).is_empty() && n.projection().is_none() && !has_item_geometry(n)) || !(needs_outline(n) || has_transform_art(n)) {
+    if (geometry_effects(n).is_empty() && !has_transform_art(n) && n.projection().is_none() && !has_item_geometry(n))
+        || !(needs_outline(n) || has_transform_art(n))
+    {
         return None;
     }
     as_art(doc, n, symbol_art)
@@ -364,6 +423,9 @@ pub(crate) fn as_art(doc: Option<&Document>, n: &Node, symbol_art: Option<&Node>
         _ => outline_art(doc, n, symbol_art)?,
     };
     reshape_leaves(&mut art, &fx);
+    if fx.is_empty() {
+        apply_appearance_item_transform_options(&mut art);
+    }
     // Type and symbols in perspective: the art projected onto their plane.
     if let Some(h) = n.projection() {
         project_leaves(&mut art, &h);
@@ -382,6 +444,24 @@ pub(crate) fn as_art(doc: Option<&Document>, n: &Node, symbol_art: Option<&Node>
     out.extras_mut().mask = n.extras().mask.clone();
     out.appearance.effects = n.appearance.effects.iter().filter(|e| !is_geometry(&e.id)).cloned().collect();
     Some(out)
+}
+
+/// Transform Patterns and Scale Strokes & Effects on a fill's or stroke's own Transform effect
+/// (#885) when the object has no object-level geometry effects ([`reshape_leaves`] is empty).
+fn apply_appearance_item_transform_options(art: &mut Node) {
+    for_each_leaf(art, &mut |leaf| {
+        let Some(bounds) = leaf.geometric_bounds() else { return };
+        let seed = leaf.id.0;
+        for item in &mut leaf.appearance.items {
+            let fx = item.effects();
+            if !transform_reaches_appearance(fx) {
+                continue;
+            }
+            let mut row = vec![item.clone()];
+            apply_transform_appearance_items(&mut row, fx, bounds, seed);
+            *item = row[0].clone();
+        }
+    });
 }
 
 /// Map every path under `art` (and its gradients) through the projective map `h`, curves split

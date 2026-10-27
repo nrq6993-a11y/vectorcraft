@@ -299,7 +299,9 @@ fn path_art(n: &Node) -> Option<Node> {
     let bounds = g.to_bezpath().bounding_box();
     for item in own {
         let geometry = apply_geometry_with(item.effects(), &g, bounds, &ctx.item(item));
-        pieces.push(piece(geometry, vec![item.clone()]));
+        let mut items = vec![item.clone()];
+        crate::reshape::apply_transform_appearance_items(&mut items, item.effects(), bounds, ctx.seed);
+        pieces.push(piece(geometry, items));
     }
     Some(Node::group(n.id, pieces))
 }

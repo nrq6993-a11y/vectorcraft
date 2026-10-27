@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 use vectorcraft_color::{Color, Paint};
-use vectorcraft_doc::{Appearance, Dash, Effect, Node, NodeId, NodeKind};
+use vectorcraft_doc::{Appearance, AppearanceItem, Dash, Effect, FillLayer, Node, NodeId, NodeKind};
 use vectorcraft_geom::{Affine, Rect, shapes};
 
 use crate::distort::{TransformOptions, transform_map, transform_move};
@@ -136,6 +136,20 @@ fn transform_patterns_moves_each_copys_pattern() {
 #[test]
 fn transform_patterns_with_objects_off_moves_only_the_pattern() {
     let n = patterned(json!({"rotate": 45, "objects": false, "patterns": true}));
+    let art = reshape(None, &n, None).unwrap();
+    let paths = leaves(&art);
+    assert_eq!(paths.len(), 1);
+    assert_eq!(paths[0].geometric_bounds().unwrap(), Rect::new(0.0, 0.0, 100.0, 100.0));
+    assert_ne!(pattern_xf(paths[0]), Affine::IDENTITY);
+}
+
+#[test]
+fn fill_transform_patterns_with_objects_off_moves_only_the_pattern() {
+    let mut fill = FillLayer::new(Paint::Pattern { pattern: "p".into(), xf: Affine::IDENTITY });
+    fill.effects.push(transform(json!({"rotate": 45, "objects": false, "patterns": true})));
+    let mut n = Node::path(NodeId(10), shapes::rectangle(Rect::new(0.0, 0.0, 100.0, 100.0)), Appearance::basic(Paint::None, Paint::None, 0.0));
+    n.appearance.items = vec![AppearanceItem::Fill(fill)];
+    assert!(has_transform_options(&n));
     let art = reshape(None, &n, None).unwrap();
     let paths = leaves(&art);
     assert_eq!(paths.len(), 1);
