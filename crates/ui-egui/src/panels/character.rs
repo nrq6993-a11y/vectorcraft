@@ -920,7 +920,7 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     // Fractional Widths: the whole type object's spacing, on unless turned off. Not a character
     // range, so a selection inside the text sets the object the Type tool is editing.
     let fractional = fractional_widths_on(app);
-    if menu_item(ui, tl!("Fractional Widths"), has, fractional) {
+    if menu_item(ui, tl!("Fractional Widths"), has, fractional == Some(true)) {
         let mut p = json!({});
         if let Some((id, _, _)) = text_editing(app) {
             p["id"] = json!(id.0);
@@ -948,15 +948,16 @@ pub fn menu(app: &mut VectorcraftApp, ui: &mut Ui) {
     }
 }
 
-/// Whether Fractional Widths is on for the type the panel shows: the object being edited, else
-/// the first selected text object. On when there is no type (the item is disabled then).
-fn fractional_widths_on(app: &VectorcraftApp) -> bool {
-    if let Some((id, _, _)) = text_editing(app)
-        && let Some(NodeKind::Text(t)) = app.session.active().and_then(|d| d.doc.node(id)).map(|n| &n.kind)
-    {
-        return t.fractional_widths;
+/// Whether Fractional Widths is on for every selected text object (`Some(true)` / `Some(false)`),
+/// or they differ (`None`). When the Type tool edits text, only that object counts.
+fn fractional_widths_on(app: &VectorcraftApp) -> Option<bool> {
+    if let Some((id, _, _)) = text_editing(app) {
+        return app.session.active().and_then(|st| st.doc.node(id)).and_then(|n| match &n.kind {
+            NodeKind::Text(t) => Some(t.fractional_widths),
+            _ => None,
+        });
     }
-    first_selected_text(app).is_none_or(|t| t.fractional_widths)
+    shared_text_flag(app, |t| t.fractional_widths)
 }
 
 /// Reset Panel: the characters the panel acts on ([`char_cmd`]) take tracking 0, Auto leading and

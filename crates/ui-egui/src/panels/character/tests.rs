@@ -371,6 +371,47 @@ fn system_layout_menu_item_toggles_the_document() {
     assert!(row(&mut app).is_some_and(|(t, _)| !t.starts_with('✓')));
 }
 
+/// Character panel menu › Fractional Widths stays unchecked when the selection mixes on and off.
+#[test]
+fn fractional_widths_menu_unchecked_for_mixed_selection() {
+    let mut app = VectorcraftApp::new(Session::new(), Default::default());
+    app.run("file.new", json!({"width": 300, "height": 200})).unwrap();
+    let on = app.run("text.create", json!({"x": 20, "y": 50, "text": "On"})).unwrap()["id"].clone();
+    let off = app.run("text.create", json!({"x": 20, "y": 90, "text": "Off"})).unwrap()["id"].clone();
+    app.run("type.fractionalWidths", json!({"on": false, "id": off})).unwrap();
+    app.run("select.set", json!({"ids": [on, off]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.fractional_widths), None);
+    let ctx = egui::Context::default();
+    let row = |app: &mut VectorcraftApp| {
+        let texts = super::super::tests_appearance::frame_events(&ctx, app, vec![], menu);
+        texts.into_iter().find(|(t, _)| t.trim_start_matches(['✓', ' ']) == "Fractional Widths")
+    };
+    assert!(row(&mut app).is_some_and(|(t, _)| !t.starts_with('✓')));
+    app.run("select.set", json!({"ids": [on]})).unwrap();
+    assert!(row(&mut app).is_some_and(|(t, _)| t.starts_with('✓')));
+}
+
+#[test]
+fn shared_text_flag_fractional_widths_three_object_selections() {
+    let mut app = VectorcraftApp::new(Session::new(), Default::default());
+    app.run("file.new", json!({})).unwrap();
+    let on0 = app.run("text.create", json!({"x": 10, "y": 40, "text": "on0"})).unwrap()["id"].clone();
+    let off1 = app.run("text.create", json!({"x": 10, "y": 80, "text": "off1"})).unwrap()["id"].clone();
+    let off2 = app.run("text.create", json!({"x": 10, "y": 120, "text": "off2"})).unwrap()["id"].clone();
+    app.run("type.fractionalWidths", json!({"on": false, "id": off1})).unwrap();
+    app.run("type.fractionalWidths", json!({"on": false, "id": off2})).unwrap();
+    app.run("select.set", json!({"ids": [on0.clone(), off1.clone(), off2.clone()]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.fractional_widths), None);
+    let off0 = app.run("text.create", json!({"x": 10, "y": 160, "text": "off0"})).unwrap()["id"].clone();
+    let on1 = app.run("text.create", json!({"x": 10, "y": 200, "text": "on1"})).unwrap()["id"].clone();
+    let on2 = app.run("text.create", json!({"x": 10, "y": 240, "text": "on2"})).unwrap()["id"].clone();
+    app.run("type.fractionalWidths", json!({"on": false, "id": off0})).unwrap();
+    app.run("select.set", json!({"ids": [off0.clone(), on1.clone(), on2.clone()]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.fractional_widths), None);
+    app.run("select.set", json!({"ids": [on0.clone(), on1.clone(), on2.clone()]})).unwrap();
+    assert_eq!(shared_text_flag(&app, |t| t.fractional_widths), Some(true));
+}
+
 /// Character panel menu › Fractional Widths is on for new type, and a click turns it off and
 /// back on for the whole type object.
 #[test]
