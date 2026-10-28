@@ -550,6 +550,7 @@ fn overprinting_runs_are_written_or_left_out_as_other_runs_are() {
 /// the instance's glyphs where the outlines would be, not the default instance's (#296).
 #[test]
 fn variable_font_instances_are_real_text_in_their_own_glyphs() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{VARIABLE_CHARS, VARIABLE_FAMILY, variable_font};
     FontDb::global().add_font(variable_font().unwrap());
     let mut widths = vec![];
@@ -572,6 +573,7 @@ fn variable_font_instances_are_real_text_in_their_own_glyphs() {
 /// where its outlines would, between the named instances on either side.
 #[test]
 fn variable_font_settings_are_real_text_in_their_own_glyphs() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{TWO_AXIS_FAMILY, VARIABLE_CHARS, two_axis_font};
     FontDb::global().add_font(two_axis_font().unwrap());
     let mut widths = vec![];
@@ -636,6 +638,7 @@ fn licensed(family: &str, fs: u16) -> String {
 
 #[test]
 fn fonts_whose_licence_forbids_embedding_fall_back_to_outlines() {
+    let _fonts = crate::test_font_db::changing_fonts();
     let locked = licensed("Locked Sans 3", 0x0002);
     let whole = licensed("Entire Sans 3", 0x0100);
     let d = doc(vec![
@@ -733,6 +736,7 @@ fn pdf_a_takes_real_text() {
 /// A named instance comes back as live type in that style (not the default instance's).
 #[test]
 fn a_variable_font_instance_comes_back_in_its_own_style() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{VARIABLE_CHARS, VARIABLE_FAMILY, variable_font};
     FontDb::global().add_font(variable_font().unwrap());
     let st = CharStyle { font_family: VARIABLE_FAMILY.into(), font_style: "Bold".into(), ..style(48.0) };
@@ -830,6 +834,7 @@ fn slanted_type_reopens_as_type_that_still_leans() {
 /// names the version, which the family and style alone don't pick.
 #[test]
 fn type_in_another_installed_version_reopens_in_that_version() {
+    let _fonts = crate::test_font_db::changing_fonts();
     use vectorcraft_text::test_fonts::{TWIN_FAMILY, TWIN_VERSIONS, twin_font};
     // The newer version first: the one the family and style resolve to.
     FontDb::global().add_font(twin_font(true).unwrap());

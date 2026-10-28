@@ -245,6 +245,8 @@ impl From<craft_pdf::write::WriteError> for PdfError {
 }
 
 #[cfg(test)]
+mod test_font_db;
+#[cfg(test)]
 use tests::{import_fidelity as tests_import_fidelity, live_text as tests_live_text, stroke as tests_stroke};
 #[cfg(test)]
 mod tests;
