@@ -8,7 +8,7 @@
 //! else the document's current brush).
 
 use serde_json::{Value, json};
-use vectorcraft_geom::{Point, Shape};
+use vectorcraft_geom::{Point, Shape, Vec2};
 
 use crate::draw2::{FEEDBACK, GestureTool, points_json};
 use crate::{Action, Cursor, Mods, Overlay, PointerEvent, PointerKind, Tool, ToolContext, ToolKey};
@@ -165,10 +165,22 @@ impl Tool for SymbolismTool {
         }
         vec![]
     }
-    fn overlays(&self, _cx: &ToolContext) -> Vec<Overlay> {
-        let Some(p) = self.hover else { return vec![] };
-        let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
-        vec![Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false }]
+    fn overlays(&self, cx: &ToolContext) -> Vec<Overlay> {
+        let mut o = vec![];
+        if let Some(p) = self.hover {
+            let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
+            o.push(Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false });
+        }
+        if self.id == "symbolSizer"
+            && self.active
+            && cx.measurement_labels
+            && self.points.len() >= 2
+        {
+            let last = self.points[self.points.len() - 1];
+            let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
+            o.push(Overlay::Measure { p: last + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("L: {}", cx.len(length)) });
+        }
+        o
     }
     fn cursor(&self, _cx: &ToolContext, _p: Point, _m: Mods) -> Cursor {
         match self.id {
@@ -321,6 +333,23 @@ mod tests {
         t.key(&cx, ToolKey::BracketLeft, Mods { shift: true, ..Default::default() });
         assert_eq!(t.options()["diameter"], json!(90.0));
         assert_eq!(t.options()["intensity"], json!(4.0));
+    }
+
+    #[test]
+    fn symbol_sizer_drag_shows_scrub_length_measurement_labels() {
+        let (d, _) = doc_with_rect();
+        let (s, p) = (Selection::default(), paint());
+        let on = ToolContext { measurement_labels: true, ..cx(&d, &s, &p) };
+        let off = ToolContext { measurement_labels: false, ..cx(&d, &s, &p) };
+        let mut t = SymbolismTool::new("symbolSizer");
+        t.pointer(&on, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        t.pointer(&on, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        let want = format!("L: {}", on.len(100.0));
+        assert!(t.overlays(&on).iter().any(|o| matches!(o, Overlay::Measure { text, .. } if text == &want)));
+        let mut quiet = SymbolismTool::new("symbolSizer");
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Down, 50.0, 150.0));
+        quiet.pointer(&off, &PointerEvent::new(PointerKind::Drag, 150.0, 150.0));
+        assert!(!quiet.overlays(&off).iter().any(|o| matches!(o, Overlay::Measure { .. })));
     }
 
     #[test]
