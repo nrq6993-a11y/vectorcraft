@@ -171,11 +171,7 @@ impl Tool for SymbolismTool {
             let circle = kurbo::Circle::new(p, self.diameter / 2.0).to_path(0.1);
             o.push(Overlay::Path { path: circle, color: FEEDBACK, width: 1.0, dashed: false });
         }
-        if self.id == "symbolSizer"
-            && self.active
-            && cx.measurement_labels
-            && self.points.len() >= 2
-        {
+        if self.id == "symbolSizer" && self.active && cx.measurement_labels && self.points.len() >= 2 {
             let last = self.points[self.points.len() - 1];
             let length = self.points.windows(2).map(|w| w[0].distance(w[1])).sum();
             o.push(Overlay::Measure { p: last + Vec2::new(cx.tol(12.0), cx.tol(12.0)), text: format!("L: {}", cx.len(length)) });
